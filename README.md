@@ -26,8 +26,9 @@ from the baseline demonstrated for that camera setup.
 - Temporal smoothing, sustained-warning and alert delays, hysteresis, and
   notification cooldowns.
 - A tray icon with green, amber, red, purple, blue, or gray status.
-- A local workday summary with tracked time by posture category, notification
-  count, and a date-selectable episode timeline.
+- A local workday summary with a bright, theme-aware posture palette, daily
+  distribution and
+  timeline views, plus a rolling seven-day report ending on the selected date.
 - Setup, settings, calibration, workday summary, evidence and safety, movement
   guidance, and operational notices all draw out in a titled right-side panel
   with one consistent close action while the live camera preview remains

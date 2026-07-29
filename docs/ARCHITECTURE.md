@@ -14,8 +14,9 @@
    posture-transition buffer. Brief neutral, low-confidence, or missing-frame
    transitions freeze rather than erase accumulated bad-posture time; the gap
    is not counted and expiry starts a new streak.
-5. `ui.MainWindow` updates the system tray, stores reminder events, and invokes
-   `exercises.ReminderEscalator` and `ExerciseSelector`.
+5. `ui.main_window.MainWindow` composes the UI workflows that update the system
+   tray, store reminder events, and invoke `exercises.ReminderEscalator` and
+   `ExerciseSelector`.
 6. `history.WorkdayRecorder` groups valid assessments into local posture
    episodes and checkpoints them to `PostureHistoryStore`; gaps, pause,
    calibration, camera loss, and setup changes close the active episode.
@@ -69,6 +70,17 @@ the primary movement instructions compact.
 camera available to meeting applications. Resuming reactivates the selected
 setup and starts a fresh camera thread. A paused runtime state survives language
 reload without briefly reopening the camera.
+
+## UI module boundaries
+
+`vulture.ui` is a compatibility facade over a package of focused modules.
+`common` owns shared visual primitives; `calibration`, `settings`, `exercises`,
+`notices`, `summary`, and `summary_dialog` own bounded dialog and reporting
+surfaces. `shell`, `calibration_flow`, `tracking_flow`, and `application_flow`
+provide behavior-preserving `MainWindow` mixins, while `main_window` contains
+the runtime snapshot and concrete composition root. Dialog modules do not
+depend on `MainWindow`; the facade alone adapts the former camera injection
+points to their new owning modules.
 
 ## Platform integration
 
@@ -166,8 +178,10 @@ does not contain frames, landmarks, feature vectors, or numeric posture scores.
 Episodes are inserted at first detection, updated every ten seconds, and
 finalized on transitions. Inter-frame gaps above two seconds add no duration.
 Intervals crossing local midnight are split between both calendar days. The
-summary panel checkpoints the active episode before reading and allows one day
-or all history to be deleted after an inline confirmation.
+summary panel checkpoints an active episode when today's data is requested,
+then presents a daily overview, selected-day timeline, and rolling seven-day
+report assembled from the same local daily summaries. One selected day or all
+history can be deleted after an inline confirmation.
 
 ## Why calibration is setup-specific
 
@@ -182,10 +196,10 @@ detect either side. Categories that do not separate sufficiently remain
 disabled rather than generating confident-looking guesses. A generic baseline
 deviation score remains available.
 
-Sunk shoulders and lateral lean use whichever calibrated upper-body landmarks
-are reliable. Pose-ear and hip geometry improve those categories when present,
-but face-mesh, nose, and shoulder relationships keep them calibratable in a
-normal head-and-shoulders laptop crop. Feature coverage reduces runtime
+Slouch, sunk shoulders, and lateral lean use whichever calibrated upper-body
+landmarks are reliable. Pose-ear and hip geometry improve those categories when
+present, but face-mesh, nose, and shoulder relationships keep them calibratable
+in a normal head-and-shoulders laptop crop. Feature coverage reduces runtime
 confidence when landmarks used by a particular profile disappear.
 
 The shared right-side host keeps the live camera preview visible throughout

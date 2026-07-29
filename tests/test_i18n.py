@@ -45,7 +45,7 @@ def application() -> QApplication:
 def _translation_keys() -> set[str]:
     keys: set[str] = set()
     source_root = PROJECT_ROOT / "src" / "vulture"
-    for path in source_root.glob("*.py"):
+    for path in source_root.rglob("*.py"):
         tree = ast.parse(path.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
             if (
@@ -57,13 +57,6 @@ def _translation_keys() -> set[str]:
                 and isinstance(node.args[0].value, str)
             ):
                 keys.add(node.args[0].value)
-
-    for path in (
-        source_root / "ui.py",
-        source_root / "tracking.py",
-    ):
-        tree = ast.parse(path.read_text(encoding="utf-8"))
-        for node in ast.walk(tree):
             if isinstance(node, ast.Assign):
                 names = {
                     target.id

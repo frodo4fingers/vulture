@@ -57,11 +57,12 @@ def test_upper_body_postures_do_not_require_pose_ears_or_hips() -> None:
     assert "torso_lean" not in frame.values
     assert "head_offset_x" not in frame.values
     assert "mesh_face_offset_x" in frame.values
+    assert frame.category_quality[PostureCategory.SLOUCH] == 0.99
     assert frame.category_quality[PostureCategory.SHOULDERS_SUNK] == 0.99
     assert frame.category_quality[PostureCategory.LATERAL_LEAN] == 0.99
 
 
-def test_low_confidence_hips_do_not_create_torso_features() -> None:
+def test_low_confidence_hips_keep_upper_body_slouch_quality() -> None:
     pose = {
         NOSE: Landmark(x=0.50, y=0.20, visibility=0.99),
         LEFT_EYE: Landmark(x=0.47, y=0.18, visibility=0.99),
@@ -80,7 +81,7 @@ def test_low_confidence_hips_do_not_create_torso_features() -> None:
     assert frame is not None
     assert "torso_length" not in frame.values
     assert frame.geometry.torso_length is None
-    assert frame.category_quality[PostureCategory.SLOUCH] < 0.7
+    assert frame.category_quality[PostureCategory.SLOUCH] == 0.99
 
 
 def test_out_of_frame_subject_is_rejected_without_validation_error() -> None:

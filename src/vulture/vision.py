@@ -377,12 +377,19 @@ class FeatureExtractor:
             min(shoulder_quality, head_quality),
             min(shoulder_quality, face_quality),
         )
+        slouch_upper_body_quality = max(
+            min(shoulder_quality, head_quality),
+            min(shoulder_quality, face_quality),
+        )
         category_quality = {
             PostureCategory.FORWARD_HEAD: max(
                 min(head_quality, shoulder_quality),
                 min(shoulder_quality, face_quality),
             ),
-            PostureCategory.SLOUCH: min(shoulder_quality, hip_quality),
+            PostureCategory.SLOUCH: max(
+                min(shoulder_quality, hip_quality),
+                slouch_upper_body_quality,
+            ),
             PostureCategory.SHOULDERS_SUNK: upper_body_quality,
             PostureCategory.LATERAL_LEAN: max(
                 min(shoulder_quality, hip_quality),

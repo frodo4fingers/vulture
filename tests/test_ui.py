@@ -33,7 +33,7 @@ from vulture.calibration import CalibrationError, CalibrationFitter
 from vulture.storage import AppDataStore
 
 from PySide6.QtCore import QDate, QRect, QSize, Qt
-from PySide6.QtGui import QImage
+from PySide6.QtGui import QColor, QImage, QPalette
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import (
     QApplication,
@@ -56,10 +56,13 @@ from vulture.ui import (
     MainWindowRuntimeState,
     NoticeDialog,
     PostureAreaChart,
+    RollingWeekChart,
+    SUMMARY_POSTURE_PALETTES,
     SettingsDialog,
     SetupDialog,
     WorkdaySummaryDialog,
     build_posture_area_data,
+    build_rolling_week_data,
     create_state_icon,
 )
 from tests.test_calibration import make_frame
@@ -158,6 +161,37 @@ def test_posture_area_data_buckets_episode_overlap() -> None:
     ] == (0, 10, 0, 0)
 
 
+def test_rolling_week_data_aggregates_seven_days() -> None:
+    end_date = date(2026, 7, 20)
+    summaries = tuple(
+        DailyPostureSummary(
+            local_date=end_date - timedelta(days=6 - index),
+            totals=(
+                {
+                    BASELINE_POSTURE: 600,
+                    PostureCategory.SLOUCH.value: 300,
+                }
+                if index > 0
+                else {}
+            ),
+            tracked_seconds=900 if index > 0 else 0,
+            reminder_count=index % 2,
+            episodes=[],
+        )
+        for index in range(7)
+    )
+
+    data = build_rolling_week_data(end_date, summaries)
+
+    assert data.start_date == date(2026, 7, 14)
+    assert data.end_date == end_date
+    assert data.tracked_seconds == 5_400
+    assert data.totals[BASELINE_POSTURE] == 3_600
+    assert data.totals[PostureCategory.SLOUCH.value] == 1_800
+    assert data.reminder_count == 3
+    assert data.days_with_data == 6
+
+
 def test_workday_summary_renders_stacked_posture_chart(
     application: QApplication,
 ) -> None:
@@ -185,19 +219,35 @@ def test_workday_summary_renders_stacked_posture_chart(
     )
 
     assert isinstance(dialog.posture_chart, PostureAreaChart)
-    assert len(dialog.posture_chart.chart().series()) == 6
+    assert isinstance(dialog.weekly_chart, RollingWeekChart)
+    assert dialog.period_tabs.count() == 3
+    assert not dialog.posture_chart.chart().legend().isVisible()
+    assert len(dialog.posture_chart.chart().series()) == 1
     assert [
         series.name()
         for series in dialog.posture_chart.chart().series()
     ] == [
         "Within baseline",
-        "Head forward",
-        "Slouch / crouch",
-        "Shoulders sunk",
-        "Lateral lean",
-        "Other baseline deviation",
     ]
+    assert (
+        dialog.posture_chart.chart()
+        .series()[0]
+        .brush()
+        .color()
+        .name()
+        == "#34a853"
+    )
+    assert dialog.posture_chart.chart().series()[0].opacity() == 0.82
     assert dialog.timeline.rowCount() == 1
+    assert dialog.period_tabs.isTabEnabled(dialog.timeline_tab_index)
+    assert len(dialog.weekly_chart.chart().series()) == 1
+    assert dialog.weekly_chart.chart().legend().isVisible()
+    assert (
+        dialog.weekly_chart.chart().legend().alignment()
+        == Qt.AlignmentFlag.AlignTop
+    )
+    assert dialog.weekly_table.rowCount() == 7
+    assert dialog.weekly_days_metric.value_label.text() == "7 of 7"
 
     empty_summary = DailyPostureSummary(
         local_date=workday,
@@ -216,10 +266,100 @@ def test_workday_summary_renders_stacked_posture_chart(
 
     dialog.posture_chart.set_summary(summary)
     application.processEvents()
-    assert len(dialog.posture_chart.chart().series()) == 6
+    assert len(dialog.posture_chart.chart().series()) == 1
 
     dialog.close()
     application.processEvents()
+
+
+def test_workday_summary_uses_bright_theme_palettes() -> None:
+    assert set(SUMMARY_POSTURE_PALETTES["light"].values()) == {
+        "#34A853",
+        "#4285F4",
+        "#EA4335",
+        "#FBBC04",
+        "#A142F4",
+        "#12B5CB",
+    }
+    assert min(
+        QColor(color).hsvSaturation()
+        for color in SUMMARY_POSTURE_PALETTES["dark"].values()
+    ) >= 80
+
+
+def test_workday_summary_restyles_metrics_after_palette_change(
+    application: QApplication,
+) -> None:
+    original_palette = application.palette()
+    light_palette = QPalette(original_palette)
+    dark_palette = QPalette(original_palette)
+    for role, value in {
+        QPalette.ColorRole.Window: "#f0f0f0",
+        QPalette.ColorRole.Base: "#ffffff",
+        QPalette.ColorRole.AlternateBase: "#e8e8e8",
+        QPalette.ColorRole.Mid: "#b0b0b0",
+        QPalette.ColorRole.PlaceholderText: "#707070",
+    }.items():
+        light_palette.setColor(role, QColor(value))
+    for role, value in {
+        QPalette.ColorRole.Window: "#171a1f",
+        QPalette.ColorRole.Base: "#20262d",
+        QPalette.ColorRole.AlternateBase: "#272e36",
+        QPalette.ColorRole.Mid: "#4a535e",
+        QPalette.ColorRole.PlaceholderText: "#aab1b9",
+    }.items():
+        dark_palette.setColor(role, QColor(value))
+
+    workday = date(2026, 7, 20)
+    summary = DailyPostureSummary(
+        local_date=workday,
+        totals={},
+        tracked_seconds=0,
+        reminder_count=0,
+        episodes=[],
+    )
+    dialog: WorkdaySummaryDialog | None = None
+    try:
+        application.setPalette(light_palette)
+        dialog = WorkdaySummaryDialog(
+            lambda _selected_date: summary,
+            lambda _selected_date: None,
+            lambda: None,
+            {},
+            True,
+        )
+        dialog.show()
+        application.processEvents()
+        light_metric_style = dialog.daily_tracked_metric.styleSheet()
+
+        application.setPalette(dark_palette)
+        application.processEvents()
+
+        assert (
+            dialog.daily_tracked_metric.styleSheet()
+            != light_metric_style
+        )
+        assert (
+            dark_palette.color(QPalette.ColorRole.Base)
+            .lighter(108)
+            .name()
+            in dialog.daily_tracked_metric.styleSheet()
+        )
+        assert (
+            "#81c995"
+            in dialog.total_bars[BASELINE_POSTURE].styleSheet()
+        )
+        assert (
+            dialog.daily_tracked_metric.caption_label.palette().color(
+                QPalette.ColorRole.WindowText
+            )
+            == dark_palette.color(QPalette.ColorRole.PlaceholderText)
+        )
+    finally:
+        if dialog is not None:
+            dialog.close()
+        application.setPalette(original_palette)
+        application.processEvents()
 
 
 def test_workday_history_deletion_confirms_inline(
@@ -283,6 +423,12 @@ def test_workday_summary_uses_one_empty_state(
     assert dialog.totals_group.isHidden()
     assert dialog.chart_group.isHidden()
     assert dialog.timeline_group.isHidden()
+    assert not dialog.period_tabs.isTabEnabled(dialog.timeline_tab_index)
+    assert dialog.period_tabs.isTabEnabled(dialog.week_tab_index)
+    assert (
+        dialog.weekly_chart.chart().title()
+        == "No tracked posture data in this 7-day window."
+    )
     assert not dialog.delete_day_button.isEnabled()
 
     dialog.close()
@@ -321,6 +467,7 @@ def test_workday_summary_surfaces_storage_errors(
     assert not dialog.empty_state_container.isHidden()
     assert "database unavailable" in dialog.empty_state.text()
     assert dialog.totals_group.isHidden()
+    assert not dialog.period_tabs.isTabEnabled(dialog.week_tab_index)
     assert not dialog.delete_day_button.isEnabled()
 
     dialog.close()
@@ -843,6 +990,24 @@ def test_calibration_retry_starts_with_empty_samples(
     application.processEvents()
 
 
+def test_calibration_retry_heading_names_the_pose_once(
+    application: QApplication,
+) -> None:
+    dialog = CalibrationDialog()
+    dialog._step_index = 2
+    dialog._show_step()
+
+    dialog._finish_sample()
+
+    assert dialog.phase_label.text() == "RETRY — SLOUCH EXAMPLE"
+    assert "UNWANTED" not in dialog.phase_label.text()
+    assert dialog.start_button.text() == "Retry sample"
+
+    dialog.timer.stop()
+    dialog.close()
+    application.processEvents()
+
+
 def test_calibration_timer_stops_when_dialog_is_rejected(
     application: QApplication,
 ) -> None:
@@ -1130,6 +1295,47 @@ def test_tall_side_panels_open_without_vertical_scrollbar(
 
     assert getattr(window, dialog_attribute) is not None
     assert not window.side_panel_host.verticalScrollBar().isVisible()
+
+    _teardown_window(window, application)
+
+
+@pytest.mark.parametrize(
+    ("available_size", "expect_vertical_scrollbar"),
+    [
+        ((1366, 768), False),
+        ((800, 650), True),
+    ],
+)
+def test_workday_summary_stays_horizontally_reachable(
+    application: QApplication,
+    tmp_path: Path,
+    available_size: tuple[int, int],
+    expect_vertical_scrollbar: bool,
+) -> None:
+    window = _make_window(tmp_path)
+    window.resize(760, 650)
+    available_width, available_height = available_size
+    window.screen = lambda: SimpleNamespace(
+        availableGeometry=lambda: QRect(
+            0,
+            0,
+            available_width,
+            available_height,
+        )
+    )
+
+    window._show_workday_summary()
+    application.processEvents()
+
+    panel = window._summary_dialog
+    viewport = window.side_panel_host.viewport()
+    assert panel is not None
+    assert panel.width() <= viewport.width()
+    assert not window.side_panel_host.horizontalScrollBar().isVisible()
+    assert (
+        window.side_panel_host.verticalScrollBar().isVisible()
+        is expect_vertical_scrollbar
+    )
 
     _teardown_window(window, application)
 

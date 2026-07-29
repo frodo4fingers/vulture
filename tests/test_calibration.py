@@ -126,6 +126,10 @@ def make_upper_body_frame(
 
 def test_upper_body_categories_calibrate_without_pose_ears_or_hips() -> None:
     good = [make_upper_body_frame(index) for index in range(80)]
+    slouch = [
+        make_upper_body_frame(index, shoulder_y=0.31)
+        for index in range(40)
+    ]
     sunk_shoulders = [
         make_upper_body_frame(index, shoulder_y=0.45)
         for index in range(40)
@@ -147,17 +151,26 @@ def test_upper_body_categories_calibrate_without_pose_ears_or_hips() -> None:
     profile = CalibrationFitter().fit(
         good,
         {
+            PostureCategory.SLOUCH: slouch,
             PostureCategory.SHOULDERS_SUNK: sunk_shoulders,
             PostureCategory.LATERAL_LEAN: side_lean,
         },
     )
 
+    slouch_calibration = profile.categories[PostureCategory.SLOUCH]
     shoulders = profile.categories[PostureCategory.SHOULDERS_SUNK]
     lean = profile.categories[PostureCategory.LATERAL_LEAN]
+    assert slouch_calibration.enabled
     assert shoulders.enabled
     assert lean.enabled
+    assert "mesh_face_offset_y" in slouch_calibration.feature_names
     assert "mesh_face_offset_y" in shoulders.feature_names
     assert "mesh_face_offset_x" in lean.feature_names
+    slouch_score, slouch_quality = category_score(
+        slouch[-1],
+        profile,
+        PostureCategory.SLOUCH,
+    )
     shoulder_score, shoulder_quality = category_score(
         sunk_shoulders[-1],
         profile,
@@ -173,6 +186,8 @@ def test_upper_body_categories_calibrate_without_pose_ears_or_hips() -> None:
         profile,
         PostureCategory.LATERAL_LEAN,
     )
+    assert slouch_score > slouch_calibration.on_threshold
+    assert slouch_quality > 0.9
     assert shoulder_score > shoulders.on_threshold
     assert shoulder_quality > 0.9
     assert lean_score > lean.on_threshold

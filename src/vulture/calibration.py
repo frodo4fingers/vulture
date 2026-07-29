@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import math
-from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
 
 import numpy as np
@@ -36,6 +35,10 @@ CATEGORY_FEATURES: dict[PostureCategory, tuple[str, ...]] = {
         "torso_lean",
         "head_offset_x",
         "head_offset_y",
+        "nose_offset_y",
+        "face_scale",
+        "mesh_face_scale",
+        "mesh_face_offset_y",
         "shoulder_face_gap",
     ),
     PostureCategory.SHOULDERS_SUNK: (
