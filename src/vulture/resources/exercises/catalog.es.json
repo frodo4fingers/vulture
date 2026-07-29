@@ -1,0 +1,226 @@
+{
+  "version": 1,
+  "medical_disclaimer": "Estas indicaciones de movimiento ofrecen información general para personas adultas que pueden hacer ejercicio de forma segura. No diagnostican, tratan, previenen ni rehabilitan ninguna afección. Si tiene una lesión, una operación reciente, osteoporosis, una alteración importante del equilibrio u otra afección que afecte al ejercicio, consulte a un profesional sanitario cualificado sobre qué movimientos son adecuados para usted.",
+  "global_safety": "Utilice una silla estable, sin ruedas, y una zona de suelo despejada. Muévase despacio, respire con normalidad y manténgase dentro de un rango cómodo. No haga rebotes, no fuerce ninguna articulación ni continúe si siente dolor. Deténgase si presenta dolor, molestias intensas, mareo, molestias en el pecho, falta de aire inusual, entumecimiento o pérdida del equilibrio.",
+  "media_provenance": "Los vídeos incluidos son demostraciones generadas sin elementos lingüísticos creadas para Vulture. No contienen narración, texto, logotipos ni imágenes de una persona real. La mayoría usa el estilo de maniquí compartido; se mantiene una alternativa geométrica mínima cuando todavía no hay un reemplazo de maniquí revisado. Los prompts de generación y los requisitos de revisión se incluyen en video-prompts.json; las indicaciones de movimiento y las dosis están vinculadas a las fuentes citadas.",
+  "sources": [
+    {
+      "id": "who-2020",
+      "organization": "Organización Mundial de la Salud",
+      "title": "Directrices de la OMS sobre actividad física y hábitos sedentarios",
+      "url": "https://www.who.int/publications/i/item/9789240015128",
+      "publication_or_review_date": "2020-11-25",
+      "supports": "Limitar el tiempo sedentario y sustituirlo por actividad física de cualquier intensidad; no establece un intervalo preciso para las pausas."
+    },
+    {
+      "id": "osha-work-process",
+      "organization": "Administración de Seguridad y Salud Ocupacional de los Estados Unidos",
+      "title": "Puestos de trabajo con ordenador: proceso de trabajo y reconocimiento",
+      "url": "https://www.osha.gov/etools/computer-workstations/work-process",
+      "publication_or_review_date": null,
+      "supports": "Una pausa de cinco minutos en las tareas informáticas cada hora puede incluir apartar la vista, estirarse, ponerse de pie o caminar."
+    },
+    {
+      "id": "ccohs-stretching",
+      "organization": "Centro Canadiense de Salud y Seguridad en el Trabajo",
+      "title": "Ergonomía en la oficina: estiramientos en el puesto de trabajo",
+      "url": "https://www.ccohs.ca/oshanswers/ergonomics/office/stretching.html",
+      "publication_or_review_date": "Vigencia confirmada el 2025-02-04",
+      "supports": "Orientación sobre las pausas en el puesto de trabajo, las dosis de elevación de hombros y movimientos de muñeca, y las precauciones generales para los estiramientos."
+    },
+    {
+      "id": "nhs-sitting",
+      "organization": "Servicio Nacional de Salud del Reino Unido",
+      "title": "Ejercicios sentados",
+      "url": "https://www.nhs.uk/live-well/exercise/sitting-exercises/",
+      "publication_or_review_date": "Revisado el 2024-01-18",
+      "supports": "Precauciones sobre el uso de una silla estable, así como las instrucciones y dosis indicadas para el estiramiento de pecho, la elevación alterna de rodillas y la extensión y flexión del tobillo."
+    },
+    {
+      "id": "nhs-strength",
+      "organization": "Servicio Nacional de Salud del Reino Unido",
+      "title": "Ejercicios de fuerza",
+      "url": "https://www.nhs.uk/live-well/exercise/strength-exercises/",
+      "publication_or_review_date": "Revisado el 2024-02-28",
+      "supports": "Las instrucciones y dosis indicadas para sentarse y levantarse y para la elevación de talones con apoyo."
+    },
+    {
+      "id": "loh-2020",
+      "organization": "Sports Medicine",
+      "title": "Efectos de interrumpir la sedestación prolongada con pausas de actividad física: revisión sistemática y metanálisis",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC6985064/",
+      "publication_or_review_date": "Publicado en línea el 2019-09-24",
+      "supports": "Las pausas de actividad mejoran los resultados agudos de glucosa e insulina frente a permanecer sentado sin interrupción; el momento óptimo y las implicaciones a largo plazo siguen siendo inciertos."
+    },
+    {
+      "id": "peddie-2021",
+      "organization": "PLOS ONE",
+      "title": "Efectos de permanecer sentado durante periodos prolongados, permanecer de pie durante periodos prolongados y realizar pausas de actividad: ensayo cruzado aleatorizado",
+      "url": "https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0244841",
+      "publication_or_review_date": "2021-01-04",
+      "supports": "En un pequeño ensayo de efectos agudos, las pausas de dos minutos para caminar cada 30 minutos produjeron mejores resultados que permanecer sentado sin interrupción o de pie durante periodos prolongados en determinados parámetros de insulina y flujo sanguíneo."
+    },
+    {
+      "id": "tersa-miralles-2022",
+      "organization": "BMJ Open",
+      "title": "Eficacia de las intervenciones de ejercicio en el lugar de trabajo para los trastornos musculoesqueléticos en trabajadores de oficina: revisión sistemática",
+      "url": "https://bmjopen.bmj.com/content/12/1/e054288",
+      "publication_or_review_date": "2022-01-31",
+      "supports": "El ejercicio en el lugar de trabajo puede reducir el dolor, pero la heterogeneidad de los estudios y el alto riesgo de sesgo impiden formular afirmaciones firmes sobre tratamiento o prevención."
+    }
+  ],
+  "exercises": [
+    {
+      "id": "easy-walk",
+      "title": "Paseo suave junto al escritorio",
+      "short_prompt": "Camine a un ritmo cómodo durante cinco minutos.",
+      "dose": "5 minutos",
+      "steps": [
+        "Póngase de pie solo si hacerlo es seguro para usted.",
+        "Camine a un ritmo cómodo por la habitación o el pasillo.",
+        "Mantenga el recorrido despejado, utilice su ayuda habitual para caminar y respire con normalidad."
+      ],
+      "target_areas": ["todo el cuerpo", "piernas"],
+      "tags": ["standing", "balance", "aerobic"],
+      "safety": "Omita este movimiento si siente inestabilidad al caminar. Deténgase si presenta dolor, mareo, molestias en el pecho o falta de aire inusual.",
+      "contraindication_flags": ["marcha inestable", "lesión aguda de las extremidades inferiores", "restricción médica para caminar"],
+      "source_ids": ["osha-work-process", "who-2020", "loh-2020"],
+      "evidence_note": "La duración de cinco minutos sigue la orientación de OSHA sobre las pausas horarias en las tareas informáticas. La OMS y la revisión sistemática respaldan sustituir el tiempo sedentario por movimiento, pero no establecen este intervalo exacto como prescripción médica.",
+      "media_path": "videos/easy-walk.mp4",
+      "media_duration_seconds": 10
+    },
+    {
+      "id": "seated-chest-stretch",
+      "title": "Estiramiento de pecho sentado",
+      "short_prompt": "Abra suavemente el pecho mientras permanece sentado.",
+      "dose": "Mantenga 5–10 segundos; repita 5 veces",
+      "steps": [
+        "Siéntese erguido y separado del respaldo de la silla.",
+        "Lleve los hombros hacia atrás y abajo y, a continuación, extienda los brazos hacia los lados.",
+        "Mueva suavemente el pecho hacia delante y arriba, mantenga la posición y relájela."
+      ],
+      "target_areas": ["pecho", "parte anterior de los hombros"],
+      "tags": ["seated", "mobility"],
+      "safety": "Muévase solo hasta sentir una tensión suave. No fuerce los hombros. Deténgase si el movimiento causa dolor.",
+      "contraindication_flags": ["lesión aguda de hombro", "operación reciente de pecho u hombro"],
+      "source_ids": ["nhs-sitting"],
+      "evidence_note": "Las instrucciones y la dosis siguen la orientación del NHS sobre ejercicios sentados.",
+      "media_path": "videos/seated-chest-stretch.mp4",
+      "media_duration_seconds": 10
+    },
+    {
+      "id": "shoulder-shrug",
+      "title": "Elevación y relajación de hombros",
+      "short_prompt": "Eleve suavemente los hombros y luego deje que se relajen.",
+      "dose": "Mantenga 3–5 segundos; repita 2–3 veces",
+      "steps": [
+        "Mantenga la cabeza orientada hacia delante y respire con normalidad.",
+        "Eleve ambos hombros hacia las orejas hasta sentir una ligera tensión.",
+        "Mantenga la posición brevemente y luego deje que los hombros se relajen por completo hacia abajo."
+      ],
+      "target_areas": ["hombros", "zona del cuello"],
+      "tags": ["seated", "mobility"],
+      "safety": "Mantenga el movimiento lento. No lo fuerce ni contenga la respiración. Deténgase si presenta dolor o molestias intensas.",
+      "contraindication_flags": ["lesión aguda de cuello u hombro"],
+      "source_ids": ["ccohs-stretching"],
+      "evidence_note": "Las instrucciones y la dosis siguen la orientación de CCOHS sobre estiramientos en el puesto de trabajo.",
+      "media_path": "videos/shoulder-shrug.mp4",
+      "media_duration_seconds": 10
+    },
+    {
+      "id": "wrist-side-bend",
+      "title": "Inclinación lateral suave de la muñeca",
+      "short_prompt": "Mueva suavemente cada muñeca de un lado a otro.",
+      "dose": "Mantenga cada lado 3–5 segundos; 3 ciclos por muñeca",
+      "steps": [
+        "Abra una mano con la palma orientada hacia abajo.",
+        "Mueva suavemente la muñeca de un lado a otro dentro de un rango cómodo.",
+        "Haga una pausa en cada extremo y repita con la otra muñeca."
+      ],
+      "target_areas": ["muñecas", "antebrazos"],
+      "tags": ["seated", "mobility"],
+      "safety": "No empuje la mano con la otra mano. Deténgase si aparece dolor, hormigueo o entumecimiento.",
+      "contraindication_flags": ["lesión aguda de muñeca", "entumecimiento u hormigueo de nueva aparición"],
+      "source_ids": ["ccohs-stretching"],
+      "evidence_note": "Las instrucciones y la dosis siguen la orientación de CCOHS sobre estiramientos en el puesto de trabajo.",
+      "media_path": "videos/wrist-side-bend.mp4",
+      "media_duration_seconds": 10
+    },
+    {
+      "id": "seated-hip-march",
+      "title": "Marcha sentada con elevación de rodillas",
+      "short_prompt": "Eleve una rodilla flexionada cada vez mientras permanece sentado.",
+      "dose": "5 elevaciones por pierna",
+      "steps": [
+        "Siéntese erguido en una silla estable y sin ruedas, sin apoyarse en el respaldo.",
+        "Sujete los lados de la silla.",
+        "Eleve una rodilla flexionada hasta donde resulte cómodo, bájela de forma controlada y alterne."
+      ],
+      "target_areas": ["caderas", "muslos"],
+      "tags": ["seated", "mobility"],
+      "safety": "Mantenga el movimiento dentro de un rango cómodo y no fuerce la cadera. Deténgase si causa dolor.",
+      "contraindication_flags": ["lesión aguda de cadera", "operación reciente de cadera sin autorización clínica"],
+      "source_ids": ["nhs-sitting"],
+      "evidence_note": "Las instrucciones y la dosis siguen la orientación del NHS sobre ejercicios sentados.",
+      "media_path": "videos/seated-hip-march.mp4",
+      "media_duration_seconds": 10
+    },
+    {
+      "id": "ankle-point-flex",
+      "title": "Extensión y flexión del tobillo sentado",
+      "short_prompt": "Extienda y flexione un pie cada vez.",
+      "dose": "2 series de 5 por pie",
+      "steps": [
+        "Siéntese erguido y sujete los lados de una silla estable.",
+        "Estire una pierna de modo que el pie no toque el suelo.",
+        "Extienda los dedos del pie alejándolos de usted y luego llévelos hacia usted; repita con el otro lado."
+      ],
+      "target_areas": ["tobillos", "parte inferior de las piernas"],
+      "tags": ["seated", "mobility"],
+      "safety": "Muévase despacio sin forzar el tobillo. El dolor o la hinchazón unilateral de la pantorrilla pueden requerir una valoración médica urgente en lugar de ejercicio.",
+      "contraindication_flags": ["lesión aguda de tobillo", "dolor o hinchazón unilateral de la pantorrilla sin explicación"],
+      "source_ids": ["nhs-sitting"],
+      "evidence_note": "Las instrucciones y la dosis siguen la orientación del NHS sobre ejercicios sentados.",
+      "media_path": "videos/ankle-point-flex.mp4",
+      "media_duration_seconds": 10
+    },
+    {
+      "id": "sit-to-stand",
+      "title": "Sentarse y levantarse",
+      "short_prompt": "Levántese y vuelva a sentarse lentamente cinco veces.",
+      "dose": "5 repeticiones lentas",
+      "steps": [
+        "Utilice una silla estable que no pueda rodar ni deslizarse y siéntese cerca del borde delantero.",
+        "Separe los pies a la anchura de las caderas, inclínese ligeramente hacia delante y levántese despacio usando las piernas.",
+        "Póngase erguido y luego siéntese despacio; use las manos solo en la medida necesaria."
+      ],
+      "target_areas": ["muslos", "caderas"],
+      "tags": ["standing", "balance", "strength"],
+      "safety": "Elija en su lugar un movimiento sentado si no es seguro ponerse de pie o si tiene problemas importantes de equilibrio.",
+      "contraindication_flags": ["alteración importante del equilibrio", "restricción médica para sentarse y levantarse", "silla inestable"],
+      "source_ids": ["nhs-strength"],
+      "evidence_note": "Las instrucciones y la dosis siguen la orientación del NHS sobre ejercicios de fuerza.",
+      "media_path": "videos/sit-to-stand.mp4",
+      "media_duration_seconds": 10
+    },
+    {
+      "id": "supported-calf-raise",
+      "title": "Elevación de talones con apoyo",
+      "short_prompt": "Elévese sobre las puntas de los pies mientras se sujeta a una silla estable.",
+      "dose": "5 repeticiones lentas",
+      "steps": [
+        "Póngase de pie detrás de una silla estable y sujete el respaldo con ambas manos.",
+        "Eleve lentamente ambos talones hasta donde resulte cómodo.",
+        "Baje ambos talones de forma controlada y repita."
+      ],
+      "target_areas": ["pantorrillas", "tobillos"],
+      "tags": ["standing", "balance", "strength"],
+      "safety": "Siga sujetándose a la silla. Deténgase si nota inestabilidad o aparece dolor.",
+      "contraindication_flags": ["alteración importante del equilibrio", "lesión aguda de pantorrilla o tobillo", "apoyo inestable"],
+      "source_ids": ["nhs-strength"],
+      "evidence_note": "Las instrucciones y la dosis siguen la variante con apoyo de la orientación del NHS sobre ejercicios de fuerza; la aplicación no muestra la progresión sin apoyo.",
+      "media_path": "videos/supported-calf-raise.mp4",
+      "media_duration_seconds": 10
+    }
+  ]
+}

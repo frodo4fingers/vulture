@@ -1,0 +1,64 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "vulture-posture"
+version = "0.1.0"
+description = "A private, local-first desktop posture reminder."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Vulture contributors" }]
+classifiers = [
+  "Environment :: MacOS X",
+  "Environment :: Win32 (MS Windows)",
+  "Environment :: X11 Applications :: Qt",
+  "Natural Language :: English",
+  "Natural Language :: German",
+  "Natural Language :: Spanish",
+  "Operating System :: MacOS :: MacOS X",
+  "Operating System :: Microsoft :: Windows",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+  "mediapipe>=0.10.21,<0.11",
+  "numpy>=1.26,<3",
+  "opencv-contrib-python>=4.10,<6",
+  "platformdirs>=4.3,<5",
+  "pydantic>=2.10,<3",
+  "PySide6>=6.8,<7",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3,<9",
+]
+bundle = [
+  "pyinstaller>=6.11,<7",
+]
+
+[project.scripts]
+vulture = "vulture.__main__:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/vulture"]
+include = ["src/vulture/resources/**/*"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "/src",
+  "/tests",
+  "/tools",
+  "/packaging",
+  "/README.md",
+  "/LICENSE",
+  "/pyproject.toml",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

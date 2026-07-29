@@ -1,0 +1,226 @@
+{
+  "version": 1,
+  "medical_disclaimer": "Diese Bewegungshinweise dienen der allgemeinen Information für Erwachsene, die sich sicher körperlich betätigen können. Sie dienen nicht der Diagnose, Behandlung, Vorbeugung oder Rehabilitation irgendeiner Erkrankung. Wenn Sie eine Verletzung, eine kürzlich erfolgte Operation, Osteoporose, eine erhebliche Beeinträchtigung des Gleichgewichts oder eine andere Erkrankung haben, die sich auf körperliche Aktivität auswirkt, fragen Sie eine qualifizierte medizinische Fachperson, welche Bewegungen für Sie geeignet sind.",
+  "global_safety": "Verwenden Sie einen stabilen Stuhl ohne Rollen und eine freie Bodenfläche. Bewegen Sie sich langsam, atmen Sie normal und bleiben Sie in einem angenehmen Bewegungsumfang. Federn Sie nicht, erzwingen Sie keine Gelenkbewegung und setzen Sie die Bewegung bei Schmerzen nicht fort. Beenden Sie die Übung bei Schmerzen, starken Beschwerden, Schwindel, Beschwerden im Brustkorb, ungewöhnlicher Atemnot, Taubheitsgefühl oder Gleichgewichtsverlust.",
+  "media_provenance": "Die mitgelieferten Videos sind sprachneutrale, für Vulture erstellte Demonstrationen. Sie enthalten keine Erzählstimme, Texte, Logos oder Aufnahmen einer realen Person. Die meisten verwenden den gemeinsamen Mannequin-Stil; wo noch kein geprüftes Mannequin-Video verfügbar ist, bleibt vorerst eine reduzierte geometrische Fassung. Die Generierungs-Prompts und Prüfkriterien stehen in video-prompts.json; Bewegungsanleitungen und Dosierungen sind mit den zitierten Evidenzquellen verknüpft.",
+  "sources": [
+    {
+      "id": "who-2020",
+      "organization": "Weltgesundheitsorganisation",
+      "title": "WHO-Leitlinien zu körperlicher Aktivität und sitzendem Verhalten",
+      "url": "https://www.who.int/publications/i/item/9789240015128",
+      "publication_or_review_date": "2020-11-25",
+      "supports": "Sitzzeiten begrenzen und durch körperliche Aktivität beliebiger Intensität ersetzen; ein genaues Unterbrechungsintervall wird nicht festgelegt."
+    },
+    {
+      "id": "osha-work-process",
+      "organization": "US-Behörde für Sicherheit und Gesundheitsschutz am Arbeitsplatz",
+      "title": "Computerarbeitsplätze: Arbeitsablauf und Erkennung",
+      "url": "https://www.osha.gov/etools/computer-workstations/work-process",
+      "publication_or_review_date": null,
+      "supports": "Eine fünfminütige Pause von Computeraufgaben pro Stunde kann Wegschauen, Dehnen, Stehen oder Gehen umfassen."
+    },
+    {
+      "id": "ccohs-stretching",
+      "organization": "Kanadisches Zentrum für Gesundheit und Sicherheit am Arbeitsplatz",
+      "title": "Büroergonomie: Dehnen am Arbeitsplatz",
+      "url": "https://www.ccohs.ca/oshanswers/ergonomics/office/stretching.html",
+      "publication_or_review_date": "Aktualität bestätigt am 2025-02-04",
+      "supports": "Hinweise zu Pausen am Arbeitsplatz, Dosierungen für Schulterheben und Handgelenkbewegungen sowie allgemeine Vorsichtsmaßnahmen beim Dehnen."
+    },
+    {
+      "id": "nhs-sitting",
+      "organization": "Nationaler Gesundheitsdienst des Vereinigten Königreichs",
+      "title": "Übungen im Sitzen",
+      "url": "https://www.nhs.uk/live-well/exercise/sitting-exercises/",
+      "publication_or_review_date": "Überprüft am 2024-01-18",
+      "supports": "Vorsichtsmaßnahmen für einen stabilen Stuhl sowie die angegebenen Anleitungen und Dosierungen für Brustdehnung, Hüftmarschieren und Strecken und Beugen des Sprunggelenks."
+    },
+    {
+      "id": "nhs-strength",
+      "organization": "Nationaler Gesundheitsdienst des Vereinigten Königreichs",
+      "title": "Kräftigungsübungen",
+      "url": "https://www.nhs.uk/live-well/exercise/strength-exercises/",
+      "publication_or_review_date": "Überprüft am 2024-02-28",
+      "supports": "Die angegebenen Anleitungen und Dosierungen für das Aufstehen vom Stuhl und unterstütztes Wadenheben."
+    },
+    {
+      "id": "loh-2020",
+      "organization": "Sports Medicine",
+      "title": "Auswirkungen der Unterbrechung langen Sitzens durch Bewegungspausen: Systematische Übersichtsarbeit und Metaanalyse",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC6985064/",
+      "publication_or_review_date": "Online veröffentlicht am 2019-09-24",
+      "supports": "Bewegungspausen verbessern im Vergleich zu ununterbrochenem Sitzen akute Glukose- und Insulinwerte; der optimale Zeitpunkt und die langfristigen Auswirkungen bleiben unklar."
+    },
+    {
+      "id": "peddie-2021",
+      "organization": "PLOS ONE",
+      "title": "Auswirkungen von langem Sitzen, langem Stehen und Bewegungspausen: eine randomisierte Crossover-Studie",
+      "url": "https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0244841",
+      "publication_or_review_date": "2021-01-04",
+      "supports": "In einer kleinen Akutstudie ergaben zweiminütige Gehpausen alle 30 Minuten bei ausgewählten Insulin- und Blutflussparametern günstigere Werte als ununterbrochenes Sitzen oder langes Stehen."
+    },
+    {
+      "id": "tersa-miralles-2022",
+      "organization": "BMJ Open",
+      "title": "Wirksamkeit von Bewegungsinterventionen am Arbeitsplatz bei Muskel-Skelett-Erkrankungen von Büroangestellten: systematische Übersichtsarbeit",
+      "url": "https://bmjopen.bmj.com/content/12/1/e054288",
+      "publication_or_review_date": "2022-01-31",
+      "supports": "Bewegung am Arbeitsplatz kann Schmerzen verringern, doch heterogene Studien und ein hohes Verzerrungsrisiko erlauben keine belastbaren Aussagen zu Behandlung oder Prävention."
+    }
+  ],
+  "exercises": [
+    {
+      "id": "easy-walk",
+      "title": "Leichter Spaziergang neben dem Schreibtisch",
+      "short_prompt": "Gehen Sie fünf Minuten lang in angenehmem Tempo.",
+      "dose": "5 Minuten",
+      "steps": [
+        "Stehen Sie nur auf, wenn dies für Sie sicher ist.",
+        "Gehen Sie in angenehmem Tempo durch den Raum oder den Flur.",
+        "Halten Sie den Weg frei, verwenden Sie Ihre übliche Gehhilfe und atmen Sie normal."
+      ],
+      "target_areas": ["ganzer Körper", "Beine"],
+      "tags": ["standing", "balance", "aerobic"],
+      "safety": "Lassen Sie diese Bewegung aus, wenn Sie sich beim Gehen unsicher fühlen. Beenden Sie sie bei Schmerzen, Schwindel, Beschwerden im Brustkorb oder ungewöhnlicher Atemnot.",
+      "contraindication_flags": ["unsicheres Gehen", "akute Verletzung der unteren Extremität", "medizinische Einschränkung des Gehens"],
+      "source_ids": ["osha-work-process", "who-2020", "loh-2020"],
+      "evidence_note": "Die fünfminütige Dauer folgt den OSHA-Hinweisen zu stündlichen Pausen bei Computerarbeit. Die WHO und die systematische Übersichtsarbeit unterstützen den Ersatz von Sitzzeit durch Bewegung, legen dieses genaue Intervall jedoch nicht als medizinische Verordnung fest.",
+      "media_path": "videos/easy-walk.mp4",
+      "media_duration_seconds": 10
+    },
+    {
+      "id": "seated-chest-stretch",
+      "title": "Brustdehnung im Sitzen",
+      "short_prompt": "Öffnen Sie im Sitzen sanft den Brustkorb.",
+      "dose": "5–10 Sekunden halten; 5-mal wiederholen",
+      "steps": [
+        "Sitzen Sie aufrecht und mit Abstand zur Rückenlehne.",
+        "Ziehen Sie die Schultern nach hinten und unten und strecken Sie dann die Arme seitlich aus.",
+        "Bewegen Sie den Brustkorb sanft nach vorn und oben, halten Sie die Position und lösen Sie sie wieder."
+      ],
+      "target_areas": ["Brust", "Vorderseite der Schultern"],
+      "tags": ["seated", "mobility"],
+      "safety": "Gehen Sie nur bis zu einer sanften Dehnung. Erzwingen Sie keine Bewegung der Schultern. Beenden Sie die Übung, wenn sie Schmerzen verursacht.",
+      "contraindication_flags": ["akute Schulterverletzung", "kürzlich erfolgte Brust- oder Schulteroperation"],
+      "source_ids": ["nhs-sitting"],
+      "evidence_note": "Anleitung und Dosierung entsprechen den NHS-Hinweisen zu Übungen im Sitzen.",
+      "media_path": "videos/seated-chest-stretch.mp4",
+      "media_duration_seconds": 10
+    },
+    {
+      "id": "shoulder-shrug",
+      "title": "Schultern anheben und lösen",
+      "short_prompt": "Heben Sie die Schultern sanft an und lassen Sie sie dann entspannen.",
+      "dose": "3–5 Sekunden halten; 2–3-mal wiederholen",
+      "steps": [
+        "Richten Sie den Kopf nach vorn und atmen Sie normal.",
+        "Heben Sie beide Schultern zu den Ohren, bis Sie eine leichte Spannung spüren.",
+        "Halten Sie kurz und lassen Sie die Schultern dann vollständig nach unten entspannen."
+      ],
+      "target_areas": ["Schultern", "Nackenbereich"],
+      "tags": ["seated", "mobility"],
+      "safety": "Führen Sie die Bewegung langsam aus. Erzwingen Sie sie nicht und halten Sie nicht den Atem an. Beenden Sie die Übung bei Schmerzen oder starken Beschwerden.",
+      "contraindication_flags": ["akute Nacken- oder Schulterverletzung"],
+      "source_ids": ["ccohs-stretching"],
+      "evidence_note": "Anleitung und Dosierung entsprechen den CCOHS-Hinweisen zum Dehnen am Arbeitsplatz.",
+      "media_path": "videos/shoulder-shrug.mp4",
+      "media_duration_seconds": 10
+    },
+    {
+      "id": "wrist-side-bend",
+      "title": "Sanftes seitliches Beugen des Handgelenks",
+      "short_prompt": "Bewegen Sie jedes Handgelenk sanft von einer Seite zur anderen.",
+      "dose": "Jede Seite 3–5 Sekunden halten; 3 Zyklen pro Handgelenk",
+      "steps": [
+        "Öffnen Sie eine Hand, wobei die Handfläche nach unten zeigt.",
+        "Bewegen Sie das Handgelenk in einem angenehmen Bereich sanft von einer Seite zur anderen.",
+        "Halten Sie an jedem Ende kurz inne und wiederholen Sie die Bewegung dann mit dem anderen Handgelenk."
+      ],
+      "target_areas": ["Handgelenke", "Unterarme"],
+      "tags": ["seated", "mobility"],
+      "safety": "Drücken Sie die Hand nicht mit der anderen Hand. Beenden Sie die Übung, wenn Schmerzen, Kribbeln oder Taubheitsgefühl auftreten.",
+      "contraindication_flags": ["akute Handgelenksverletzung", "neu aufgetretenes Taubheitsgefühl oder Kribbeln"],
+      "source_ids": ["ccohs-stretching"],
+      "evidence_note": "Anleitung und Dosierung entsprechen den CCOHS-Hinweisen zum Dehnen am Arbeitsplatz.",
+      "media_path": "videos/wrist-side-bend.mp4",
+      "media_duration_seconds": 10
+    },
+    {
+      "id": "seated-hip-march",
+      "title": "Hüftmarschieren im Sitzen",
+      "short_prompt": "Heben Sie im Sitzen abwechselnd ein gebeugtes Knie an.",
+      "dose": "5-mal je Bein anheben",
+      "steps": [
+        "Sitzen Sie aufrecht auf einem stabilen Stuhl ohne Rollen, ohne sich anzulehnen.",
+        "Halten Sie sich an den Seiten des Stuhls fest.",
+        "Heben Sie ein gebeugtes Knie so weit an, wie es angenehm ist, senken Sie es kontrolliert ab und wechseln Sie die Seite."
+      ],
+      "target_areas": ["Hüften", "Oberschenkel"],
+      "tags": ["seated", "mobility"],
+      "safety": "Halten Sie die Bewegung angenehm und erzwingen Sie keine Bewegung der Hüfte. Beenden Sie die Übung, wenn sie Schmerzen verursacht.",
+      "contraindication_flags": ["akute Hüftverletzung", "kürzlich erfolgte Hüftoperation ohne medizinische Freigabe"],
+      "source_ids": ["nhs-sitting"],
+      "evidence_note": "Anleitung und Dosierung entsprechen den NHS-Hinweisen zu Übungen im Sitzen.",
+      "media_path": "videos/seated-hip-march.mp4",
+      "media_duration_seconds": 10
+    },
+    {
+      "id": "ankle-point-flex",
+      "title": "Fuß im Sitzen strecken und anziehen",
+      "short_prompt": "Strecken Sie abwechselnd jeweils einen Fuß und ziehen Sie ihn wieder an.",
+      "dose": "2 Sätze mit 5 Wiederholungen pro Fuß",
+      "steps": [
+        "Sitzen Sie aufrecht und halten Sie sich an den Seiten eines stabilen Stuhls fest.",
+        "Strecken Sie ein Bein, sodass der Fuß nicht den Boden berührt.",
+        "Strecken Sie die Zehen vom Körper weg und ziehen Sie sie dann zu sich heran; wiederholen Sie dies auf der anderen Seite."
+      ],
+      "target_areas": ["Sprunggelenke", "Unterschenkel"],
+      "tags": ["seated", "mobility"],
+      "safety": "Bewegen Sie sich langsam, ohne das Sprunggelenk zu überdehnen. Einseitige Wadenschmerzen oder -schwellungen erfordern möglicherweise anstelle der Übung eine dringende medizinische Abklärung.",
+      "contraindication_flags": ["akute Sprunggelenksverletzung", "ungeklärte einseitige Wadenschmerzen oder -schwellung"],
+      "source_ids": ["nhs-sitting"],
+      "evidence_note": "Anleitung und Dosierung entsprechen den NHS-Hinweisen zu Übungen im Sitzen.",
+      "media_path": "videos/ankle-point-flex.mp4",
+      "media_duration_seconds": 10
+    },
+    {
+      "id": "sit-to-stand",
+      "title": "Aufstehen vom Stuhl",
+      "short_prompt": "Stehen Sie fünfmal langsam auf und setzen Sie sich wieder.",
+      "dose": "5 langsame Wiederholungen",
+      "steps": [
+        "Verwenden Sie einen stabilen Stuhl, der weder rollen noch wegrutschen kann, und setzen Sie sich nahe an seine Vorderkante.",
+        "Stellen Sie die Füße hüftbreit auf, lehnen Sie sich leicht nach vorn und stehen Sie langsam aus den Beinen heraus auf.",
+        "Richten Sie sich auf und setzen Sie sich dann langsam wieder; verwenden Sie die Hände nur so weit wie nötig."
+      ],
+      "target_areas": ["Oberschenkel", "Hüften"],
+      "tags": ["standing", "balance", "strength"],
+      "safety": "Wählen Sie stattdessen eine Bewegung im Sitzen, wenn das Aufstehen unsicher ist oder Sie erhebliche Gleichgewichtsprobleme haben.",
+      "contraindication_flags": ["erhebliche Beeinträchtigung des Gleichgewichts", "medizinische Einschränkung beim Aufstehen und Hinsetzen", "instabiler Stuhl"],
+      "source_ids": ["nhs-strength"],
+      "evidence_note": "Anleitung und Dosierung entsprechen den NHS-Hinweisen zu Kräftigungsübungen.",
+      "media_path": "videos/sit-to-stand.mp4",
+      "media_duration_seconds": 10
+    },
+    {
+      "id": "supported-calf-raise",
+      "title": "Wadenheben mit Unterstützung",
+      "short_prompt": "Stellen Sie sich auf die Zehenspitzen, während Sie sich an einem stabilen Stuhl festhalten.",
+      "dose": "5 langsame Wiederholungen",
+      "steps": [
+        "Stellen Sie sich hinter einen stabilen Stuhl und halten Sie seine Rückenlehne mit beiden Händen fest.",
+        "Heben Sie beide Fersen langsam so weit an, wie es angenehm ist.",
+        "Senken Sie beide Fersen kontrolliert ab und wiederholen Sie die Bewegung."
+      ],
+      "target_areas": ["Waden", "Sprunggelenke"],
+      "tags": ["standing", "balance", "strength"],
+      "safety": "Halten Sie sich weiter am Stuhl fest. Beenden Sie die Übung, wenn Sie unsicher werden oder Schmerzen auftreten.",
+      "contraindication_flags": ["erhebliche Beeinträchtigung des Gleichgewichts", "akute Waden- oder Sprunggelenksverletzung", "instabile Stütze"],
+      "source_ids": ["nhs-strength"],
+      "evidence_note": "Anleitung und Dosierung entsprechen der abgestützten Variante in den NHS-Hinweisen zu Kräftigungsübungen; die App zeigt die Steigerung ohne Abstützung nicht.",
+      "media_path": "videos/supported-calf-raise.mp4",
+      "media_duration_seconds": 10
+    }
+  ]
+}

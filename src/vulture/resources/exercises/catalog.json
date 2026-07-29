@@ -1,0 +1,226 @@
+{
+  "version": 1,
+  "medical_disclaimer": "These movement prompts are general information for adults who can exercise safely. They do not diagnose, treat, prevent, or rehabilitate any condition. If you have an injury, recent surgery, osteoporosis, significant balance impairment, or another condition affecting exercise, ask a qualified clinician which movements are suitable.",
+  "global_safety": "Use a stable, non-wheeled chair and a clear floor area. Move slowly, breathe normally, and stay within a comfortable range. Do not bounce, force a joint, or continue through pain. Stop for pain, severe discomfort, dizziness, chest discomfort, unusual breathlessness, numbness, or loss of balance.",
+  "media_provenance": "The bundled videos are language-neutral generated demonstrations created for Vulture. They contain no narration, text, logos, or footage of a real person. Most use the shared mannequin style; a minimal geometric fallback remains where a reviewed mannequin replacement is not yet available. The generation prompts and review requirements are included in video-prompts.json; the movement guidance and doses are tied to the cited evidence sources.",
+  "sources": [
+    {
+      "id": "who-2020",
+      "organization": "World Health Organization",
+      "title": "WHO Guidelines on Physical Activity and Sedentary Behaviour",
+      "url": "https://www.who.int/publications/i/item/9789240015128",
+      "publication_or_review_date": "2020-11-25",
+      "supports": "Limit sedentary time and replace it with physical activity of any intensity; it does not define a precise break interval."
+    },
+    {
+      "id": "osha-work-process",
+      "organization": "US Occupational Safety and Health Administration",
+      "title": "Computer Workstations: Work Process and Recognition",
+      "url": "https://www.osha.gov/etools/computer-workstations/work-process",
+      "publication_or_review_date": null,
+      "supports": "A five-minute break from computer tasks every hour may include looking away, stretching, standing, or walking."
+    },
+    {
+      "id": "ccohs-stretching",
+      "organization": "Canadian Centre for Occupational Health and Safety",
+      "title": "Office Ergonomics: Stretching at the Workstation",
+      "url": "https://www.ccohs.ca/oshanswers/ergonomics/office/stretching.html",
+      "publication_or_review_date": "Confirmed current 2025-02-04",
+      "supports": "Workstation-break guidance, shoulder shrug and wrist movement doses, and general stretching precautions."
+    },
+    {
+      "id": "nhs-sitting",
+      "organization": "UK National Health Service",
+      "title": "Sitting exercises",
+      "url": "https://www.nhs.uk/live-well/exercise/sitting-exercises/",
+      "publication_or_review_date": "Reviewed 2024-01-18",
+      "supports": "Stable-chair precautions and the specified chest stretch, hip marching, and ankle point-and-flex instructions and doses."
+    },
+    {
+      "id": "nhs-strength",
+      "organization": "UK National Health Service",
+      "title": "Strength exercises",
+      "url": "https://www.nhs.uk/live-well/exercise/strength-exercises/",
+      "publication_or_review_date": "Reviewed 2024-02-28",
+      "supports": "The specified sit-to-stand and supported calf-raise instructions and doses."
+    },
+    {
+      "id": "loh-2020",
+      "organization": "Sports Medicine",
+      "title": "Effects of Interrupting Prolonged Sitting with Physical Activity Breaks: Systematic Review and Meta-analysis",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC6985064/",
+      "publication_or_review_date": "Online 2019-09-24",
+      "supports": "Activity breaks improve acute glucose and insulin outcomes compared with uninterrupted sitting; optimal timing and long-term implications remain uncertain."
+    },
+    {
+      "id": "peddie-2021",
+      "organization": "PLOS ONE",
+      "title": "Effects of prolonged sitting, prolonged standing, and activity breaks: a randomised crossover trial",
+      "url": "https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0244841",
+      "publication_or_review_date": "2021-01-04",
+      "supports": "In a small acute trial, two-minute walking breaks every 30 minutes outperformed uninterrupted sitting or prolonged standing for selected insulin and blood-flow outcomes."
+    },
+    {
+      "id": "tersa-miralles-2022",
+      "organization": "BMJ Open",
+      "title": "Effectiveness of workplace exercise interventions for musculoskeletal disorders in office workers: systematic review",
+      "url": "https://bmjopen.bmj.com/content/12/1/e054288",
+      "publication_or_review_date": "2022-01-31",
+      "supports": "Workplace exercise may reduce pain, but heterogeneous studies and high risk of bias prevent firm treatment or prevention claims."
+    }
+  ],
+  "exercises": [
+    {
+      "id": "easy-walk",
+      "title": "Easy desk-side walk",
+      "short_prompt": "Walk at a comfortable pace for five minutes.",
+      "dose": "5 minutes",
+      "steps": [
+        "Stand only if it is safe for you to do so.",
+        "Walk at a comfortable pace around the room or corridor.",
+        "Keep the route clear, use your usual walking aid, and breathe normally."
+      ],
+      "target_areas": ["whole body", "legs"],
+      "tags": ["standing", "balance", "aerobic"],
+      "safety": "Skip this movement if you feel unsteady. Stop for pain, dizziness, chest discomfort, or unusual breathlessness.",
+      "contraindication_flags": ["unsteady walking", "acute lower-limb injury", "medical restriction on walking"],
+      "source_ids": ["osha-work-process", "who-2020", "loh-2020"],
+      "evidence_note": "The five-minute dose follows OSHA's hourly computer-task break guidance. WHO and the systematic review support replacing sedentary time with movement, but do not establish this exact interval as a medical prescription.",
+      "media_path": "videos/easy-walk.mp4",
+      "media_duration_seconds": 10
+    },
+    {
+      "id": "seated-chest-stretch",
+      "title": "Seated chest stretch",
+      "short_prompt": "Open the chest gently while seated.",
+      "dose": "Hold 5-10 seconds; repeat 5 times",
+      "steps": [
+        "Sit upright and away from the chair back.",
+        "Draw your shoulders back and down, then extend your arms to the sides.",
+        "Gently move your chest forward and up, hold, and release."
+      ],
+      "target_areas": ["chest", "front of shoulders"],
+      "tags": ["seated", "mobility"],
+      "safety": "Move only to gentle tension. Do not force the shoulders. Stop if the movement causes pain.",
+      "contraindication_flags": ["acute shoulder injury", "recent chest or shoulder surgery"],
+      "source_ids": ["nhs-sitting"],
+      "evidence_note": "Instructions and dose follow the NHS sitting-exercises guidance.",
+      "media_path": "videos/seated-chest-stretch.mp4",
+      "media_duration_seconds": 10
+    },
+    {
+      "id": "shoulder-shrug",
+      "title": "Shoulder shrug and release",
+      "short_prompt": "Raise your shoulders gently, then let them relax.",
+      "dose": "Hold 3-5 seconds; repeat 2-3 times",
+      "steps": [
+        "Keep your head facing forward and breathe normally.",
+        "Raise both shoulders toward your ears until you feel slight tension.",
+        "Hold briefly, then let the shoulders relax fully downward."
+      ],
+      "target_areas": ["shoulders", "neck region"],
+      "tags": ["seated", "mobility"],
+      "safety": "Keep the movement slow. Do not force it or hold your breath. Stop for pain or severe discomfort.",
+      "contraindication_flags": ["acute neck or shoulder injury"],
+      "source_ids": ["ccohs-stretching"],
+      "evidence_note": "Instructions and dose follow CCOHS workstation-stretching guidance.",
+      "media_path": "videos/shoulder-shrug.mp4",
+      "media_duration_seconds": 10
+    },
+    {
+      "id": "wrist-side-bend",
+      "title": "Gentle wrist side-bend",
+      "short_prompt": "Move each wrist gently from side to side.",
+      "dose": "Hold each side 3-5 seconds; 3 cycles per wrist",
+      "steps": [
+        "Open one hand with the palm facing down.",
+        "Move the wrist gently from side to side within a comfortable range.",
+        "Pause at each end, then repeat with the other wrist."
+      ],
+      "target_areas": ["wrists", "forearms"],
+      "tags": ["seated", "mobility"],
+      "safety": "Do not push the hand with your other hand. Stop if pain, tingling, or numbness appears.",
+      "contraindication_flags": ["acute wrist injury", "new numbness or tingling"],
+      "source_ids": ["ccohs-stretching"],
+      "evidence_note": "Instructions and dose follow CCOHS workstation-stretching guidance.",
+      "media_path": "videos/wrist-side-bend.mp4",
+      "media_duration_seconds": 10
+    },
+    {
+      "id": "seated-hip-march",
+      "title": "Seated hip marching",
+      "short_prompt": "Lift one bent knee at a time while seated.",
+      "dose": "5 lifts per leg",
+      "steps": [
+        "Sit upright on a stable, non-wheeled chair without leaning back.",
+        "Hold the sides of the chair.",
+        "Lift one bent knee as far as comfortable, lower it with control, and alternate."
+      ],
+      "target_areas": ["hips", "thighs"],
+      "tags": ["seated", "mobility"],
+      "safety": "Keep the movement comfortable and do not force the hip. Stop if it causes pain.",
+      "contraindication_flags": ["acute hip injury", "recent hip surgery without clinical clearance"],
+      "source_ids": ["nhs-sitting"],
+      "evidence_note": "Instructions and dose follow the NHS sitting-exercises guidance.",
+      "media_path": "videos/seated-hip-march.mp4",
+      "media_duration_seconds": 10
+    },
+    {
+      "id": "ankle-point-flex",
+      "title": "Seated ankle point and flex",
+      "short_prompt": "Point and flex one foot at a time.",
+      "dose": "2 sets of 5 per foot",
+      "steps": [
+        "Sit upright and hold the sides of a stable chair.",
+        "Straighten one leg so the foot is off the floor.",
+        "Point the toes away, then draw them back toward you; repeat on the other side."
+      ],
+      "target_areas": ["ankles", "lower legs"],
+      "tags": ["seated", "mobility"],
+      "safety": "Move slowly without forcing the ankle. One-sided calf pain or swelling may need urgent medical assessment rather than exercise.",
+      "contraindication_flags": ["acute ankle injury", "unexplained one-sided calf pain or swelling"],
+      "source_ids": ["nhs-sitting"],
+      "evidence_note": "Instructions and dose follow the NHS sitting-exercises guidance.",
+      "media_path": "videos/ankle-point-flex.mp4",
+      "media_duration_seconds": 10
+    },
+    {
+      "id": "sit-to-stand",
+      "title": "Sit-to-stand",
+      "short_prompt": "Stand up and sit down slowly five times.",
+      "dose": "5 slow repetitions",
+      "steps": [
+        "Use a stable chair that cannot roll or slip and sit near its front edge.",
+        "Place your feet hip-width apart, lean slightly forward, and stand slowly using your legs.",
+        "Stand upright, then sit down slowly; use your hands only as much as needed."
+      ],
+      "target_areas": ["thighs", "hips"],
+      "tags": ["standing", "balance", "strength"],
+      "safety": "Choose a seated movement instead if standing is unsafe or you have significant balance problems.",
+      "contraindication_flags": ["significant balance impairment", "medical restriction on sit-to-stand", "unstable chair"],
+      "source_ids": ["nhs-strength"],
+      "evidence_note": "Instructions and dose follow the NHS strength-exercises guidance.",
+      "media_path": "videos/sit-to-stand.mp4",
+      "media_duration_seconds": 10
+    },
+    {
+      "id": "supported-calf-raise",
+      "title": "Supported calf raise",
+      "short_prompt": "Rise onto your toes while holding a stable chair.",
+      "dose": "5 slow repetitions",
+      "steps": [
+        "Stand behind a stable chair and hold its back with both hands.",
+        "Slowly lift both heels as far as comfortable.",
+        "Lower both heels with control and repeat."
+      ],
+      "target_areas": ["calves", "ankles"],
+      "tags": ["standing", "balance", "strength"],
+      "safety": "Keep holding the chair. Stop if you become unsteady or develop pain.",
+      "contraindication_flags": ["significant balance impairment", "acute calf or ankle injury", "unstable support"],
+      "source_ids": ["nhs-strength"],
+      "evidence_note": "Instructions and dose follow the supported version in NHS strength-exercises guidance; the app does not show the unsupported progression.",
+      "media_path": "videos/supported-calf-raise.mp4",
+      "media_duration_seconds": 10
+    }
+  ]
+}
