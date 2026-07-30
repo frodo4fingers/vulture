@@ -348,7 +348,7 @@ def test_long_localized_toolbar_uses_native_overflow(
     ]
     assert overflow_buttons
     assert window.add_setup_button.isVisible()
-    assert window.pause_button.isVisible()
+    assert not window.settings_button.isVisible()
 
     window._close_history()
     window.tray.hide()

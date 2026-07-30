@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sys
 import time
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 import cv2
 import numpy as np
@@ -171,20 +171,24 @@ def _linux_camera_descriptors(
     descriptors: list[CameraDescriptor] = []
     for index, device in enumerate(devices):
         try:
-            native_path = Path(bytes(device.id()).decode("utf-8"))
+            raw_id = bytes(device.id()).decode("utf-8")
         except UnicodeDecodeError:
             continue
-        if not str(native_path).startswith("/dev/"):
+        if not raw_id.startswith("/dev/"):
             continue
-        resolved_native_path = native_path.resolve()
-        stable_path = next(
-            (
-                path
-                for path in stable_paths
-                if path.resolve() == resolved_native_path
-            ),
-            native_path,
-        )
+        native_path = PurePosixPath(raw_id)
+        if stable_paths:
+            resolved_native_path = Path(raw_id).resolve()
+            stable_path = next(
+                (
+                    path
+                    for path in stable_paths
+                    if path.resolve() == resolved_native_path
+                ),
+                native_path,
+            )
+        else:
+            stable_path = native_path
         description = device.description().strip() or tr(
             "Camera {number}",
             number=index + 1,
