@@ -403,6 +403,40 @@ the four archives and `SHA256SUMS.txt` as a GitHub Release. Windows code signing
 and Apple Developer signing/notarization remain separate release-hardening
 steps because they require private certificates.
 
+## Contributing
+
+Vulture is young and a few concrete contributions would help it noticeably.
+Please open an issue to coordinate before starting larger work, then send a
+pull request. Development setup lives just above; generated exercise clips must
+stay language-neutral and must never depict a real person.
+
+### Help wanted
+
+- **A proper application icon.** Vulture currently draws its own placeholder —
+  a flat coloured disc with a white "V" (see `create_state_icon` in
+  `src/vulture/ui/common.py`). It deserves a distinctive, recognisable mark
+  that stays legible at tray sizes (16–32 px) as well as large application
+  sizes, survives recolouring across the six tray states (green, amber, red,
+  purple, blue, gray) or ships as per-state variants, and exports to the
+  platform bundle formats (`.png`, Windows `.ico`, macOS `.icns`). A clean
+  monochrome silhouette that Qt can tint per state is ideal.
+- **A review pass over the instructional videos.** The eight bundled clips are
+  generated, language-neutral demonstrations. Watch each one against its
+  generation prompt and against the technique and dose recorded in
+  [docs/EVIDENCE.md](docs/EVIDENCE.md), then flag any clip that drifts from the
+  specified technique, breaks the shared continuity lock, or shows
+  anatomically incorrect movement. The copy-ready prompts, the shared
+  `continuity_lock`, and the review requirement are all in
+  `src/vulture/resources/exercises/video-prompts.json`.
+- **One missing instructional video.** Seven clips are full mannequin
+  demonstrations (~2.6 MB each); `ankle-point-flex.mp4` is still a minimal
+  geometric placeholder (~28 KB). It needs a proper replacement generated from
+  the `ankle-point-flex` prompt in `video-prompts.json` (prepend the shared
+  `continuity_lock`), reviewed against the same requirement, and saved over
+  `src/vulture/resources/exercises/videos/ankle-point-flex.mp4`. Keep it a
+  10-second, 16:9 seamless loop with no narration, on-screen text, logo, or
+  watermark.
+
 ## License
 
 Vulture is released under the [MIT License](LICENSE). Bundled dependencies and
