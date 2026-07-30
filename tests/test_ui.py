@@ -65,6 +65,7 @@ from vulture.ui import (
     build_rolling_week_data,
     create_state_icon,
 )
+from vulture.ui.common import ContentHeightTextBrowser, SemanticLabel
 from tests.test_calibration import make_frame
 
 
@@ -1660,6 +1661,35 @@ def test_exercise_sources_are_progressively_disclosed(
     application.processEvents()
     assert dialog.details_panel.isVisible()
     assert dialog.details_toggle.arrowType() is Qt.ArrowType.DownArrow
+
+    _teardown_window(window, application)
+
+
+def test_exercise_steps_hug_content_without_dead_space(
+    application: QApplication,
+    tmp_path: Path,
+) -> None:
+    window = _make_window(tmp_path)
+    window._offer_exercise()
+    application.processEvents()
+    application.processEvents()
+    dialog = window._exercise_dialog
+    assert dialog is not None
+
+    steps = dialog.findChild(ContentHeightTextBrowser)
+    safety = dialog.findChild(SemanticLabel)
+    assert steps is not None
+    assert safety is not None
+
+    document_height = int(steps.document().size().height())
+    # The steps browser is sized to its rendered content instead of reserving
+    # a fixed block, so its height tracks the document closely.
+    assert steps.height() <= document_height + 12
+    # The safety guidance follows immediately, without a wasted gap.
+    gap = safety.mapTo(dialog, safety.rect().topLeft()).y() - (
+        steps.mapTo(dialog, steps.rect().bottomLeft()).y()
+    )
+    assert 0 <= gap <= 16
 
     _teardown_window(window, application)
 

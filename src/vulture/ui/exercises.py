@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QSizePolicy,
     QTextBrowser,
     QToolButton,
     QVBoxLayout,
@@ -22,7 +23,11 @@ from vulture.exercises import (
 )
 from vulture.i18n import tr
 
-from .common import SemanticLabel, set_accessible_link_palette
+from .common import (
+    ContentHeightTextBrowser,
+    SemanticLabel,
+    set_accessible_link_palette,
+)
 
 
 EXERCISE_POSTPONE_MINUTES = 10
@@ -61,6 +66,10 @@ class ExerciseDialog(QDialog):
         if media is not None:
             video = QVideoWidget()
             video.setMinimumHeight(280)
+            video.setSizePolicy(
+                QSizePolicy.Policy.Expanding,
+                QSizePolicy.Policy.Fixed,
+            )
             layout.addWidget(video)
             self.player = QMediaPlayer(self)
             self.player.setVideoOutput(video)
@@ -68,9 +77,8 @@ class ExerciseDialog(QDialog):
             self.player.mediaStatusChanged.connect(self._loop_video)
             self.player.play()
 
-        steps = QTextBrowser()
+        steps = ContentHeightTextBrowser()
         steps.setOpenExternalLinks(True)
-        steps.setMaximumHeight(170)
         step_html = "".join(
             f"<li>{step}</li>" for step in exercise.steps
         )
@@ -127,6 +135,8 @@ class ExerciseDialog(QDialog):
         details_layout.addWidget(self.disclaimer)
         self.details_panel.hide()
         layout.addWidget(self.details_panel)
+
+        layout.addStretch(1)
 
         self.outcome = ExerciseOutcome.POSTPONED
         button_row = QHBoxLayout()

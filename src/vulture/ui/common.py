@@ -11,6 +11,7 @@ from PySide6.QtGui import (
 from PySide6.QtWidgets import (
     QApplication,
     QLabel,
+    QSizePolicy,
     QTextBrowser,
     QWidget,
 )
@@ -133,6 +134,50 @@ class SemanticLabel(QLabel):
             self.setStyleSheet(style)
         finally:
             self._applying_semantic_style = False
+
+
+class ContentHeightTextBrowser(QTextBrowser):
+    """A read-only text browser that hugs its rendered content height.
+
+    Regular ``QTextBrowser`` widgets reserve their maximum height regardless
+    of how little text they hold, which leaves dead vertical space above the
+    widgets that follow them. This variant tracks the document layout and its
+    own width so it is always exactly as tall as the text it displays.
+    """
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setFrameShape(QTextBrowser.Shape.NoFrame)
+        self.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        self.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        self.setSizePolicy(
+            QSizePolicy.Policy.Preferred,
+            QSizePolicy.Policy.Fixed,
+        )
+        self.document().documentLayout().documentSizeChanged.connect(
+            lambda *_: self._fit_to_contents()
+        )
+
+    def _fit_to_contents(self) -> None:
+        document = self.document()
+        document.setTextWidth(self.viewport().width())
+        height = int(document.size().height())
+        height += 2 * self.frameWidth() + self.contentsMargins().top()
+        height += self.contentsMargins().bottom()
+        self.setFixedHeight(height)
+
+    def setHtml(self, text: str) -> None:  # noqa: A003 - Qt override
+        super().setHtml(text)
+        self._fit_to_contents()
+
+    def resizeEvent(self, event: QEvent) -> None:
+        super().resizeEvent(event)
+        self._fit_to_contents()
+
 
 def set_accessible_link_palette(browser: QTextBrowser) -> None:
     palette = browser.palette()
