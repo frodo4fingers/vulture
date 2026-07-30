@@ -277,7 +277,30 @@ class TrackingFlowMixin:
         dialog = ExerciseDialog(exercise, self.catalog)
         dialog.finished.connect(self._exercise_dialog_finished)
         self._exercise_dialog = dialog
+        self._capture_window_state_before_exercise()
         self._show_side_panel(dialog)
+
+    def _capture_window_state_before_exercise(self) -> None:
+        if not self.isVisible():
+            self._window_state_before_exercise = "hidden"
+        elif self.isMinimized():
+            self._window_state_before_exercise = "minimized"
+        else:
+            self._window_state_before_exercise = None
+
+    def _restore_window_state_after_exercise(self) -> None:
+        state = self._window_state_before_exercise
+        self._window_state_before_exercise = None
+        if state is None:
+            return
+        if self._side_panel is not None:
+            return
+        if self._language_reload_preparing or self._quitting:
+            return
+        if state == "hidden":
+            self.hide()
+        elif state == "minimized":
+            self.showMinimized()
 
     def _focus_exercise_dialog(self, dialog: "ExerciseDialog") -> None:
         self._focus_side_panel(dialog)
@@ -323,6 +346,9 @@ class TrackingFlowMixin:
             self._hide_side_panel(
                 dialog,
                 allow_deferred_exercise=False,
+            )
+            QTimer.singleShot(
+                0, self._restore_window_state_after_exercise
             )
         if self._language_reload_preparing or self._quitting:
             return

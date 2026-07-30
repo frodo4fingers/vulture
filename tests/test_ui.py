@@ -1694,6 +1694,56 @@ def test_exercise_steps_hug_content_without_dead_space(
     _teardown_window(window, application)
 
 
+def test_exercise_close_returns_to_tray_when_started_hidden(
+    application: QApplication,
+    tmp_path: Path,
+) -> None:
+    window = _make_window(tmp_path)
+    window.hide()
+    application.processEvents()
+    assert not window.isVisible()
+
+    window._offer_exercise()
+    application.processEvents()
+    dialog = window._exercise_dialog
+    assert dialog is not None
+    # Presenting the exercise brings the window forward so it can be seen.
+    assert window.isVisible()
+
+    dialog.reject()
+    for _ in range(4):
+        application.processEvents()
+
+    # Closing the exercise returns the window to its pre-existing tray state.
+    assert not window.isVisible()
+
+    _teardown_window(window, application)
+
+
+def test_exercise_close_keeps_window_open_when_already_visible(
+    application: QApplication,
+    tmp_path: Path,
+) -> None:
+    window = _make_window(tmp_path)
+    window.show()
+    application.processEvents()
+    assert window.isVisible()
+
+    window._offer_exercise()
+    application.processEvents()
+    dialog = window._exercise_dialog
+    assert dialog is not None
+
+    dialog.reject()
+    for _ in range(4):
+        application.processEvents()
+
+    # A window that was already open stays open after the exercise closes.
+    assert window.isVisible()
+
+    _teardown_window(window, application)
+
+
 def test_warning_status_uses_dark_contrast_text(
     application: QApplication,
     tmp_path: Path,

@@ -78,6 +78,7 @@ class MainWindow(
         self._setup_dialog: SetupDialog | None = None
         self._settings_dialog: SettingsDialog | None = None
         self._exercise_dialog: ExerciseDialog | None = None
+        self._window_state_before_exercise: str | None = None
         self._evidence_dialog: EvidenceDialog | None = None
         self._summary_dialog: WorkdaySummaryDialog | None = None
         self._notice_dialog: NoticeDialog | None = None
