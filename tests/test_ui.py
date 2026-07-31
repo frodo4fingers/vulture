@@ -21,6 +21,7 @@ from vulture.history import (
 )
 from vulture.models import (
     AppData,
+    BreakPreferences,
     CalibrationProfile,
     CameraDescriptor,
     FeatureFrame,
@@ -569,12 +570,17 @@ def test_settings_updates_system_startup_registration(
     dialog = _open_settings_panel(window, application)
     assert dialog.start_at_login.isEnabled()
     dialog.start_at_login.setChecked(True)
+    dialog.movement_interval_minutes.setValue(45)
+    dialog.eye_reminders_enabled.setChecked(False)
     dialog._validate_and_accept()
     application.processEvents()
 
     assert manager.enabled
     assert manager.calls == [True]
     assert store.path.is_file()
+    saved = store.load()
+    assert saved.break_preferences.movement_interval_minutes == 45
+    assert not saved.break_preferences.eye_reminders_enabled
     assert window._settings_dialog is None
     assert window.side_panel_host.isHidden()
     _close_test_window(window, application)
@@ -736,7 +742,11 @@ def test_tracking_loss_uses_posture_transition_buffer() -> None:
         evaluator=Evaluator(),
         _suspend_history=lambda: calls.append("history"),
         _last_valid_tracking_at=object(),
+        _tracking_gap_started_at=None,
         _set_state=lambda state, _message: states.append(state),
+    )
+    window._mark_tracking_interrupted = (
+        lambda: MainWindow._mark_tracking_interrupted(window)
     )
 
     MainWindow._on_tracking_lost(window, captured_at)
@@ -759,6 +769,7 @@ def test_stale_tracking_loss_has_no_ui_side_effects() -> None:
         ),
         _suspend_history=lambda: calls.append("history"),
         _last_valid_tracking_at=object(),
+        _mark_tracking_interrupted=lambda: calls.append("interrupted"),
         _set_state=lambda _state, _message: calls.append("state"),
     )
 
@@ -1200,6 +1211,174 @@ def _install_test_setup(
     return setup
 
 
+def test_settings_break_controls_validate_and_round_trip(
+    application: QApplication,
+) -> None:
+    data = AppData()
+    dialog = SettingsDialog(
+        data.alert_policy,
+        data.exercise_preferences,
+        data.history_preferences,
+        data.interface_language,
+        break_preferences=BreakPreferences(),
+    )
+
+    assert dialog.movement_controls.isEnabled()
+    assert dialog.eye_controls.isEnabled()
+    dialog.movement_reminders_enabled.setChecked(False)
+    assert not dialog.movement_controls.isEnabled()
+    dialog.eye_interval_minutes.setValue(30)
+    dialog.eye_duration_seconds.setValue(40)
+    dialog._validate_and_accept()
+
+    assert dialog.values()[0].sedentary_break_minutes == 30
+    break_preferences = dialog.values()[5]
+    assert not break_preferences.movement_reminders_enabled
+    assert break_preferences.eye_interval_minutes == 30
+    assert break_preferences.eye_duration_seconds == 40
+    dialog.close()
+    application.processEvents()
+
+    data = AppData()
+    invalid = SettingsDialog(
+        data.alert_policy,
+        data.exercise_preferences,
+        data.history_preferences,
+        data.interface_language,
+        break_preferences=BreakPreferences(),
+    )
+    invalid.movement_reminders_enabled.setChecked(False)
+    invalid.eye_reminders_enabled.setChecked(False)
+    invalid._validate_and_accept()
+
+    assert not invalid.feedback_label.isHidden()
+    assert "Choose movement or eye reminders" in (
+        invalid.feedback_label.text()
+    )
+    invalid.close()
+    application.processEvents()
+
+
+def test_combined_break_due_uses_one_movement_notification(
+    application: QApplication,
+    tmp_path: Path,
+) -> None:
+    window = _make_window(tmp_path)
+    _install_test_setup(window, calibration=None)
+    window.data.break_preferences = BreakPreferences(
+        movement_interval_minutes=20,
+        movement_duration_minutes=3,
+        suggest_position_change=True,
+        suggest_standing=False,
+        suggest_walking=False,
+        suggest_guided_exercise=False,
+        eye_interval_minutes=20,
+    )
+    messages: list[tuple[str, str]] = []
+    window._show_tray_message = (
+        lambda title, message, *_args: messages.append((title, message))
+    )
+    for _ in range(3):
+        window._tracked_seconds_since_break = 20 * 60
+        window._tracked_seconds_since_eye_break = 20 * 60
+        window._check_break_reminders()
+
+    assert len(messages) == 3
+    assert messages[0][0] == "Time for a movement break"
+    assert "Change how you are sitting for about 3 minutes" in messages[0][1]
+    assert "6 m (20 ft) away" in messages[0][1]
+    assert "five slow, complete blinks" in messages[1][1]
+    assert "close your eyes gently" in messages[2][1]
+    assert window._tracked_seconds_since_break == 0
+    assert window._tracked_seconds_since_eye_break == 0
+    _teardown_window(window, application)
+
+
+def test_eye_only_break_uses_configured_distance_prompt(
+    application: QApplication,
+    tmp_path: Path,
+) -> None:
+    window = _make_window(tmp_path)
+    _install_test_setup(window, calibration=None)
+    window.data.break_preferences = BreakPreferences(
+        movement_reminders_enabled=False,
+        eye_interval_minutes=10,
+        eye_duration_seconds=30,
+        suggest_blinking=False,
+        suggest_closed_eye_rest=False,
+    )
+    messages: list[tuple[str, str]] = []
+    window._show_tray_message = (
+        lambda title, message, *_args: messages.append((title, message))
+    )
+    window._tracked_seconds_since_break = 300
+    window._tracked_seconds_since_eye_break = 10 * 60
+
+    window._check_break_reminders()
+
+    assert messages == [
+        (
+            "Eye comfort break",
+            (
+                "Look at something about 6 m (20 ft) away for 30 seconds "
+                "and let your focus relax."
+            ),
+        )
+    ]
+    assert window._tracked_seconds_since_break == 300
+    assert window._tracked_seconds_since_eye_break == 0
+    _teardown_window(window, application)
+
+
+def test_guided_break_reuses_existing_exercise_flow(
+    application: QApplication,
+    tmp_path: Path,
+) -> None:
+    window = _make_window(tmp_path)
+    _install_test_setup(window, calibration=None)
+    window.data.break_preferences = BreakPreferences(
+        movement_interval_minutes=20,
+        suggest_position_change=False,
+        suggest_standing=False,
+        suggest_walking=False,
+        suggest_guided_exercise=True,
+        eye_reminders_enabled=False,
+    )
+    offers: list[bool] = []
+    window._offer_exercise = lambda: offers.append(True)
+    window._tracked_seconds_since_break = 20 * 60
+
+    window._check_break_reminders()
+
+    assert offers == [True]
+    _teardown_window(window, application)
+
+
+def test_away_time_resets_break_counters(
+    application: QApplication,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    window = _make_window(tmp_path)
+    window.data.break_preferences = BreakPreferences(
+        away_reset_minutes=2
+    )
+    window._tracked_seconds_since_break = 700
+    window._tracked_seconds_since_eye_break = 500
+    window._tracking_gap_started_at = 100.0
+    monkeypatch.setattr(
+        "vulture.ui.tracking_flow.time.monotonic",
+        lambda: 221.0,
+    )
+
+    window._record_valid_tracking()
+
+    assert window._tracked_seconds_since_break == 0
+    assert window._tracked_seconds_since_eye_break == 0
+    assert window._tracking_gap_started_at is None
+    _teardown_window(window, application)
+
+
 def test_first_run_state_leads_to_camera_setup(
     application: QApplication,
     tmp_path: Path,
@@ -1297,6 +1476,23 @@ def test_tall_side_panels_open_without_vertical_scrollbar(
     assert getattr(window, dialog_attribute) is not None
     assert not window.side_panel_host.verticalScrollBar().isVisible()
 
+    _teardown_window(window, application)
+
+
+def test_settings_fit_without_horizontal_scroll_at_compact_width(
+    application: QApplication,
+    tmp_path: Path,
+) -> None:
+    window = _make_window(tmp_path)
+    window.resize(760, 650)
+    window.screen = lambda: SimpleNamespace(
+        availableGeometry=lambda: QRect(0, 0, 800, 650)
+    )
+
+    window._show_settings()
+    application.processEvents()
+
+    assert not window.side_panel_host.horizontalScrollBar().isVisible()
     _teardown_window(window, application)
 
 

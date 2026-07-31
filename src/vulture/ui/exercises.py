@@ -234,6 +234,28 @@ class EvidenceDialog(QDialog):
                 "explicit product setting rather than a clinical prescription."
             )
             + "</p>"
+            f"<h2>{tr('Break timing')}</h2>"
+            "<p>"
+            + tr(
+                "Short, frequent interruptions are better supported than one "
+                "exact schedule. Controlled studies show stronger acute "
+                "metabolic effects for light walking than for standing alone, "
+                "but they do not prove that reminder software prevents "
+                "long-term disease. Vulture therefore keeps timing and "
+                "activities configurable."
+            )
+            + "</p>"
+            f"<h2>{tr('Eye comfort guidance')}</h2>"
+            "<p>"
+            + tr(
+                "Looking into the distance and blinking are low-risk comfort "
+                "prompts. The 20-20-20 rule is widely recommended, but its "
+                "exact numbers have limited trial support. Vulture does not "
+                "claim that eye breaks treat dry eye or improve vision, and "
+                "does not promote palming, eye yoga, or blue-light products."
+            )
+            + "</p>"
+            f"<h2>{tr('Guidance sources')}</h2>"
             f"<ul>{source_html}</ul>"
             f"<h2>{tr('Media')}</h2>"
             f"<p>{catalog.media_provenance}</p>"

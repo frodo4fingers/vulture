@@ -145,6 +145,7 @@ class ApplicationFlowMixin:
             self.data.exercise_preferences,
             self.data.history_preferences,
             self.data.interface_language,
+            break_preferences=self.data.break_preferences,
             start_at_login_enabled=startup_enabled,
             startup_setting_available=startup_setting_available,
             startup_setting_error=startup_setting_error,
@@ -173,6 +174,7 @@ class ApplicationFlowMixin:
             self.data.exercise_preferences,
             self.data.history_preferences,
             self.data.interface_language,
+            self.data.break_preferences,
         )
         (
             new_policy,
@@ -180,6 +182,7 @@ class ApplicationFlowMixin:
             new_history_preferences,
             new_language,
             requested_startup_enabled,
+            new_break_preferences,
         ) = dialog.values()
         self._hide_side_panel(dialog)
         startup_snapshot: AutostartSnapshot | None = None
@@ -229,11 +232,13 @@ class ApplicationFlowMixin:
             self.data.exercise_preferences,
             self.data.history_preferences,
             self.data.interface_language,
+            self.data.break_preferences,
         ) = (
             new_policy,
             new_exercise_preferences,
             new_history_preferences,
             new_language,
+            new_break_preferences,
         )
         if not self._save_data():
             (
@@ -241,6 +246,7 @@ class ApplicationFlowMixin:
                 self.data.exercise_preferences,
                 self.data.history_preferences,
                 self.data.interface_language,
+                self.data.break_preferences,
             ) = previous_values
             if startup_changed and startup_snapshot is not None:
                 try:
@@ -258,6 +264,7 @@ class ApplicationFlowMixin:
                     )
             return
         self._clear_pending_exercise()
+        self._reset_break_tracking()
         if self._summary_dialog is not None:
             self._summary_dialog.close()
         if self.history_recorder is not None:

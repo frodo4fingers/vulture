@@ -46,6 +46,9 @@ from the baseline demonstrated for that camera setup.
   preview background. The temporary mask is discarded with each frame.
 - An evidence-linked catalog of eight conservative movements with accessibility
   filters and original pregenerated MP4 instructions.
+- Configurable break management that runs independently of posture alerts:
+  position changes, standing, a short walk or drink break, existing guided
+  movements, and optional distance-view, blink, or closed-eye prompts.
 - Local persistence of settings, calibration statistics, and recent reminder
   timestamps. Camera frames are discarded immediately after inference.
 
@@ -216,6 +219,48 @@ Desktop startup managers and organization policies remain authoritative. If
 startup is disabled separately in a platform's system settings, Task Manager,
 or device policy, re-enable it there as well; Vulture does not bypass those
 controls.
+
+### Break management
+
+Open **Settings → Break management** to configure two independent reminder
+channels:
+
+- **Movement and position changes** default to every 30 minutes with a
+  two-minute suggestion. Vulture rotates between changing the seated position,
+  standing, walking away for water, tea, or coffee, and the existing guided
+  movement catalog. The interval, suggested duration, activity mix, and amount
+  of camera-away time that resets the timer are configurable.
+- **Eye comfort** defaults to a 20-second distance-view prompt every 20 minutes.
+  Optional prompts add five slow, complete blinks or a gentle closed-eye rest.
+  Vulture does not prescribe palming, eye rotations, "eye yoga," or blue-light
+  products.
+
+Only time with valid posture tracking advances the timers. A sufficiently long
+period away from the camera counts as a break, and reminders can always be
+dismissed; Vulture never blocks the desktop.
+
+The defaults are guidance rather than clinical thresholds. UK HSE recommends
+short, frequent breaks or changes of activity and explicitly notes that exact
+timing depends on the work. Acute randomized evidence and systematic reviews
+suggest that brief light walking generally has stronger post-meal glucose and
+insulin effects than standing alone, but they do not establish long-term
+disease prevention. Micro-break research more consistently supports reduced
+fatigue than improved task performance. The optometric 20-20-20 rule is widely
+recommended, while a small controlled study found that its exact 20-second
+schedule was not an effective standalone treatment for digital eye strain.
+
+Sources:
+
+- [HSE: Work routine and breaks](https://www.hse.gov.uk/msd/dse/work-routine.htm)
+- [Buffey et al. 2022: standing and light-walking break meta-analysis](https://doi.org/10.1007/s40279-022-01649-4)
+- [Albulescu et al. 2022: micro-break systematic review and meta-analysis](https://doi.org/10.1371/journal.pone.0272460)
+- [American Optometric Association: computer vision syndrome](https://www.aoa.org/healthy-eyes/eye-and-vision-conditions/computer-vision-syndrome)
+- [Wilkins et al.: “20-20-20 Rule: Are These Numbers Justified?”](https://pubmed.ncbi.nlm.nih.gov/36473088/)
+
+Vulture is not a medical device and these reminders do not diagnose, treat, or
+prevent a condition. Persistent pain, blurred vision, eye redness, light
+sensitivity, or other concerning symptoms warrant advice from an appropriate
+health professional.
 
 ## First calibration
 

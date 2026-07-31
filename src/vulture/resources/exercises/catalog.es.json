@@ -61,6 +61,46 @@
       "supports": "En un pequeño ensayo de efectos agudos, las pausas de dos minutos para caminar cada 30 minutos produjeron mejores resultados que permanecer sentado sin interrupción o de pie durante periodos prolongados en determinados parámetros de insulina y flujo sanguíneo."
     },
     {
+      "id": "buffey-2022",
+      "organization": "Sports Medicine",
+      "title": "Efectos agudos de interrumpir periodos prolongados sentado con pausas de pie y caminatas de baja intensidad sobre biomarcadores cardiometabólicos en adultos: revisión sistemática y metanálisis",
+      "url": "https://doi.org/10.1007/s40279-022-01649-4",
+      "publication_or_review_date": "2022",
+      "supports": "Los ensayos cruzados aleatorizados de efectos agudos sugieren que caminar suavemente produce mayores efectos posprandiales sobre la glucosa y la insulina que permanecer de pie; no se establecieron resultados clínicos a largo plazo."
+    },
+    {
+      "id": "albulescu-2022",
+      "organization": "PLOS ONE",
+      "title": "¡Dame un descanso! Revisión sistemática y metanálisis sobre la eficacia de las micropausas para aumentar el bienestar y el rendimiento",
+      "url": "https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0272460",
+      "publication_or_review_date": "2022-08-31",
+      "supports": "Las micropausas de menos de diez minutos mejoraron en promedio el vigor y la fatiga; los resultados de rendimiento dependieron de la tarea y de la duración de la pausa."
+    },
+    {
+      "id": "hse-dse-breaks",
+      "organization": "Dirección de Salud y Seguridad del Reino Unido",
+      "title": "Trabajo seguro con equipos de pantalla: rutina de trabajo y pausas",
+      "url": "https://www.hse.gov.uk/msd/dse/work-routine.htm",
+      "publication_or_review_date": "Consultado el 2026-07-31",
+      "supports": "Se prefieren pausas breves y frecuentes o cambios de actividad; las personas deberían moverse, estirarse o cambiar de postura, y el momento exacto depende del trabajo."
+    },
+    {
+      "id": "aoa-computer-vision",
+      "organization": "Asociación Americana de Optometría",
+      "title": "Síndrome visual informático",
+      "url": "https://www.aoa.org/healthy-eyes/eye-and-vision-conditions/computer-vision-syndrome",
+      "publication_or_review_date": null,
+      "supports": "Recomienda la pauta 20-20-20 de mirar a distancia, parpadear con frecuencia, hacer pausas regulares y ajustar la posición de la pantalla para la fatiga visual digital."
+    },
+    {
+      "id": "wilkins-2022",
+      "organization": "Optometry and Vision Science",
+      "title": "Regla 20-20-20: ¿están justificadas estas cifras?",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/36473088/",
+      "publication_or_review_date": "2023-01",
+      "supports": "Un pequeño estudio controlado no encontró beneficios significativos en síntomas ni rendimiento con pausas programadas de 20 segundos; por ello, el horario exacto 20-20-20 no debe presentarse como tratamiento demostrado."
+    },
+    {
       "id": "tersa-miralles-2022",
       "organization": "BMJ Open",
       "title": "Eficacia de las intervenciones de ejercicio en el lugar de trabajo para los trastornos musculoesqueléticos en trabajadores de oficina: revisión sistemática",

@@ -168,11 +168,15 @@ def test_settings_dialog_returns_selected_language(
     )
     dialog.language_combo.setCurrentIndex(spanish_index)
     dialog.transition_buffer_seconds.setValue(12)
+    dialog.movement_interval_minutes.setValue(40)
+    dialog.eye_duration_seconds.setValue(30)
     dialog._validate_and_accept()
 
     assert dialog.values()[0].posture_transition_buffer_seconds == 12
     assert dialog.values()[3] is InterfaceLanguage.SPANISH
     assert dialog.values()[4] is True
+    assert dialog.values()[5].movement_interval_minutes == 40
+    assert dialog.values()[5].eye_duration_seconds == 30
     assert dialog.windowTitle() == "Vulture-Einstellungen"
 
     dialog.close()
@@ -297,6 +301,9 @@ def test_window_reload_preserves_paused_session_state(
     )
     old_window._tracking_enabled = False
     old_window._tracked_seconds_since_break = 321.5
+    old_window._tracked_seconds_since_eye_break = 123.5
+    old_window._movement_suggestion_index = 2
+    old_window._eye_suggestion_index = 1
 
     runtime_state = old_window.prepare_for_language_reload()
     assert runtime_state is not None
@@ -312,6 +319,9 @@ def test_window_reload_preserves_paused_session_state(
 
     assert not replacement._tracking_enabled
     assert replacement._tracked_seconds_since_break == 321.5
+    assert replacement._tracked_seconds_since_eye_break == 123.5
+    assert replacement._movement_suggestion_index == 2
+    assert replacement._eye_suggestion_index == 1
     assert replacement.pause_button.text() == "Reanudar seguimiento"
 
     replacement.break_timer.stop()

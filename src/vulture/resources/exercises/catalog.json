@@ -61,6 +61,46 @@
       "supports": "In a small acute trial, two-minute walking breaks every 30 minutes outperformed uninterrupted sitting or prolonged standing for selected insulin and blood-flow outcomes."
     },
     {
+      "id": "buffey-2022",
+      "organization": "Sports Medicine",
+      "title": "The Acute Effects of Interrupting Prolonged Sitting Time in Adults with Standing and Light-Intensity Walking on Biomarkers of Cardiometabolic Health in Adults: A Systematic Review and Meta-analysis",
+      "url": "https://doi.org/10.1007/s40279-022-01649-4",
+      "publication_or_review_date": "2022",
+      "supports": "Acute randomized crossover evidence suggests that light walking produces larger post-meal glucose and insulin effects than standing alone; long-term clinical outcomes were not established."
+    },
+    {
+      "id": "albulescu-2022",
+      "organization": "PLOS ONE",
+      "title": "Give me a break! A systematic review and meta-analysis on the efficacy of micro-breaks for increasing well-being and performance",
+      "url": "https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0272460",
+      "publication_or_review_date": "2022-08-31",
+      "supports": "Micro-breaks under ten minutes improved vigor and fatigue on average; performance findings depended on task and break length."
+    },
+    {
+      "id": "hse-dse-breaks",
+      "organization": "UK Health and Safety Executive",
+      "title": "Working safely with display screen equipment: Work routine and breaks",
+      "url": "https://www.hse.gov.uk/msd/dse/work-routine.htm",
+      "publication_or_review_date": "Accessed 2026-07-31",
+      "supports": "Short, frequent breaks or changes of activity are preferred; users should move around, stretch, or change posture, and exact timing depends on the work."
+    },
+    {
+      "id": "aoa-computer-vision",
+      "organization": "American Optometric Association",
+      "title": "Computer vision syndrome",
+      "url": "https://www.aoa.org/healthy-eyes/eye-and-vision-conditions/computer-vision-syndrome",
+      "publication_or_review_date": null,
+      "supports": "Recommends the 20-20-20 distance-view guideline, frequent blinking, regular rest breaks, and screen-position adjustments for digital eye strain."
+    },
+    {
+      "id": "wilkins-2022",
+      "organization": "Optometry and Vision Science",
+      "title": "20-20-20 Rule: Are These Numbers Justified?",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/36473088/",
+      "publication_or_review_date": "2023-01",
+      "supports": "A small controlled study found no significant symptom or task-performance benefit from scheduled 20-second breaks, so the exact 20-20-20 timing should not be presented as proven treatment."
+    },
+    {
       "id": "tersa-miralles-2022",
       "organization": "BMJ Open",
       "title": "Effectiveness of workplace exercise interventions for musculoskeletal disorders in office workers: systematic review",

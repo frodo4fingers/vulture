@@ -61,6 +61,46 @@
       "supports": "In einer kleinen Akutstudie ergaben zweiminütige Gehpausen alle 30 Minuten bei ausgewählten Insulin- und Blutflussparametern günstigere Werte als ununterbrochenes Sitzen oder langes Stehen."
     },
     {
+      "id": "buffey-2022",
+      "organization": "Sports Medicine",
+      "title": "Akute Auswirkungen der Unterbrechung langen Sitzens durch Stehen und leichtes Gehen auf kardiometabolische Biomarker bei Erwachsenen: systematische Übersichtsarbeit und Metaanalyse",
+      "url": "https://doi.org/10.1007/s40279-022-01649-4",
+      "publication_or_review_date": "2022",
+      "supports": "Akute randomisierte Crossover-Studien deuten darauf hin, dass leichtes Gehen nach Mahlzeiten stärkere Effekte auf Glukose und Insulin hat als bloßes Stehen; langfristige klinische Ergebnisse wurden nicht belegt."
+    },
+    {
+      "id": "albulescu-2022",
+      "organization": "PLOS ONE",
+      "title": "Gönn mir eine Pause: systematische Übersichtsarbeit und Metaanalyse zur Wirksamkeit von Mikropausen für Wohlbefinden und Leistung",
+      "url": "https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0272460",
+      "publication_or_review_date": "2022-08-31",
+      "supports": "Mikropausen unter zehn Minuten verbesserten im Durchschnitt Energiegefühl und Ermüdung; die Leistungsergebnisse hingen von Aufgabe und Pausenlänge ab."
+    },
+    {
+      "id": "hse-dse-breaks",
+      "organization": "Britische Behörde für Gesundheit und Sicherheit am Arbeitsplatz",
+      "title": "Sicheres Arbeiten mit Bildschirmgeräten: Arbeitsablauf und Pausen",
+      "url": "https://www.hse.gov.uk/msd/dse/work-routine.htm",
+      "publication_or_review_date": "Abgerufen am 2026-07-31",
+      "supports": "Kurze, häufige Pausen oder Tätigkeitswechsel werden bevorzugt; Beschäftigte sollten sich bewegen, dehnen oder die Haltung wechseln, und der genaue Zeitpunkt hängt von der Arbeit ab."
+    },
+    {
+      "id": "aoa-computer-vision",
+      "organization": "Amerikanische Optometrie-Vereinigung",
+      "title": "Computer-Vision-Syndrom",
+      "url": "https://www.aoa.org/healthy-eyes/eye-and-vision-conditions/computer-vision-syndrome",
+      "publication_or_review_date": null,
+      "supports": "Empfiehlt die 20-20-20-Regel mit Blick in die Ferne, häufiges Blinzeln, regelmäßige Erholungspausen und eine angepasste Bildschirmposition bei digitaler Augenbelastung."
+    },
+    {
+      "id": "wilkins-2022",
+      "organization": "Optometry and Vision Science",
+      "title": "20-20-20-Regel: Sind diese Zahlen begründet?",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/36473088/",
+      "publication_or_review_date": "2023-01",
+      "supports": "Eine kleine kontrollierte Studie fand durch geplante 20-Sekunden-Pausen keinen signifikanten Vorteil bei Beschwerden oder Aufgabenleistung; die exakten 20-20-20-Zeiten sollten daher nicht als erwiesene Behandlung dargestellt werden."
+    },
+    {
       "id": "tersa-miralles-2022",
       "organization": "BMJ Open",
       "title": "Wirksamkeit von Bewegungsinterventionen am Arbeitsplatz bei Muskel-Skelett-Erkrankungen von Büroangestellten: systematische Übersichtsarbeit",

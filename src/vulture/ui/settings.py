@@ -8,7 +8,9 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QDoubleSpinBox,
     QFormLayout,
+    QFrame,
     QGroupBox,
+    QLabel,
     QSizePolicy,
     QSpinBox,
     QVBoxLayout,
@@ -18,6 +20,7 @@ from PySide6.QtWidgets import (
 from vulture.i18n import LANGUAGE_NAMES, tr
 from vulture.models import (
     AlertPolicy,
+    BreakPreferences,
     ExercisePreferences,
     HistoryPreferences,
     InterfaceLanguage,
@@ -35,13 +38,16 @@ class SettingsDialog(QDialog):
         language: InterfaceLanguage,
         parent: QWidget | None = None,
         *,
+        break_preferences: BreakPreferences | None = None,
         start_at_login_enabled: bool = False,
         startup_setting_available: bool = True,
         startup_setting_error: str | None = None,
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle(tr("Vulture settings"))
-        self.setMinimumWidth(440)
+        self.setMinimumWidth(360)
+        self.setProperty("preferredSidePanelWidth", 540)
+        break_preferences = break_preferences or BreakPreferences()
 
         layout = QVBoxLayout(self)
         interface_group = QGroupBox(tr("Interface"))
@@ -78,7 +84,7 @@ class SettingsDialog(QDialog):
             interface_form.addRow(startup_error)
         layout.addWidget(interface_group)
 
-        alert_group = QGroupBox(tr("Reminder policy"))
+        alert_group = QGroupBox(tr("Posture reminders"))
         alert_group.setSizePolicy(
             QSizePolicy.Policy.Preferred,
             QSizePolicy.Policy.Maximum,
@@ -105,10 +111,6 @@ class SettingsDialog(QDialog):
         self.repeat_window.setRange(5, 120)
         self.repeat_window.setValue(policy.repeated_reminder_window_minutes)
         self.repeat_window.setSuffix(tr(" minutes"))
-        self.sedentary_minutes = QSpinBox()
-        self.sedentary_minutes.setRange(20, 180)
-        self.sedentary_minutes.setValue(policy.sedentary_break_minutes)
-        self.sedentary_minutes.setSuffix(tr(" minutes"))
         alert_form.addRow(tr("Show warning after"), self.warning_seconds)
         alert_form.addRow(tr("Notify after"), self.alert_seconds)
         alert_form.addRow(
@@ -120,11 +122,205 @@ class SettingsDialog(QDialog):
             self.repeat_count,
         )
         alert_form.addRow(tr("Count reminders within"), self.repeat_window)
-        alert_form.addRow(
-            tr("Independent movement break"),
-            self.sedentary_minutes,
-        )
         layout.addWidget(alert_group)
+
+        break_group = QGroupBox(tr("Break management"))
+        break_group.setSizePolicy(
+            QSizePolicy.Policy.Preferred,
+            QSizePolicy.Policy.Maximum,
+        )
+        break_layout = QVBoxLayout(break_group)
+        break_intro = SemanticLabel(
+            tr(
+                "Good posture can still be too static. Vulture can remind "
+                "you to vary position, stand, walk away, or rest your eyes "
+                "even when posture tracking is green."
+            ),
+            tone="info",
+        )
+        break_layout.addWidget(break_intro)
+
+        self.break_reminders_enabled = QCheckBox(
+            tr("Enable independent break reminders")
+        )
+        self.break_reminders_enabled.setChecked(
+            break_preferences.enabled
+        )
+        break_layout.addWidget(self.break_reminders_enabled)
+
+        self.movement_reminders_enabled = QCheckBox(
+            tr("Movement and position changes")
+        )
+        movement_heading_font = self.movement_reminders_enabled.font()
+        movement_heading_font.setBold(True)
+        self.movement_reminders_enabled.setFont(movement_heading_font)
+        self.movement_reminders_enabled.setChecked(
+            break_preferences.movement_reminders_enabled
+        )
+        break_layout.addWidget(self.movement_reminders_enabled)
+
+        self.movement_controls = QWidget()
+        movement_layout = QVBoxLayout(self.movement_controls)
+        movement_layout.setContentsMargins(22, 0, 0, 0)
+        movement_form = QFormLayout()
+        movement_form.setRowWrapPolicy(
+            QFormLayout.RowWrapPolicy.WrapLongRows
+        )
+        self.movement_interval_minutes = QSpinBox()
+        self.movement_interval_minutes.setRange(20, 180)
+        self.movement_interval_minutes.setValue(
+            break_preferences.movement_interval_minutes
+        )
+        self.movement_interval_minutes.setSuffix(tr(" minutes"))
+        self.movement_interval_minutes.setToolTip(
+            tr("Vulture counts only time with valid posture tracking.")
+        )
+        self.movement_duration_minutes = QSpinBox()
+        self.movement_duration_minutes.setRange(1, 10)
+        self.movement_duration_minutes.setValue(
+            break_preferences.movement_duration_minutes
+        )
+        self.movement_duration_minutes.setSuffix(tr(" minutes"))
+        self.away_reset_minutes = QSpinBox()
+        self.away_reset_minutes.setRange(1, 30)
+        self.away_reset_minutes.setValue(
+            break_preferences.away_reset_minutes
+        )
+        self.away_reset_minutes.setSuffix(tr(" minutes"))
+        self.away_reset_minutes.setToolTip(
+            tr(
+                "After this much time away from the camera, Vulture starts "
+                "a fresh break interval."
+            )
+        )
+        movement_form.addRow(tr("Every"), self.movement_interval_minutes)
+        movement_form.addRow(
+            tr("Suggested length"),
+            self.movement_duration_minutes,
+        )
+        movement_form.addRow(
+            tr("Away time that resets the timer"),
+            self.away_reset_minutes,
+        )
+        movement_layout.addLayout(movement_form)
+
+        movement_options_label = QLabel(tr("Rotate suggestions between"))
+        movement_options_font = movement_options_label.font()
+        movement_options_font.setBold(True)
+        movement_options_label.setFont(movement_options_font)
+        movement_layout.addWidget(movement_options_label)
+        self.suggest_position_change = QCheckBox(
+            tr("Change sitting position")
+        )
+        self.suggest_position_change.setChecked(
+            break_preferences.suggest_position_change
+        )
+        self.suggest_standing = QCheckBox(tr("Stand up"))
+        self.suggest_standing.setChecked(
+            break_preferences.suggest_standing
+        )
+        self.suggest_walking = QCheckBox(
+            tr("Walk away, refill water, or make tea or coffee")
+        )
+        self.suggest_walking.setChecked(
+            break_preferences.suggest_walking
+        )
+        self.suggest_guided_exercise = QCheckBox(
+            tr("Open one of the existing guided movements")
+        )
+        self.suggest_guided_exercise.setChecked(
+            break_preferences.suggest_guided_exercise
+        )
+        movement_layout.addWidget(self.suggest_position_change)
+        movement_layout.addWidget(self.suggest_standing)
+        movement_layout.addWidget(self.suggest_walking)
+        movement_layout.addWidget(self.suggest_guided_exercise)
+        break_layout.addWidget(self.movement_controls)
+        self.sedentary_minutes = self.movement_interval_minutes
+
+        divider = QFrame()
+        divider.setFrameShape(QFrame.Shape.HLine)
+        divider.setFrameShadow(QFrame.Shadow.Sunken)
+        break_layout.addWidget(divider)
+
+        self.eye_reminders_enabled = QCheckBox(tr("Eye comfort"))
+        eye_heading_font = self.eye_reminders_enabled.font()
+        eye_heading_font.setBold(True)
+        self.eye_reminders_enabled.setFont(eye_heading_font)
+        self.eye_reminders_enabled.setChecked(
+            break_preferences.eye_reminders_enabled
+        )
+        break_layout.addWidget(self.eye_reminders_enabled)
+
+        self.eye_controls = QWidget()
+        eye_layout = QVBoxLayout(self.eye_controls)
+        eye_layout.setContentsMargins(22, 0, 0, 0)
+        eye_form = QFormLayout()
+        eye_form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
+        self.eye_interval_minutes = QSpinBox()
+        self.eye_interval_minutes.setRange(10, 60)
+        self.eye_interval_minutes.setValue(
+            break_preferences.eye_interval_minutes
+        )
+        self.eye_interval_minutes.setSuffix(tr(" minutes"))
+        self.eye_duration_seconds = QSpinBox()
+        self.eye_duration_seconds.setRange(10, 120)
+        self.eye_duration_seconds.setValue(
+            break_preferences.eye_duration_seconds
+        )
+        self.eye_duration_seconds.setSuffix(tr(" seconds"))
+        eye_form.addRow(
+            tr("Distance-view reminder every"),
+            self.eye_interval_minutes,
+        )
+        eye_form.addRow(tr("Look away for"), self.eye_duration_seconds)
+        eye_layout.addLayout(eye_form)
+        eye_explanation = QLabel(
+            tr(
+                "Each eye reminder starts by looking away from the screen."
+            )
+        )
+        eye_explanation.setWordWrap(True)
+        eye_layout.addWidget(eye_explanation)
+        self.suggest_blinking = QCheckBox(
+            tr("Add five slow, complete blinks")
+        )
+        self.suggest_blinking.setChecked(
+            break_preferences.suggest_blinking
+        )
+        self.suggest_closed_eye_rest = QCheckBox(
+            tr("Offer a gentle closed-eye rest")
+        )
+        self.suggest_closed_eye_rest.setChecked(
+            break_preferences.suggest_closed_eye_rest
+        )
+        eye_layout.addWidget(self.suggest_blinking)
+        eye_layout.addWidget(self.suggest_closed_eye_rest)
+        break_layout.addWidget(self.eye_controls)
+
+        evidence_note = SemanticLabel(
+            tr(
+                "Short, frequent movement breaks have stronger support than "
+                "any exact schedule, and light walking has stronger acute "
+                "evidence than standing alone. The 20-20-20 eye rule is "
+                "widely recommended, but its exact timing has limited trial "
+                "evidence."
+            ),
+            tone="info",
+        )
+        break_layout.addWidget(evidence_note)
+        layout.addWidget(break_group)
+
+        self.break_reminders_enabled.toggled.connect(
+            self._sync_break_controls
+        )
+        self.movement_reminders_enabled.toggled.connect(
+            self._sync_break_controls
+        )
+        self.eye_reminders_enabled.toggled.connect(
+            self._sync_break_controls
+        )
+        self._sync_break_controls()
 
         exercise_group = QGroupBox(tr("Exercise accessibility"))
         exercise_group.setSizePolicy(
@@ -190,7 +386,7 @@ class SettingsDialog(QDialog):
         layout.addWidget(note)
 
         self.feedback_label = SemanticLabel(tone="safety")
-        self.feedback_label.setAccessibleName(tr("Invalid reminder policy"))
+        self.feedback_label.setAccessibleName(tr("Invalid settings"))
         self.feedback_label.hide()
         layout.addWidget(self.feedback_label)
 
@@ -202,10 +398,22 @@ class SettingsDialog(QDialog):
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
         self._policy = policy
+        self._break_preferences = break_preferences
         self._preferences = preferences
         self._history_preferences = history_preferences
         self._language = language
         self._startup_setting_available = startup_setting_available
+
+    def _sync_break_controls(self) -> None:
+        enabled = self.break_reminders_enabled.isChecked()
+        self.movement_reminders_enabled.setEnabled(enabled)
+        self.eye_reminders_enabled.setEnabled(enabled)
+        self.movement_controls.setEnabled(
+            enabled and self.movement_reminders_enabled.isChecked()
+        )
+        self.eye_controls.setEnabled(
+            enabled and self.eye_reminders_enabled.isChecked()
+        )
 
     def _validate_and_accept(self) -> None:
         try:
@@ -225,13 +433,55 @@ class SettingsDialog(QDialog):
                 exercise_offer_cooldown_minutes=(
                     self._policy.exercise_offer_cooldown_minutes
                 ),
-                sedentary_break_minutes=self.sedentary_minutes.value(),
+                sedentary_break_minutes=(
+                    self.movement_interval_minutes.value()
+                ),
             )
         except ValidationError:
             self.feedback_label.setText(
                 tr(
                     "The notification delay must be longer than the warning "
                     "delay."
+                )
+            )
+            self.feedback_label.show()
+            return
+        try:
+            self._break_preferences = BreakPreferences(
+                enabled=self.break_reminders_enabled.isChecked(),
+                movement_reminders_enabled=(
+                    self.movement_reminders_enabled.isChecked()
+                ),
+                movement_interval_minutes=(
+                    self.movement_interval_minutes.value()
+                ),
+                movement_duration_minutes=(
+                    self.movement_duration_minutes.value()
+                ),
+                away_reset_minutes=self.away_reset_minutes.value(),
+                suggest_position_change=(
+                    self.suggest_position_change.isChecked()
+                ),
+                suggest_standing=self.suggest_standing.isChecked(),
+                suggest_walking=self.suggest_walking.isChecked(),
+                suggest_guided_exercise=(
+                    self.suggest_guided_exercise.isChecked()
+                ),
+                eye_reminders_enabled=(
+                    self.eye_reminders_enabled.isChecked()
+                ),
+                eye_interval_minutes=self.eye_interval_minutes.value(),
+                eye_duration_seconds=self.eye_duration_seconds.value(),
+                suggest_blinking=self.suggest_blinking.isChecked(),
+                suggest_closed_eye_rest=(
+                    self.suggest_closed_eye_rest.isChecked()
+                ),
+            )
+        except ValidationError:
+            self.feedback_label.setText(
+                tr(
+                    "Choose movement or eye reminders, and keep at least one "
+                    "movement suggestion enabled."
                 )
             )
             self.feedback_label.show()
@@ -260,6 +510,7 @@ class SettingsDialog(QDialog):
         HistoryPreferences,
         InterfaceLanguage,
         bool | None,
+        BreakPreferences,
     ]:
         return (
             self._policy,
@@ -271,4 +522,5 @@ class SettingsDialog(QDialog):
                 if self._startup_setting_available
                 else None
             ),
+            self._break_preferences,
         )
