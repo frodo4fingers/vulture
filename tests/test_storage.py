@@ -20,3 +20,21 @@ def test_settings_round_trip(tmp_path) -> None:
     store.save(data)
     loaded = store.load()
     assert loaded == data
+
+
+def test_legacy_sedentary_break_settings_keep_prior_behavior() -> None:
+    data = AppData.model_validate(
+        {
+            "schema_version": 1,
+            "alert_policy": {
+                "sedentary_break_minutes": 75,
+            },
+        }
+    )
+
+    assert data.break_preferences.movement_interval_minutes == 75
+    assert not data.break_preferences.eye_reminders_enabled
+    assert not data.break_preferences.suggest_position_change
+    assert not data.break_preferences.suggest_standing
+    assert not data.break_preferences.suggest_walking
+    assert data.break_preferences.suggest_guided_exercise

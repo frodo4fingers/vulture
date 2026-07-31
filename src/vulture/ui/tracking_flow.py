@@ -1,12 +1,19 @@
 from __future__ import annotations
 
 import time
-from datetime import date, datetime, timezone
+from datetime import date, datetime
 
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import QSystemTrayIcon
 
+from vulture.breaks import (
+    MovementBreakActivity,
+    eye_break_message,
+    movement_break_message,
+    next_eye_break_activity,
+    next_movement_break_activity,
+)
 from vulture.history import DailyPostureSummary, HistoryStorageError
 from vulture.i18n import tr
 from vulture.models import (
@@ -135,7 +142,7 @@ class TrackingFlowMixin:
         ):
             self._record_valid_tracking()
         else:
-            self._last_valid_tracking_at = None
+            self._mark_tracking_interrupted()
         self._apply_assessment(assessment)
 
     def _on_tracking_lost(self, captured_at: datetime) -> None:
@@ -154,7 +161,7 @@ class TrackingFlowMixin:
         ):
             return
         self._suspend_history()
-        self._last_valid_tracking_at = None
+        self._mark_tracking_interrupted()
         self._set_state(
             TrackerState.LOW_CONFIDENCE,
             tr(
@@ -168,7 +175,7 @@ class TrackingFlowMixin:
         if self.sender() is not self.camera_thread:
             return
         self._suspend_history()
-        self._last_valid_tracking_at = None
+        self._mark_tracking_interrupted()
         self._set_state(TrackerState.CAMERA_UNAVAILABLE, message)
         if self._calibration_panel is not None:
             self._calibration_panel.reject()
@@ -210,7 +217,7 @@ class TrackingFlowMixin:
         if should_offer_exercise:
             QTimer.singleShot(0, self._offer_exercise)
 
-    def _check_sedentary_break(self) -> None:
+    def _check_break_reminders(self) -> None:
         if (
             self._language_reload_preparing
             or not self._tracking_enabled
@@ -218,14 +225,93 @@ class TrackingFlowMixin:
             or self._exercise_dialog_open
         ):
             return
-        if (
-            self._tracked_seconds_since_break
-            < self.data.alert_policy.sedentary_break_minutes * 60
-        ):
+        preferences = self.data.break_preferences
+        if not preferences.enabled:
             return
-        self.data.last_exercise_offer_at = datetime.now(timezone.utc)
-        self._save_data()
-        self._offer_exercise()
+        movement_due = (
+            preferences.movement_reminders_enabled
+            and self._tracked_seconds_since_break
+            >= preferences.movement_interval_minutes * 60
+        )
+        eye_due = (
+            preferences.eye_reminders_enabled
+            and self._tracked_seconds_since_eye_break
+            >= preferences.eye_interval_minutes * 60
+        )
+        if movement_due:
+            self._show_movement_break_reminder(
+                include_eye_break=eye_due
+            )
+        elif eye_due:
+            self._show_eye_break_reminder()
+
+    def _check_sedentary_break(self) -> None:
+        self._check_break_reminders()
+
+    def _show_movement_break_reminder(
+        self,
+        *,
+        include_eye_break: bool,
+    ) -> None:
+        preferences = self.data.break_preferences
+        selected_eye_message: str | None = None
+        if include_eye_break:
+            eye_activity = next_eye_break_activity(
+                preferences,
+                self._eye_suggestion_index,
+            )
+            self._eye_suggestion_index += 1
+            selected_eye_message = eye_break_message(
+                eye_activity,
+                preferences.eye_duration_seconds,
+            )
+        activity = next_movement_break_activity(
+            preferences,
+            self._movement_suggestion_index,
+        )
+        self._movement_suggestion_index += 1
+        if activity is MovementBreakActivity.GUIDED_EXERCISE:
+            if selected_eye_message is not None:
+                self._show_tray_message(
+                    tr("Eye comfort break"),
+                    selected_eye_message,
+                    QSystemTrayIcon.MessageIcon.Information,
+                    8_000,
+                )
+                self._reset_eye_break_tracking()
+            self._offer_exercise()
+            return
+        self._show_tray_message(
+            tr("Time for a movement break"),
+            movement_break_message(
+                activity,
+                preferences.movement_duration_minutes,
+                eye_message=selected_eye_message,
+            ),
+            QSystemTrayIcon.MessageIcon.Information,
+            10_000,
+        )
+        self._reset_movement_break_tracking()
+        if selected_eye_message is not None:
+            self._reset_eye_break_tracking()
+
+    def _show_eye_break_reminder(self) -> None:
+        preferences = self.data.break_preferences
+        activity = next_eye_break_activity(
+            preferences,
+            self._eye_suggestion_index,
+        )
+        self._eye_suggestion_index += 1
+        self._show_tray_message(
+            tr("Eye comfort break"),
+            eye_break_message(
+                activity,
+                preferences.eye_duration_seconds,
+            ),
+            QSystemTrayIcon.MessageIcon.Information,
+            8_000,
+        )
+        self._reset_eye_break_tracking()
 
     def _offer_exercise(self) -> None:
         if self._language_reload_preparing or self._exercise_dialog_open:
@@ -366,15 +452,42 @@ class TrackingFlowMixin:
 
     def _record_valid_tracking(self) -> None:
         now = time.monotonic()
-        if self._last_valid_tracking_at is not None:
+        away_reset_seconds = (
+            self.data.break_preferences.away_reset_minutes * 60
+        )
+        if self._tracking_gap_started_at is not None:
+            gap = now - self._tracking_gap_started_at
+            if gap >= away_reset_seconds:
+                self._reset_break_counters()
+            self._tracking_gap_started_at = None
+        elif self._last_valid_tracking_at is not None:
             elapsed = now - self._last_valid_tracking_at
             if elapsed <= 2.0:
                 self._tracked_seconds_since_break += elapsed
+                self._tracked_seconds_since_eye_break += elapsed
+            elif elapsed >= away_reset_seconds:
+                self._reset_break_counters()
         self._last_valid_tracking_at = now
 
-    def _reset_break_tracking(self) -> None:
-        self._tracked_seconds_since_break = 0.0
+    def _mark_tracking_interrupted(self) -> None:
+        if self._tracking_gap_started_at is None:
+            self._tracking_gap_started_at = time.monotonic()
         self._last_valid_tracking_at = None
+
+    def _reset_break_counters(self) -> None:
+        self._tracked_seconds_since_break = 0.0
+        self._tracked_seconds_since_eye_break = 0.0
+
+    def _reset_movement_break_tracking(self) -> None:
+        self._tracked_seconds_since_break = 0.0
+
+    def _reset_eye_break_tracking(self) -> None:
+        self._tracked_seconds_since_eye_break = 0.0
+
+    def _reset_break_tracking(self) -> None:
+        self._reset_break_counters()
+        self._last_valid_tracking_at = None
+        self._tracking_gap_started_at = None
 
     def _record_history_assessment(
         self,

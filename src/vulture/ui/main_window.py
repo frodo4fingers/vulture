@@ -39,6 +39,9 @@ from .tracking_flow import TrackingFlowMixin
 class MainWindowRuntimeState(StrictModel):
     tracking_enabled: bool = True
     tracked_seconds_since_break: float = Field(default=0.0, ge=0)
+    tracked_seconds_since_eye_break: float = Field(default=0.0, ge=0)
+    movement_suggestion_index: int = Field(default=0, ge=0)
+    eye_suggestion_index: int = Field(default=0, ge=0)
     evaluator_state: PostureEvaluatorState | None = None
     history_disabled_for_session: bool = False
 
@@ -95,7 +98,11 @@ class MainWindow(
         self._close_notice_shown = False
         self._exercise_dialog_open = False
         self._tracked_seconds_since_break = 0.0
+        self._tracked_seconds_since_eye_break = 0.0
+        self._movement_suggestion_index = 0
+        self._eye_suggestion_index = 0
         self._last_valid_tracking_at: float | None = None
+        self._tracking_gap_started_at: float | None = None
         self._state = TrackerState.STOPPED
         self._history_error: str | None = None
         self._history_disabled_for_session = bool(
@@ -139,7 +146,7 @@ class MainWindow(
 
         self.break_timer = QTimer(self)
         self.break_timer.setInterval(60_000)
-        self.break_timer.timeout.connect(self._check_sedentary_break)
+        self.break_timer.timeout.connect(self._check_break_reminders)
         self.break_timer.start()
         self._exercise_postpone_timer = QTimer(self)
         self._exercise_postpone_timer.setSingleShot(True)
@@ -168,6 +175,11 @@ class MainWindow(
         return MainWindowRuntimeState(
             tracking_enabled=self._tracking_enabled,
             tracked_seconds_since_break=self._tracked_seconds_since_break,
+            tracked_seconds_since_eye_break=(
+                self._tracked_seconds_since_eye_break
+            ),
+            movement_suggestion_index=self._movement_suggestion_index,
+            eye_suggestion_index=self._eye_suggestion_index,
             evaluator_state=(
                 self.evaluator.snapshot()
                 if self.evaluator is not None
@@ -186,7 +198,15 @@ class MainWindow(
         self._tracked_seconds_since_break = (
             state.tracked_seconds_since_break
         )
+        self._tracked_seconds_since_eye_break = (
+            state.tracked_seconds_since_eye_break
+        )
+        self._movement_suggestion_index = (
+            state.movement_suggestion_index
+        )
+        self._eye_suggestion_index = state.eye_suggestion_index
         self._last_valid_tracking_at = None
+        self._tracking_gap_started_at = None
         if self.evaluator is not None and state.evaluator_state is not None:
             self.evaluator.restore(state.evaluator_state)
         self._set_tracking_controls()

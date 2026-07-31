@@ -4,7 +4,13 @@ from datetime import datetime, timezone
 from enum import StrEnum
 from uuid import uuid4
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_validator,
+)
 
 
 def utc_now() -> datetime:
@@ -133,6 +139,45 @@ class AlertPolicy(StrictModel):
         return value
 
 
+class BreakPreferences(StrictModel):
+    enabled: bool = True
+    movement_reminders_enabled: bool = True
+    movement_interval_minutes: int = Field(default=30, ge=20, le=180)
+    movement_duration_minutes: int = Field(default=2, ge=1, le=10)
+    away_reset_minutes: int = Field(default=2, ge=1, le=30)
+    suggest_position_change: bool = True
+    suggest_standing: bool = True
+    suggest_walking: bool = True
+    suggest_guided_exercise: bool = True
+    eye_reminders_enabled: bool = True
+    eye_interval_minutes: int = Field(default=20, ge=10, le=60)
+    eye_duration_seconds: int = Field(default=20, ge=10, le=120)
+    suggest_blinking: bool = True
+    suggest_closed_eye_rest: bool = True
+
+    @model_validator(mode="after")
+    def enabled_reminders_need_a_channel(self) -> BreakPreferences:
+        if self.enabled and not (
+            self.movement_reminders_enabled
+            or self.eye_reminders_enabled
+        ):
+            raise ValueError("at least one break reminder channel is required")
+        if (
+            self.enabled
+            and self.movement_reminders_enabled
+            and not any(
+                (
+                    self.suggest_position_change,
+                    self.suggest_standing,
+                    self.suggest_walking,
+                    self.suggest_guided_exercise,
+                )
+            )
+        ):
+            raise ValueError("at least one movement suggestion is required")
+        return self
+
+
 class ExercisePreferences(StrictModel):
     seated_only: bool = False
     allow_balance_exercises: bool = False
@@ -157,11 +202,38 @@ class AppData(StrictModel):
     active_setup_id: str | None = None
     setups: list[SetupProfile] = Field(default_factory=list)
     alert_policy: AlertPolicy = Field(default_factory=AlertPolicy)
+    break_preferences: BreakPreferences = Field(
+        default_factory=BreakPreferences
+    )
     exercise_preferences: ExercisePreferences = Field(default_factory=ExercisePreferences)
     history_preferences: HistoryPreferences = Field(default_factory=HistoryPreferences)
     reminder_history: list[ReminderEvent] = Field(default_factory=list)
     recent_exercise_ids: list[str] = Field(default_factory=list)
     last_exercise_offer_at: datetime | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def migrate_legacy_break_preferences(cls, value):
+        if not isinstance(value, dict) or "break_preferences" in value:
+            return value
+        policy = value.get("alert_policy")
+        if not isinstance(policy, dict):
+            return value
+        legacy_interval = policy.get("sedentary_break_minutes")
+        if legacy_interval is None:
+            return value
+        migrated = dict(value)
+        # Older versions represented every independent break as a guided
+        # exercise, so preserve that cadence until the user opts into more.
+        migrated["break_preferences"] = {
+            "movement_interval_minutes": legacy_interval,
+            "suggest_position_change": False,
+            "suggest_standing": False,
+            "suggest_walking": False,
+            "suggest_guided_exercise": True,
+            "eye_reminders_enabled": False,
+        }
+        return migrated
 
     def active_setup(self) -> SetupProfile | None:
         return next((item for item in self.setups if item.id == self.active_setup_id), None)
