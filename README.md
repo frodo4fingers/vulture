@@ -377,16 +377,12 @@ selected.
 
 ## Exercise guidance
 
-The eight bundled clips are language-neutral generated demonstrations created
-for Vulture. They contain no narration, text, logos, or footage of a real
-person. Most use the shared mannequin style; a minimal geometric fallback
-remains where a reviewed mannequin replacement is not yet available. The
-movement instructions and doses—not the artwork—are linked to the authoritative
-sources in [docs/EVIDENCE.md](docs/EVIDENCE.md).
-
-The five imported Vulture Lite movements are fully localized, sourced
-text-first guides without placeholder video. The same safety, accessibility,
-postpone, skip, and source-link behavior applies.
+The thirteen bundled clips are language-neutral generated demonstrations
+created for Vulture. They contain no narration, text, logos, or footage of a
+real person. Twelve use the shared mannequin style; a minimal geometric
+fallback remains for `ankle-point-flex` until a reviewed mannequin replacement
+is available. The movement instructions and doses—not the artwork—are linked
+to the authoritative sources in [docs/EVIDENCE.md](docs/EVIDENCE.md).
 
 Copy-ready generation prompts and review requirements are in
 `src/vulture/resources/exercises/video-prompts.json`. Prepend its shared
@@ -490,15 +486,15 @@ stay language-neutral and must never depict a real person.
   purple, blue, gray) or ships as per-state variants, and exports to the
   platform bundle formats (`.png`, Windows `.ico`, macOS `.icns`). A clean
   monochrome silhouette that Qt can tint per state is ideal.
-- **A review pass over the instructional videos.** The eight bundled clips are
-  generated, language-neutral demonstrations. Watch each one against its
+- **A review pass over the instructional videos.** The thirteen bundled clips
+  are generated, language-neutral demonstrations. Watch each one against its
   generation prompt and against the technique and dose recorded in
   [docs/EVIDENCE.md](docs/EVIDENCE.md), then flag any clip that drifts from the
   specified technique, breaks the shared continuity lock, or shows
   anatomically incorrect movement. The copy-ready prompts, the shared
   `continuity_lock`, and the review requirement are all in
   `src/vulture/resources/exercises/video-prompts.json`.
-- **One missing instructional video.** Seven clips are full mannequin
+- **One replacement instructional video.** Twelve clips are full mannequin
   demonstrations (~2.6 MB each); `ankle-point-flex.mp4` is still a minimal
   geometric placeholder (~28 KB). It needs a proper replacement generated from
   the `ankle-point-flex` prompt in `video-prompts.json` (prepend the shared

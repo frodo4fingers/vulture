@@ -317,7 +317,9 @@
       "safety": "Mantenga el movimiento pequeño y lento. Deténgase si aparece dolor, mareo, hormigueo, entumecimiento u otro síntoma inusual.",
       "contraindication_flags": ["lesión aguda de cuello", "mareo de nueva aparición", "hormigueo o entumecimiento de nueva aparición"],
       "source_ids": ["ccohs-stretching", "yaghoubitajani-2026"],
-      "evidence_note": "La técnica sigue la orientación de CCOHS para el puesto de trabajo. La revisión respalda de forma general programas repetidos de microejercicios, no este movimiento aislado como tratamiento."
+      "evidence_note": "La técnica sigue la orientación de CCOHS para el puesto de trabajo. La revisión respalda de forma general programas repetidos de microejercicios, no este movimiento aislado como tratamiento.",
+      "media_path": "videos/head-glide.mp4",
+      "media_duration_seconds": 10
     },
     {
       "id": "shoulder-blade-squeeze",
@@ -334,7 +336,9 @@
       "safety": "Use únicamente un rango cómodo. Deténgase si aparece dolor en el cuello o los hombros.",
       "contraindication_flags": ["lesión aguda de cuello u hombro", "operación reciente de la parte superior del cuerpo"],
       "source_ids": ["ccohs-stretching", "yaghoubitajani-2026"],
-      "evidence_note": "La técnica y la dosis conservadora siguen la orientación de CCOHS para el puesto de trabajo. La revisión no valida una dosis aislada de recordatorio."
+      "evidence_note": "La técnica y la dosis conservadora siguen la orientación de CCOHS para el puesto de trabajo. La revisión no valida una dosis aislada de recordatorio.",
+      "media_path": "videos/shoulder-blade-squeeze.mp4",
+      "media_duration_seconds": 10
     },
     {
       "id": "shoulder-roll",
@@ -351,7 +355,9 @@
       "safety": "Mantenga los círculos cómodos y sin forzar. Deténgase si el movimiento causa dolor.",
       "contraindication_flags": ["lesión aguda de cuello u hombro"],
       "source_ids": ["ccohs-stretching", "yaghoubitajani-2026"],
-      "evidence_note": "La técnica sigue la orientación de CCOHS para el puesto de trabajo. La evidencia sobre programas laborales repetidos no demuestra que un único recordatorio de círculos con los hombros trate el dolor."
+      "evidence_note": "La técnica sigue la orientación de CCOHS para el puesto de trabajo. La evidencia sobre programas laborales repetidos no demuestra que un único recordatorio de círculos con los hombros trate el dolor.",
+      "media_path": "videos/shoulder-roll.mp4",
+      "media_duration_seconds": 10
     },
     {
       "id": "finger-opening",
@@ -369,7 +375,9 @@
       "safety": "No fuerce los dedos con la otra mano. Deténgase si aparece dolor, hormigueo o entumecimiento.",
       "contraindication_flags": ["lesión aguda de mano o dedos", "hormigueo o entumecimiento de nueva aparición"],
       "source_ids": ["ccohs-stretching"],
-      "evidence_note": "La secuencia y la dosis conservadora siguen la orientación de CCOHS para el puesto de trabajo."
+      "evidence_note": "La secuencia y la dosis conservadora siguen la orientación de CCOHS para el puesto de trabajo.",
+      "media_path": "videos/finger-opening.mp4",
+      "media_duration_seconds": 10
     },
     {
       "id": "simple-resistance-circuit",
@@ -388,7 +396,9 @@
       "safety": "Use un apoyo estable y un rango cómodo. Elija un movimiento sentado si ponerse de pie no es seguro o se siente inestable.",
       "contraindication_flags": ["alteración importante del equilibrio", "lesión aguda de la extremidad inferior", "apoyo inestable", "restricción médica para ejercicios de resistencia"],
       "source_ids": ["homer-2021"],
-      "evidence_note": "El ensayo utilizó circuitos de seis minutos cada hora en personas adultas con diabetes tipo 2 controlada con medicación. Vulture ofrece una muestra más breve para variar la actividad y no afirma reproducir el efecto metabólico del ensayo."
+      "evidence_note": "El ensayo utilizó circuitos de seis minutos cada hora en personas adultas con diabetes tipo 2 controlada con medicación. Vulture ofrece una muestra más breve para variar la actividad y no afirma reproducir el efecto metabólico del ensayo.",
+      "media_path": "videos/simple-resistance-circuit.mp4",
+      "media_duration_seconds": 10
     }
   ]
 }

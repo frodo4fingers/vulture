@@ -317,7 +317,9 @@
       "safety": "Halten Sie die Bewegung klein und langsam. Beenden Sie sie bei Schmerzen, Schwindel, Kribbeln, Taubheitsgefühl oder anderen ungewöhnlichen Beschwerden.",
       "contraindication_flags": ["akute Nackenverletzung", "neu aufgetretener Schwindel", "neu aufgetretenes Kribbeln oder Taubheitsgefühl"],
       "source_ids": ["ccohs-stretching", "yaghoubitajani-2026"],
-      "evidence_note": "Die Technik folgt den CCOHS-Hinweisen für den Arbeitsplatz. Die Übersichtsarbeit stützt wiederholte Mikroübungsprogramme allgemein, nicht diese einzelne Bewegung als Behandlung."
+      "evidence_note": "Die Technik folgt den CCOHS-Hinweisen für den Arbeitsplatz. Die Übersichtsarbeit stützt wiederholte Mikroübungsprogramme allgemein, nicht diese einzelne Bewegung als Behandlung.",
+      "media_path": "videos/head-glide.mp4",
+      "media_duration_seconds": 10
     },
     {
       "id": "shoulder-blade-squeeze",
@@ -334,7 +336,9 @@
       "safety": "Bleiben Sie in einem angenehmen Bewegungsumfang. Beenden Sie die Übung, wenn Nacken oder Schultern schmerzen.",
       "contraindication_flags": ["akute Nacken- oder Schulterverletzung", "kürzlich erfolgte Operation am Oberkörper"],
       "source_ids": ["ccohs-stretching", "yaghoubitajani-2026"],
-      "evidence_note": "Technik und konservative Dosierung folgen den CCOHS-Hinweisen für den Arbeitsplatz. Die Übersichtsarbeit belegt keine einzelne Erinnerungsdosis."
+      "evidence_note": "Technik und konservative Dosierung folgen den CCOHS-Hinweisen für den Arbeitsplatz. Die Übersichtsarbeit belegt keine einzelne Erinnerungsdosis.",
+      "media_path": "videos/shoulder-blade-squeeze.mp4",
+      "media_duration_seconds": 10
     },
     {
       "id": "shoulder-roll",
@@ -351,7 +355,9 @@
       "safety": "Halten Sie die Kreise angenehm und ungezwungen. Beenden Sie die Übung, wenn die Bewegung Schmerzen verursacht.",
       "contraindication_flags": ["akute Nacken- oder Schulterverletzung"],
       "source_ids": ["ccohs-stretching", "yaghoubitajani-2026"],
-      "evidence_note": "Die Technik folgt den CCOHS-Hinweisen für den Arbeitsplatz. Evidenz zu wiederholten Arbeitsplatzprogrammen beweist nicht, dass eine einzelne Erinnerung an Schulterkreise Schmerzen behandelt."
+      "evidence_note": "Die Technik folgt den CCOHS-Hinweisen für den Arbeitsplatz. Evidenz zu wiederholten Arbeitsplatzprogrammen beweist nicht, dass eine einzelne Erinnerung an Schulterkreise Schmerzen behandelt.",
+      "media_path": "videos/shoulder-roll.mp4",
+      "media_duration_seconds": 10
     },
     {
       "id": "finger-opening",
@@ -369,7 +375,9 @@
       "safety": "Erzwingen Sie die Fingerbewegung nicht mit der anderen Hand. Beenden Sie die Übung bei Schmerzen, Kribbeln oder Taubheitsgefühl.",
       "contraindication_flags": ["akute Hand- oder Fingerverletzung", "neu aufgetretenes Kribbeln oder Taubheitsgefühl"],
       "source_ids": ["ccohs-stretching"],
-      "evidence_note": "Die Abfolge und konservative Dosierung folgen den CCOHS-Hinweisen für den Arbeitsplatz."
+      "evidence_note": "Die Abfolge und konservative Dosierung folgen den CCOHS-Hinweisen für den Arbeitsplatz.",
+      "media_path": "videos/finger-opening.mp4",
+      "media_duration_seconds": 10
     },
     {
       "id": "simple-resistance-circuit",
@@ -388,7 +396,9 @@
       "safety": "Verwenden Sie eine stabile Stütze und bleiben Sie in einem angenehmen Bewegungsumfang. Wählen Sie eine Bewegung im Sitzen, wenn das Stehen unsicher ist.",
       "contraindication_flags": ["erhebliche Beeinträchtigung des Gleichgewichts", "akute Verletzung der unteren Gliedmaßen", "instabile Stütze", "medizinische Einschränkung für Widerstandsübungen"],
       "source_ids": ["homer-2021"],
-      "evidence_note": "Die Studie verwendete längere sechsminütige Zirkel pro Stunde bei Erwachsenen mit medikamentös behandeltem Typ-2-Diabetes. Vulture bietet eine kürzere Auswahl zur Aktivitätsvariation und beansprucht nicht den Stoffwechseleffekt der Studie."
+      "evidence_note": "Die Studie verwendete längere sechsminütige Zirkel pro Stunde bei Erwachsenen mit medikamentös behandeltem Typ-2-Diabetes. Vulture bietet eine kürzere Auswahl zur Aktivitätsvariation und beansprucht nicht den Stoffwechseleffekt der Studie.",
+      "media_path": "videos/simple-resistance-circuit.mp4",
+      "media_duration_seconds": 10
     }
   ]
 }

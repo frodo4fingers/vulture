@@ -317,7 +317,9 @@
       "safety": "Keep the movement small and slow. Stop for pain, dizziness, tingling, numbness, or other unusual symptoms.",
       "contraindication_flags": ["acute neck injury", "new dizziness", "new tingling or numbness"],
       "source_ids": ["ccohs-stretching", "yaghoubitajani-2026"],
-      "evidence_note": "The technique follows CCOHS workstation guidance. The review supports repeated workplace micro-exercise programs broadly, not this isolated movement as treatment."
+      "evidence_note": "The technique follows CCOHS workstation guidance. The review supports repeated workplace micro-exercise programs broadly, not this isolated movement as treatment.",
+      "media_path": "videos/head-glide.mp4",
+      "media_duration_seconds": 10
     },
     {
       "id": "shoulder-blade-squeeze",
@@ -334,7 +336,9 @@
       "safety": "Use only a comfortable range. Stop if the neck or shoulders become painful.",
       "contraindication_flags": ["acute neck or shoulder injury", "recent upper-body surgery"],
       "source_ids": ["ccohs-stretching", "yaghoubitajani-2026"],
-      "evidence_note": "The technique and conservative dose follow CCOHS workstation guidance. The review does not validate one isolated reminder dose."
+      "evidence_note": "The technique and conservative dose follow CCOHS workstation guidance. The review does not validate one isolated reminder dose.",
+      "media_path": "videos/shoulder-blade-squeeze.mp4",
+      "media_duration_seconds": 10
     },
     {
       "id": "shoulder-roll",
@@ -351,7 +355,9 @@
       "safety": "Keep the circles comfortable and unforced. Stop if the movement causes pain.",
       "contraindication_flags": ["acute neck or shoulder injury"],
       "source_ids": ["ccohs-stretching", "yaghoubitajani-2026"],
-      "evidence_note": "The technique follows CCOHS workstation guidance. Evidence for repeated workplace programs should not be read as proof that one shoulder-roll prompt treats pain."
+      "evidence_note": "The technique follows CCOHS workstation guidance. Evidence for repeated workplace programs should not be read as proof that one shoulder-roll prompt treats pain.",
+      "media_path": "videos/shoulder-roll.mp4",
+      "media_duration_seconds": 10
     },
     {
       "id": "finger-opening",
@@ -369,7 +375,9 @@
       "safety": "Do not force the fingers with the other hand. Stop for pain, tingling, or numbness.",
       "contraindication_flags": ["acute hand or finger injury", "new tingling or numbness"],
       "source_ids": ["ccohs-stretching"],
-      "evidence_note": "The sequence and conservative dose follow CCOHS workstation guidance."
+      "evidence_note": "The sequence and conservative dose follow CCOHS workstation guidance.",
+      "media_path": "videos/finger-opening.mp4",
+      "media_duration_seconds": 10
     },
     {
       "id": "simple-resistance-circuit",
@@ -388,7 +396,9 @@
       "safety": "Use stable support and a comfortable range. Choose a seated movement if standing is unsafe or unsteady.",
       "contraindication_flags": ["significant balance impairment", "acute lower-limb injury", "unstable support", "medical restriction on resistance exercise"],
       "source_ids": ["homer-2021"],
-      "evidence_note": "The trial used longer six-minute hourly circuits in adults with medication-controlled type 2 diabetes. Vulture offers a shorter sampler for activity variation and does not claim the trial's metabolic effect."
+      "evidence_note": "The trial used longer six-minute hourly circuits in adults with medication-controlled type 2 diabetes. Vulture offers a shorter sampler for activity variation and does not claim the trial's metabolic effect.",
+      "media_path": "videos/simple-resistance-circuit.mp4",
+      "media_duration_seconds": 10
     }
   ]
 }
