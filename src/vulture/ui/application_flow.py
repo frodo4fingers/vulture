@@ -93,7 +93,7 @@ class ApplicationFlowMixin:
             )
             return
         if self._summary_dialog is not None:
-            self._focus_side_panel(self._summary_dialog)
+            self._secondary_window_presenter.focus(self._summary_dialog)
             return
 
         setup_names = {setup.id: setup.name for setup in self.data.setups}
@@ -103,16 +103,14 @@ class ApplicationFlowMixin:
             self._delete_all_history,
             setup_names,
             self.data.history_preferences.enabled,
+            self,
         )
-        dialog.finished.connect(self._summary_dialog_finished)
         self._summary_dialog = dialog
-        self._show_side_panel(dialog)
+        self._secondary_window_presenter.present("summary", dialog)
+        dialog.finished.connect(self._summary_dialog_finished)
 
     def _summary_dialog_finished(self, _result: int) -> None:
-        dialog = self._summary_dialog
         self._summary_dialog = None
-        if dialog is not None:
-            self._hide_side_panel(dialog)
 
     def _delete_history_day(self, selected_date: date) -> None:
         if self._language_reload_preparing:
@@ -177,7 +175,7 @@ class ApplicationFlowMixin:
         if self._language_reload_preparing:
             return
         if self._settings_dialog is not None:
-            self._focus_side_panel(self._settings_dialog)
+            self._secondary_window_presenter.focus(self._settings_dialog)
             return
         startup_enabled = False
         startup_setting_available = self.autostart_manager.is_supported
@@ -202,14 +200,15 @@ class ApplicationFlowMixin:
             start_at_login_enabled=startup_enabled,
             startup_setting_available=startup_setting_available,
             startup_setting_error=startup_setting_error,
+            parent=self,
         )
+        self._settings_dialog = dialog
+        self._secondary_window_presenter.present("settings", dialog)
         dialog.finished.connect(
             lambda result, active_dialog=dialog: (
                 self._finish_settings_dialog(active_dialog, result)
             )
         )
-        self._settings_dialog = dialog
-        self._show_side_panel(dialog)
 
     def _finish_settings_dialog(
         self,
@@ -220,7 +219,6 @@ class ApplicationFlowMixin:
             return
         self._settings_dialog = None
         if result != QDialog.DialogCode.Accepted:
-            self._hide_side_panel(dialog)
             return
         previous_values = (
             self.data.alert_policy,
@@ -244,7 +242,6 @@ class ApplicationFlowMixin:
         exercise_preferences_changed = (
             new_exercise_preferences != previous_values[1]
         )
-        self._hide_side_panel(dialog)
         startup_snapshot: AutostartSnapshot | None = None
         startup_enabled = False
         if requested_startup_enabled is not None:
@@ -361,18 +358,18 @@ class ApplicationFlowMixin:
         if self._language_reload_preparing:
             return
         if self._evidence_dialog is not None:
-            self._focus_side_panel(self._evidence_dialog)
+            self._secondary_window_presenter.focus(self._evidence_dialog)
             return
-        dialog = EvidenceDialog(self.catalog)
-        dialog.finished.connect(self._evidence_dialog_finished)
+        dialog = EvidenceDialog(self.catalog, self)
         self._evidence_dialog = dialog
-        self._show_side_panel(dialog)
+        self._secondary_window_presenter.present("evidence", dialog)
+        dialog.finished.connect(self._evidence_dialog_finished)
 
     def _evidence_dialog_finished(self, _result: int) -> None:
-        dialog = self._evidence_dialog
         self._evidence_dialog = None
-        if dialog is not None:
-            self._hide_side_panel(dialog)
+
+    def _close_secondary_windows(self) -> None:
+        self._secondary_window_presenter.close_all()
 
     def _show_notice(
         self,
@@ -385,7 +382,7 @@ class ApplicationFlowMixin:
             return
         if self._notice_dialog is not None:
             self._notice_dialog.reject()
-        if self._side_panel is not None:
+        if self._side_panel is not None or self._calibration_flow_active:
             self._pending_notice = (title, message, critical)
             return
         dialog = NoticeDialog(
@@ -482,6 +479,7 @@ class ApplicationFlowMixin:
         self.show()
         self.raise_()
         self.activateWindow()
+        self._secondary_window_presenter.restore_for_owner()
 
     def closeEvent(self, event: QCloseEvent) -> None:
         if (
@@ -490,6 +488,7 @@ class ApplicationFlowMixin:
         ):
             self._cancel_active_calibration()
             event.ignore()
+            self._secondary_window_presenter.hide_for_owner()
             self.hide()
             if not self._close_notice_shown:
                 self._show_tray_message(
@@ -513,6 +512,7 @@ class ApplicationFlowMixin:
                 critical=True,
             )
             return
+        self._close_secondary_windows()
         self._dismiss_side_panel()
         self._clear_pending_exercise()
         if not self._close_history():
@@ -537,6 +537,7 @@ class ApplicationFlowMixin:
                 critical=True,
             )
             return
+        self._close_secondary_windows()
         self._dismiss_side_panel()
         self._clear_pending_exercise()
         if not self._close_history():

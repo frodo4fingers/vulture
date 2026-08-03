@@ -31,6 +31,7 @@ from .calibration import CalibrationDialog, SetupDialog
 from .calibration_flow import CalibrationFlowMixin
 from .exercises import EvidenceDialog, ExerciseDialog
 from .notices import NoticeDialog
+from .presentation import SecondaryWindowPresenter
 from .settings import SettingsDialog
 from .shell import ShellMixin
 from .summary_dialog import WorkdaySummaryDialog
@@ -82,10 +83,11 @@ class MainWindow(
         self.escalator = ReminderEscalator()
         self.camera_thread: CameraThread | None = None
         self.evaluator: PostureEvaluator | None = None
+        self._secondary_window_presenter = SecondaryWindowPresenter(self)
         self._side_panel: QDialog | None = None
         self._size_before_side_panel: QSize | None = None
         self._calibration_dialog: CalibrationDialog | None = None
-        self._calibration_panel: QDialog | None = None
+        self._calibration_window: QDialog | None = None
         self._calibration_flow_active = False
         self._setup_dialog: SetupDialog | None = None
         self._settings_dialog: SettingsDialog | None = None
@@ -292,6 +294,7 @@ class MainWindow(
         runtime_state = self._runtime_state()
         self.break_timer.stop()
         self._cancel_active_calibration()
+        self._close_secondary_windows()
         self._dismiss_side_panel()
         if not self._stop_camera(10_000):
             self._language_reload_preparing = False

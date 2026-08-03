@@ -182,8 +182,8 @@ class TrackingFlowMixin:
         self._suspend_history()
         self._mark_tracking_interrupted()
         self._set_state(TrackerState.CAMERA_UNAVAILABLE, message)
-        if self._calibration_panel is not None:
-            self._calibration_panel.reject()
+        if self._calibration_window is not None:
+            self._calibration_window.reject()
         elif self.isVisible():
             self._show_notice(tr("Camera unavailable"), message, critical=True)
 
@@ -403,7 +403,7 @@ class TrackingFlowMixin:
         self._reset_requested_break_tracking(reset_channels)
 
     def _present_exercise(self) -> None:
-        if self._language_reload_preparing:
+        if self._language_reload_preparing or self._calibration_flow_active:
             return
         if self._exercise_dialog is not None:
             self._focus_exercise_dialog(self._exercise_dialog)
@@ -439,6 +439,7 @@ class TrackingFlowMixin:
         if self._language_reload_preparing or self._quitting:
             return
         if state == "hidden":
+            self._secondary_window_presenter.hide_for_owner()
             self.hide()
         elif state == "minimized":
             self.showMinimized()

@@ -201,9 +201,10 @@ class EvidenceDialog(QDialog):
         catalog: ExerciseCatalog,
         parent: QWidget | None = None,
     ) -> None:
-        super().__init__(parent)
+        super().__init__(parent, Qt.WindowType.Window)
         self.setWindowTitle(tr("Evidence and safety"))
-        self.setMinimumSize(480, 520)
+        self.setMinimumSize(440, 420)
+        self.resize(640, 600)
         layout = QVBoxLayout(self)
         browser = QTextBrowser()
         browser.setOpenExternalLinks(True)

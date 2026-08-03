@@ -56,7 +56,7 @@ class WorkdaySummaryDialog(QDialog):
         recording_enabled: bool,
         parent: QWidget | None = None,
     ) -> None:
-        super().__init__(parent)
+        super().__init__(parent, Qt.WindowType.Window)
         self._applying_summary_palette = False
         self._summary_provider = summary_provider
         self._delete_day_callback = delete_day
@@ -64,8 +64,8 @@ class WorkdaySummaryDialog(QDialog):
         self._setup_names = setup_names
         self._pending_delete: tuple[str, date | None] | None = None
         self.setWindowTitle(tr("Workday posture summary"))
-        self.setMinimumSize(340, 600)
-        self.setProperty("preferredSidePanelWidth", 600)
+        self.setMinimumSize(480, 420)
+        self.resize(780, 640)
 
         layout = QVBoxLayout(self)
         layout.setSpacing(8)

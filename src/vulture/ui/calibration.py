@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QFormLayout,
+    QFrame,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -21,6 +22,7 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QProgressBar,
     QPushButton,
+    QScrollArea,
     QSizePolicy,
     QVBoxLayout,
     QWidget,
@@ -176,9 +178,10 @@ class CalibrationStageImage(QLabel):
 
 class SetupDialog(QDialog):
     def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
+        super().__init__(parent, Qt.WindowType.Dialog)
         self.setWindowTitle(tr("Add camera setup"))
-        self.setMinimumWidth(420)
+        self.setMinimumSize(420, 220)
+        self.resize(500, 260)
         self._cameras = discover_cameras()
 
         layout = QVBoxLayout(self)
@@ -255,11 +258,12 @@ class CalibrationStepSelectionDialog(QDialog):
         profile: CalibrationProfile,
         parent: QWidget | None = None,
     ) -> None:
-        super().__init__(parent)
+        super().__init__(parent, Qt.WindowType.Window)
         self.profile = profile
         self._baseline_confirmation_pending = False
         self.setWindowTitle(tr("Recalibrate step"))
-        self.setMinimumWidth(360)
+        self.setMinimumSize(480, 420)
+        self.resize(620, 600)
 
         layout = QVBoxLayout(self)
 
@@ -388,7 +392,7 @@ class CalibrationDialog(QDialog):
         steps: list[CalibrationStep] | None = None,
         base_profile: CalibrationProfile | None = None,
     ) -> None:
-        super().__init__(parent)
+        super().__init__(parent, Qt.WindowType.Window)
         self.steps = [
             step.model_copy(deep=True)
             for step in (steps or CALIBRATION_STEPS)
@@ -430,8 +434,20 @@ class CalibrationDialog(QDialog):
         else:
             window_title = tr("Calibrate this setup")
         self.setWindowTitle(window_title)
-        self.setMinimumSize(360, 620)
+        self.setMinimumSize(500, 480)
+        self.resize(680, 700)
         outer_layout = QVBoxLayout(self)
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        self.scroll_area.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        scroll_content = QWidget()
+        scroll_layout = QVBoxLayout(scroll_content)
+        scroll_layout.setContentsMargins(0, 0, 0, 0)
+        self.scroll_area.setWidget(scroll_content)
+        outer_layout.addWidget(self.scroll_area, 1)
 
         stage_group = QGroupBox(tr("Calibration stages"))
         stage_layout = QVBoxLayout(stage_group)
@@ -447,7 +463,7 @@ class CalibrationDialog(QDialog):
             QAbstractItemView.SelectionMode.NoSelection
         )
         stage_layout.addWidget(self.stage_list)
-        outer_layout.addWidget(stage_group)
+        scroll_layout.addWidget(stage_group)
 
         content = QWidget()
         layout = QVBoxLayout(content)
@@ -506,7 +522,7 @@ class CalibrationDialog(QDialog):
         controls.addStretch()
         controls.addWidget(self.cancel_button)
         layout.addLayout(controls)
-        outer_layout.addWidget(content, 1)
+        scroll_layout.addWidget(content, 1)
 
         self.timer = QTimer(self)
         self.timer.setInterval(100)

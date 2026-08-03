@@ -357,16 +357,20 @@ class ShellMixin:
         if self._language_reload_preparing:
             return
         if self._setup_dialog is not None:
-            self._focus_side_panel(self._setup_dialog)
+            self._secondary_window_presenter.focus(self._setup_dialog)
             return
-        dialog = SetupDialog()
+        dialog = SetupDialog(self)
+        self._setup_dialog = dialog
+        self._secondary_window_presenter.present(
+            "setup",
+            dialog,
+            modality=Qt.WindowModality.WindowModal,
+        )
         dialog.finished.connect(
             lambda result, active_dialog=dialog: (
                 self._finish_add_setup(active_dialog, result)
             )
         )
-        self._setup_dialog = dialog
-        self._show_side_panel(dialog)
 
     def _finish_add_setup(
         self,
@@ -377,10 +381,8 @@ class ShellMixin:
             return
         self._setup_dialog = None
         if result != QDialog.DialogCode.Accepted:
-            self._hide_side_panel(dialog)
             return
         setup = dialog.setup_profile()
-        self._hide_side_panel(dialog)
         if not self._stop_camera():
             self._show_camera_release_error()
             return
@@ -503,7 +505,7 @@ class ShellMixin:
 
     def _begin_calibration_flow(self) -> bool:
         if self._calibration_flow_active:
-            self._focus_calibration_panel()
+            self._focus_calibration_window()
             self._show_tray_message(
                 tr("Calibration already open"),
                 tr(
@@ -515,6 +517,8 @@ class ShellMixin:
             )
             return False
         self._calibration_flow_active = True
+        if self._side_panel is not None:
+            self._dismiss_side_panel()
         self._refresh_setup_combo()
         return True
 
@@ -605,9 +609,19 @@ class ShellMixin:
         self._show_window()
         panel.setFocus(Qt.FocusReason.OtherFocusReason)
 
-    def _show_calibration_panel(self, panel: QDialog) -> None:
-        self._calibration_panel = panel
-        self._show_side_panel(panel)
+    def _show_calibration_window(
+        self,
+        window: QDialog,
+        *,
+        key: str,
+    ) -> None:
+        self._calibration_window = window
+        self._show_window()
+        self._secondary_window_presenter.present(
+            key,
+            window,
+            modality=Qt.WindowModality.ApplicationModal,
+        )
 
     def _focus_side_panel(self, panel: QDialog | None = None) -> None:
         target = panel or self._side_panel
@@ -619,8 +633,12 @@ class ShellMixin:
             target.setFocus(Qt.FocusReason.OtherFocusReason)
         QApplication.alert(self)
 
-    def _focus_calibration_panel(self) -> None:
-        self._focus_side_panel(self._calibration_panel)
+    def _focus_calibration_window(self) -> None:
+        self._show_window()
+        if self._calibration_window is not None:
+            self._secondary_window_presenter.focus(
+                self._calibration_window
+            )
 
     def _hide_side_panel(
         self,
@@ -680,6 +698,7 @@ class ShellMixin:
         if (
             self._language_reload_preparing
             or self._quitting
+            or self._calibration_flow_active
             or self._side_panel is not None
         ):
             return
