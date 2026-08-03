@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "medical_disclaimer": "Diese Bewegungshinweise dienen der allgemeinen Information für Erwachsene, die sich sicher körperlich betätigen können. Sie dienen nicht der Diagnose, Behandlung, Vorbeugung oder Rehabilitation irgendeiner Erkrankung. Wenn Sie eine Verletzung, eine kürzlich erfolgte Operation, Osteoporose, eine erhebliche Beeinträchtigung des Gleichgewichts oder eine andere Erkrankung haben, die sich auf körperliche Aktivität auswirkt, fragen Sie eine qualifizierte medizinische Fachperson, welche Bewegungen für Sie geeignet sind.",
   "global_safety": "Verwenden Sie einen stabilen Stuhl ohne Rollen und eine freie Bodenfläche. Bewegen Sie sich langsam, atmen Sie normal und bleiben Sie in einem angenehmen Bewegungsumfang. Federn Sie nicht, erzwingen Sie keine Gelenkbewegung und setzen Sie die Bewegung bei Schmerzen nicht fort. Beenden Sie die Übung bei Schmerzen, starken Beschwerden, Schwindel, Beschwerden im Brustkorb, ungewöhnlicher Atemnot, Taubheitsgefühl oder Gleichgewichtsverlust.",
   "media_provenance": "Die mitgelieferten Videos sind sprachneutrale, für Vulture erstellte Demonstrationen. Sie enthalten keine Erzählstimme, Texte, Logos oder Aufnahmen einer realen Person. Die meisten verwenden den gemeinsamen Mannequin-Stil; wo noch kein geprüftes Mannequin-Video verfügbar ist, bleibt vorerst eine reduzierte geometrische Fassung. Die Generierungs-Prompts und Prüfkriterien stehen in video-prompts.json; Bewegungsanleitungen und Dosierungen sind mit den zitierten Evidenzquellen verknüpft.",
@@ -107,6 +107,46 @@
       "url": "https://bmjopen.bmj.com/content/12/1/e054288",
       "publication_or_review_date": "2022-01-31",
       "supports": "Bewegung am Arbeitsplatz kann Schmerzen verringern, doch heterogene Studien und ein hohes Verzerrungsrisiko erlauben keine belastbaren Aussagen zu Behandlung oder Prävention."
+    },
+    {
+      "id": "homer-2021",
+      "organization": "Diabetes Care",
+      "title": "Häufigkeit von Sitzunterbrechungen: Vorteile für den Stoffwechsel nach Mahlzeiten bei Typ-2-Diabetes",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/33905343/",
+      "publication_or_review_date": "2021-06",
+      "supports": "Bei 23 Erwachsenen mit medikamentös behandeltem Typ-2-Diabetes senkten sechs Minuten einfacher Widerstandsaktivitäten pro Stunde die akuten Glukose- und Insulinreaktionen nach Mahlzeiten gegenüber ununterbrochenem Sitzen; die Studie belegt weder kürzere Einzelimpulse noch Langzeitergebnisse."
+    },
+    {
+      "id": "yin-2024",
+      "organization": "Scandinavian Journal of Medicine & Science in Sports",
+      "title": "Optimale Häufigkeit der Unterbrechung langen Sitzens für die kardiometabolische Gesundheit: systematische Übersichtsarbeit und Metaanalyse randomisierter Crossover-Studien",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/39630056/",
+      "publication_or_review_date": "2024-12",
+      "supports": "Häufigere Unterbrechungen, mindestens alle 30 Minuten, zeigten einen kleinen Vorteil für Glukose gegenüber selteneren Unterbrechungen; die Evidenzsicherheit war jedoch niedrig und andere Ergebnisse unterschieden sich nicht signifikant."
+    },
+    {
+      "id": "yaghoubitajani-2026",
+      "organization": "Scientific Reports",
+      "title": "Wirksamkeit von Mikroübungen bei Nacken- und Schulterschmerzen sitzend Arbeitender: systematische Übersichtsarbeit und Metaanalyse",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/42297926/",
+      "publication_or_review_date": "2026-06-15",
+      "supports": "Wiederholte Mikroübungsprogramme am Arbeitsplatz können Nacken- und Schulterschmerzen sowie Einschränkungen verbessern; die Evidenzsicherheit reichte von moderat bis sehr niedrig, die Heterogenität war hoch und einzelne Erinnerungsdosen wurden nicht untersucht."
+    },
+    {
+      "id": "balban-2023",
+      "organization": "Cell Reports Medicine",
+      "title": "Kurze strukturierte Atemübungen verbessern die Stimmung und senken die physiologische Aktivierung",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/36630953/",
+      "publication_or_review_date": "2023-01-10",
+      "supports": "Eine randomisierte Fernstudie ergab, dass tägliche fünfminütige Atemübungen, besonders ausatmungsbetontes zyklisches Seufzen, die Stimmung verbesserten und die Atemfrequenz senkten; eine einzelne optionale Erinnerung ist kein Behandlungsprotokoll."
+    },
+    {
+      "id": "lee-2015",
+      "organization": "Journal of Environmental Psychology",
+      "title": "40 Sekunden Blick auf ein begrüntes Dach erhalten die Aufmerksamkeit: die Rolle von Mikropausen bei der Aufmerksamkeitsregeneration",
+      "url": "https://doi.org/10.1016/j.jenvp.2015.04.003",
+      "publication_or_review_date": "2015",
+      "supports": "Eine Laborstudie mit 150 Studierenden fand nach einem 40-sekündigen Blick auf ein begrüntes Dach weniger anhaltende Aufmerksamkeitsaussetzer als nach dem Blick auf ein Betondach; dies ist eine vielversprechende Einzelstudie und keine allgemeingültige Verordnung."
     }
   ],
   "exercises": [
@@ -261,6 +301,94 @@
       "evidence_note": "Anleitung und Dosierung entsprechen der abgestützten Variante in den NHS-Hinweisen zu Kräftigungsübungen; die App zeigt die Steigerung ohne Abstützung nicht.",
       "media_path": "videos/supported-calf-raise.mp4",
       "media_duration_seconds": 10
+    },
+    {
+      "id": "head-glide",
+      "title": "Kopf sanft zurückgleiten lassen",
+      "short_prompt": "Ziehen Sie den Kopf sanft zurück, ohne das Kinn anzuheben.",
+      "dose": "Kurz halten; bis zu 5-mal wiederholen",
+      "steps": [
+        "Sitzen oder stehen Sie aufrecht und halten Sie den Blick waagerecht.",
+        "Halten Sie das Kinn waagerecht und lassen Sie den Kopf gerade nach hinten gleiten, als würden Sie ein kleines Doppelkinn machen.",
+        "Halten Sie kurz inne, ohne den Bewegungsumfang zu erzwingen, und lösen Sie die Bewegung vollständig."
+      ],
+      "target_areas": ["Nacken", "oberer Rücken"],
+      "tags": ["seated", "standing", "mobility"],
+      "safety": "Halten Sie die Bewegung klein und langsam. Beenden Sie sie bei Schmerzen, Schwindel, Kribbeln, Taubheitsgefühl oder anderen ungewöhnlichen Beschwerden.",
+      "contraindication_flags": ["akute Nackenverletzung", "neu aufgetretener Schwindel", "neu aufgetretenes Kribbeln oder Taubheitsgefühl"],
+      "source_ids": ["ccohs-stretching", "yaghoubitajani-2026"],
+      "evidence_note": "Die Technik folgt den CCOHS-Hinweisen für den Arbeitsplatz. Die Übersichtsarbeit stützt wiederholte Mikroübungsprogramme allgemein, nicht diese einzelne Bewegung als Behandlung."
+    },
+    {
+      "id": "shoulder-blade-squeeze",
+      "title": "Schulterblätter zusammenführen",
+      "short_prompt": "Führen Sie die Schulterblätter sanft zueinander.",
+      "dose": "Bis zu 5 Sekunden halten; bis zu 5-mal wiederholen",
+      "steps": [
+        "Sitzen oder stehen Sie aufrecht und lassen Sie die Arme locker.",
+        "Halten Sie die Schultern tief, während Sie die Schulterblätter sanft zusammenführen.",
+        "Halten Sie kurz, atmen Sie normal und lösen Sie die Spannung."
+      ],
+      "target_areas": ["Schultern", "oberer Rücken"],
+      "tags": ["seated", "standing", "mobility"],
+      "safety": "Bleiben Sie in einem angenehmen Bewegungsumfang. Beenden Sie die Übung, wenn Nacken oder Schultern schmerzen.",
+      "contraindication_flags": ["akute Nacken- oder Schulterverletzung", "kürzlich erfolgte Operation am Oberkörper"],
+      "source_ids": ["ccohs-stretching", "yaghoubitajani-2026"],
+      "evidence_note": "Technik und konservative Dosierung folgen den CCOHS-Hinweisen für den Arbeitsplatz. Die Übersichtsarbeit belegt keine einzelne Erinnerungsdosis."
+    },
+    {
+      "id": "shoulder-roll",
+      "title": "Langsame Schulterkreise",
+      "short_prompt": "Kreisen Sie die Schultern langsam in beide Richtungen.",
+      "dose": "5-mal nach hinten, dann 5-mal nach vorn",
+      "steps": [
+        "Lassen Sie die Arme locker hängen und richten Sie den Kopf nach vorn.",
+        "Kreisen Sie beide Schultern fünfmal langsam nach hinten.",
+        "Machen Sie eine kurze Pause und kreisen Sie dann fünfmal langsam nach vorn."
+      ],
+      "target_areas": ["Schultern", "oberer Rücken"],
+      "tags": ["seated", "standing", "mobility"],
+      "safety": "Halten Sie die Kreise angenehm und ungezwungen. Beenden Sie die Übung, wenn die Bewegung Schmerzen verursacht.",
+      "contraindication_flags": ["akute Nacken- oder Schulterverletzung"],
+      "source_ids": ["ccohs-stretching", "yaghoubitajani-2026"],
+      "evidence_note": "Die Technik folgt den CCOHS-Hinweisen für den Arbeitsplatz. Evidenz zu wiederholten Arbeitsplatzprogrammen beweist nicht, dass eine einzelne Erinnerung an Schulterkreise Schmerzen behandelt."
+    },
+    {
+      "id": "finger-opening",
+      "title": "Finger langsam öffnen und schließen",
+      "short_prompt": "Wechseln Sie langsam von der offenen Hand zu einer lockeren Faust und zurück.",
+      "dose": "3 langsame Durchgänge pro Hand",
+      "steps": [
+        "Öffnen Sie eine Hand und spreizen Sie die Finger ohne Anstrengung.",
+        "Bilden Sie eine lockere Faust, wobei der Daumen außen auf den Fingern liegt.",
+        "Schieben Sie die Fingerspitzen zur Fingerbasis und öffnen Sie die Hand anschließend wieder.",
+        "Wiederholen Sie die Folge mit der anderen Hand."
+      ],
+      "target_areas": ["Hände", "Finger"],
+      "tags": ["seated", "mobility"],
+      "safety": "Erzwingen Sie die Fingerbewegung nicht mit der anderen Hand. Beenden Sie die Übung bei Schmerzen, Kribbeln oder Taubheitsgefühl.",
+      "contraindication_flags": ["akute Hand- oder Fingerverletzung", "neu aufgetretenes Kribbeln oder Taubheitsgefühl"],
+      "source_ids": ["ccohs-stretching"],
+      "evidence_note": "Die Abfolge und konservative Dosierung folgen den CCOHS-Hinweisen für den Arbeitsplatz."
+    },
+    {
+      "id": "simple-resistance-circuit",
+      "title": "Einfacher Kräftigungszirkel",
+      "short_prompt": "Verbinden Sie einige abgestützte Bewegungen für den Unterkörper zu einer ruhigen Runde.",
+      "dose": "Eine langsame Runde; etwa 2-3 Minuten",
+      "steps": [
+        "Stellen Sie sich hinter einen stabilen Stuhl und halten Sie die Bodenfläche um sich herum frei.",
+        "Führen Sie bis zu 5 flache, abgestützte Mini-Kniebeugen aus.",
+        "Führen Sie bis zu 5 abgestützte Wadenhebungen aus.",
+        "Heben Sie abwechselnd ein Knie bis zu 5-mal pro Seite an.",
+        "Beenden Sie die Runde mit 5 sanften Anspannungs- und Entspannungsbewegungen im Bereich von Hüften und Gesäß."
+      ],
+      "target_areas": ["Hüften", "Oberschenkel", "Waden"],
+      "tags": ["standing", "balance", "strength"],
+      "safety": "Verwenden Sie eine stabile Stütze und bleiben Sie in einem angenehmen Bewegungsumfang. Wählen Sie eine Bewegung im Sitzen, wenn das Stehen unsicher ist.",
+      "contraindication_flags": ["erhebliche Beeinträchtigung des Gleichgewichts", "akute Verletzung der unteren Gliedmaßen", "instabile Stütze", "medizinische Einschränkung für Widerstandsübungen"],
+      "source_ids": ["homer-2021"],
+      "evidence_note": "Die Studie verwendete längere sechsminütige Zirkel pro Stunde bei Erwachsenen mit medikamentös behandeltem Typ-2-Diabetes. Vulture bietet eine kürzere Auswahl zur Aktivitätsvariation und beansprucht nicht den Stoffwechseleffekt der Studie."
     }
   ]
 }

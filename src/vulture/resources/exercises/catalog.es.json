@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "medical_disclaimer": "Estas indicaciones de movimiento ofrecen información general para personas adultas que pueden hacer ejercicio de forma segura. No diagnostican, tratan, previenen ni rehabilitan ninguna afección. Si tiene una lesión, una operación reciente, osteoporosis, una alteración importante del equilibrio u otra afección que afecte al ejercicio, consulte a un profesional sanitario cualificado sobre qué movimientos son adecuados para usted.",
   "global_safety": "Utilice una silla estable, sin ruedas, y una zona de suelo despejada. Muévase despacio, respire con normalidad y manténgase dentro de un rango cómodo. No haga rebotes, no fuerce ninguna articulación ni continúe si siente dolor. Deténgase si presenta dolor, molestias intensas, mareo, molestias en el pecho, falta de aire inusual, entumecimiento o pérdida del equilibrio.",
   "media_provenance": "Los vídeos incluidos son demostraciones generadas sin elementos lingüísticos creadas para Vulture. No contienen narración, texto, logotipos ni imágenes de una persona real. La mayoría usa el estilo de maniquí compartido; se mantiene una alternativa geométrica mínima cuando todavía no hay un reemplazo de maniquí revisado. Los prompts de generación y los requisitos de revisión se incluyen en video-prompts.json; las indicaciones de movimiento y las dosis están vinculadas a las fuentes citadas.",
@@ -107,6 +107,46 @@
       "url": "https://bmjopen.bmj.com/content/12/1/e054288",
       "publication_or_review_date": "2022-01-31",
       "supports": "El ejercicio en el lugar de trabajo puede reducir el dolor, pero la heterogeneidad de los estudios y el alto riesgo de sesgo impiden formular afirmaciones firmes sobre tratamiento o prevención."
+    },
+    {
+      "id": "homer-2021",
+      "organization": "Diabetes Care",
+      "title": "Frecuencia de las interrupciones del tiempo sentado: beneficios para el metabolismo posprandial en la diabetes tipo 2",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/33905343/",
+      "publication_or_review_date": "2021-06",
+      "supports": "En 23 personas adultas con diabetes tipo 2 controlada con medicación, seis minutos de actividades sencillas de resistencia cada hora redujeron las respuestas agudas de glucosa e insulina después de las comidas frente a permanecer sentado sin interrupción; el estudio no valida indicaciones aisladas más breves ni resultados a largo plazo."
+    },
+    {
+      "id": "yin-2024",
+      "organization": "Scandinavian Journal of Medicine & Science in Sports",
+      "title": "Frecuencia óptima para interrumpir periodos prolongados sentado en favor de la salud cardiometabólica: revisión sistemática y metanálisis de ensayos cruzados aleatorizados",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/39630056/",
+      "publication_or_review_date": "2024-12",
+      "supports": "Las interrupciones más frecuentes, al menos cada 30 minutos, mostraron una modesta ventaja sobre la glucosa frente a interrupciones menos frecuentes, pero la certeza de la evidencia fue baja y otros resultados no presentaron diferencias significativas."
+    },
+    {
+      "id": "yaghoubitajani-2026",
+      "organization": "Scientific Reports",
+      "title": "Eficacia de los microejercicios para tratar el dolor de cuello y hombros en trabajadores sedentarios: revisión sistemática y metanálisis",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/42297926/",
+      "publication_or_review_date": "2026-06-15",
+      "supports": "Los programas repetidos de microejercicios en el trabajo pueden mejorar el dolor y la discapacidad de cuello y hombros, pero la certeza varió de moderada a muy baja, la heterogeneidad fue alta y no se estudiaron dosis aisladas de recordatorio."
+    },
+    {
+      "id": "balban-2023",
+      "organization": "Cell Reports Medicine",
+      "title": "Las prácticas breves de respiración estructurada mejoran el estado de ánimo y reducen la activación fisiológica",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/36630953/",
+      "publication_or_review_date": "2023-01-10",
+      "supports": "Un ensayo aleatorizado a distancia observó que cinco minutos diarios de respiración, especialmente suspiros cíclicos centrados en la espiración, mejoraron el estado de ánimo y redujeron la frecuencia respiratoria; un único recordatorio opcional no constituye un protocolo de tratamiento."
+    },
+    {
+      "id": "lee-2015",
+      "organization": "Journal of Environmental Psychology",
+      "title": "Las vistas de 40 segundos de un tejado verde mantienen la atención: el papel de las micropausas en la restauración de la atención",
+      "url": "https://doi.org/10.1016/j.jenvp.2015.04.003",
+      "publication_or_review_date": "2015",
+      "supports": "Un estudio de laboratorio con 150 estudiantes observó menos lapsos de atención sostenida después de mirar durante 40 segundos un tejado verde que un tejado de hormigón; se trata de un único estudio prometedor, no de una pauta universal."
     }
   ],
   "exercises": [
@@ -261,6 +301,94 @@
       "evidence_note": "Las instrucciones y la dosis siguen la variante con apoyo de la orientación del NHS sobre ejercicios de fuerza; la aplicación no muestra la progresión sin apoyo.",
       "media_path": "videos/supported-calf-raise.mp4",
       "media_duration_seconds": 10
+    },
+    {
+      "id": "head-glide",
+      "title": "Deslizamiento suave de la cabeza",
+      "short_prompt": "Lleve suavemente la cabeza hacia atrás sin levantar la barbilla.",
+      "dose": "Mantenga brevemente; repita hasta 5 veces",
+      "steps": [
+        "Siéntese o póngase de pie con la espalda erguida y la mirada nivelada.",
+        "Mantenga la barbilla nivelada y deslice la cabeza en línea recta hacia atrás, como si formara una pequeña papada.",
+        "Haga una pausa sin forzar el recorrido y relaje por completo."
+      ],
+      "target_areas": ["cuello", "parte superior de la espalda"],
+      "tags": ["seated", "standing", "mobility"],
+      "safety": "Mantenga el movimiento pequeño y lento. Deténgase si aparece dolor, mareo, hormigueo, entumecimiento u otro síntoma inusual.",
+      "contraindication_flags": ["lesión aguda de cuello", "mareo de nueva aparición", "hormigueo o entumecimiento de nueva aparición"],
+      "source_ids": ["ccohs-stretching", "yaghoubitajani-2026"],
+      "evidence_note": "La técnica sigue la orientación de CCOHS para el puesto de trabajo. La revisión respalda de forma general programas repetidos de microejercicios, no este movimiento aislado como tratamiento."
+    },
+    {
+      "id": "shoulder-blade-squeeze",
+      "title": "Aproximación de los omóplatos",
+      "short_prompt": "Acerque suavemente los omóplatos entre sí.",
+      "dose": "Mantenga hasta 5 segundos; repita hasta 5 veces",
+      "steps": [
+        "Siéntese o póngase de pie con el tronco erguido y los brazos relajados.",
+        "Mantenga los hombros bajos mientras acerca suavemente los omóplatos.",
+        "Mantenga brevemente, respire con normalidad y relaje."
+      ],
+      "target_areas": ["hombros", "parte superior de la espalda"],
+      "tags": ["seated", "standing", "mobility"],
+      "safety": "Use únicamente un rango cómodo. Deténgase si aparece dolor en el cuello o los hombros.",
+      "contraindication_flags": ["lesión aguda de cuello u hombro", "operación reciente de la parte superior del cuerpo"],
+      "source_ids": ["ccohs-stretching", "yaghoubitajani-2026"],
+      "evidence_note": "La técnica y la dosis conservadora siguen la orientación de CCOHS para el puesto de trabajo. La revisión no valida una dosis aislada de recordatorio."
+    },
+    {
+      "id": "shoulder-roll",
+      "title": "Círculos lentos con los hombros",
+      "short_prompt": "Mueva lentamente los hombros en círculos en ambas direcciones.",
+      "dose": "5 círculos hacia atrás y luego 5 hacia delante",
+      "steps": [
+        "Deje que los brazos cuelguen relajados y mantenga la cabeza orientada hacia delante.",
+        "Mueva lentamente ambos hombros hacia atrás cinco veces.",
+        "Haga una pausa y muévalos lentamente hacia delante cinco veces."
+      ],
+      "target_areas": ["hombros", "parte superior de la espalda"],
+      "tags": ["seated", "standing", "mobility"],
+      "safety": "Mantenga los círculos cómodos y sin forzar. Deténgase si el movimiento causa dolor.",
+      "contraindication_flags": ["lesión aguda de cuello u hombro"],
+      "source_ids": ["ccohs-stretching", "yaghoubitajani-2026"],
+      "evidence_note": "La técnica sigue la orientación de CCOHS para el puesto de trabajo. La evidencia sobre programas laborales repetidos no demuestra que un único recordatorio de círculos con los hombros trate el dolor."
+    },
+    {
+      "id": "finger-opening",
+      "title": "Secuencia de apertura de los dedos",
+      "short_prompt": "Pase lentamente de la mano abierta a un puño suave y vuelva a abrir.",
+      "dose": "3 rondas lentas por mano",
+      "steps": [
+        "Abra una mano y separe los dedos sin forzar.",
+        "Cierre suavemente el puño con el pulgar apoyado por fuera de los dedos.",
+        "Deslice las puntas de los dedos hacia su base y vuelva a abrir la mano.",
+        "Repita la secuencia con la otra mano."
+      ],
+      "target_areas": ["manos", "dedos"],
+      "tags": ["seated", "mobility"],
+      "safety": "No fuerce los dedos con la otra mano. Deténgase si aparece dolor, hormigueo o entumecimiento.",
+      "contraindication_flags": ["lesión aguda de mano o dedos", "hormigueo o entumecimiento de nueva aparición"],
+      "source_ids": ["ccohs-stretching"],
+      "evidence_note": "La secuencia y la dosis conservadora siguen la orientación de CCOHS para el puesto de trabajo."
+    },
+    {
+      "id": "simple-resistance-circuit",
+      "title": "Circuito sencillo de resistencia",
+      "short_prompt": "Combine varios movimientos con apoyo para la parte inferior del cuerpo en una ronda tranquila.",
+      "dose": "Una ronda lenta; unos 2-3 minutos",
+      "steps": [
+        "Póngase de pie detrás de una silla estable y mantenga despejado el suelo a su alrededor.",
+        "Haga hasta 5 minisentadillas poco profundas con apoyo.",
+        "Haga hasta 5 elevaciones de talones con apoyo.",
+        "Eleve una rodilla cada vez hasta 5 veces por lado.",
+        "Termine con 5 contracciones y relajaciones suaves alrededor de las caderas y los glúteos."
+      ],
+      "target_areas": ["caderas", "muslos", "pantorrillas"],
+      "tags": ["standing", "balance", "strength"],
+      "safety": "Use un apoyo estable y un rango cómodo. Elija un movimiento sentado si ponerse de pie no es seguro o se siente inestable.",
+      "contraindication_flags": ["alteración importante del equilibrio", "lesión aguda de la extremidad inferior", "apoyo inestable", "restricción médica para ejercicios de resistencia"],
+      "source_ids": ["homer-2021"],
+      "evidence_note": "El ensayo utilizó circuitos de seis minutos cada hora en personas adultas con diabetes tipo 2 controlada con medicación. Vulture ofrece una muestra más breve para variar la actividad y no afirma reproducir el efecto metabólico del ensayo."
     }
   ]
 }

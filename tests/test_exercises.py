@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import random
 from datetime import timedelta
 from pathlib import Path
 
@@ -19,10 +20,18 @@ from vulture.models import (
 def test_catalog_sources_and_media_are_complete() -> None:
     catalog = load_exercise_catalog()
     source_ids = {source.id for source in catalog.sources}
-    assert len(catalog.exercises) == 8
+    assert len(catalog.exercises) == 13
+    assert {
+        "head-glide",
+        "shoulder-blade-squeeze",
+        "shoulder-roll",
+        "finger-opening",
+        "simple-resistance-circuit",
+    } <= {exercise.id for exercise in catalog.exercises}
     for exercise in catalog.exercises:
         assert set(exercise.source_ids) <= source_ids
-        assert exercise.media_path is not None
+        if exercise.media_path is None:
+            continue
         media = (
             Path(__file__).parents[1]
             / "src"
@@ -86,11 +95,16 @@ def test_video_prompts_match_exercise_catalog() -> None:
         assert replaced_detail not in serialized
     assert "only exception" in prompt_data["usage"]
 
+    media_exercises = [
+        exercise
+        for exercise in catalog.exercises
+        if exercise.media_path is not None
+    ]
     assert len(prompts) == len(prompt_data["prompts"]) == 8
     assert set(prompts) == {
-        exercise.id for exercise in catalog.exercises
+        exercise.id for exercise in media_exercises
     }
-    for exercise in catalog.exercises:
+    for exercise in media_exercises:
         prompt = prompts[exercise.id]
         assert prompt["title"] == exercise.title
         assert prompt["source_ids"] == exercise.source_ids
@@ -140,7 +154,7 @@ def test_selector_respects_seated_only_filter() -> None:
     for _ in range(20):
         selected = selector.choose(preferences)
         assert selected is not None
-        assert "standing" not in selected.tags
+        assert "seated" in selected.tags
 
 
 def test_default_preferences_exclude_balance_and_strength() -> None:
@@ -152,6 +166,37 @@ def test_default_preferences_exclude_balance_and_strength() -> None:
         assert selected is not None
         assert "balance" not in selected.tags
         assert "strength" not in selected.tags
+
+
+def test_selector_uses_every_eligible_exercise_before_repeating() -> None:
+    catalog = load_exercise_catalog()
+    selector = ExerciseSelector(catalog, random.Random(11))
+    preferences = ExercisePreferences(
+        allow_balance_exercises=True,
+        allow_strength_exercises=True,
+    )
+    remaining: list[str] = []
+    last_id: str | None = None
+    selected_ids: list[str] = []
+
+    for _ in catalog.exercises:
+        exercise, remaining = selector.choose_from_bag(
+            preferences,
+            remaining,
+            last_id,
+        )
+        assert exercise is not None
+        selected_ids.append(exercise.id)
+        last_id = exercise.id
+
+    assert len(set(selected_ids)) == len(catalog.exercises)
+    next_exercise, _remaining = selector.choose_from_bag(
+        preferences,
+        remaining,
+        last_id,
+    )
+    assert next_exercise is not None
+    assert next_exercise.id != last_id
 
 
 def test_fifth_reminder_in_window_offers_break() -> None:

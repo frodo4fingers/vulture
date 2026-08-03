@@ -16,6 +16,7 @@ from vulture.models import (
     StrictModel,
     utc_now,
 )
+from vulture.random_cycle import choose_from_shuffle_bag
 from vulture.resources import resource_path
 
 
@@ -106,6 +107,27 @@ class ExerciseSelector:
         fresh = [exercise for exercise in eligible if exercise.id not in recent]
         return self.random.choice(fresh or eligible)
 
+    def choose_from_bag(
+        self,
+        preferences: ExercisePreferences,
+        remaining_ids: list[str],
+        last_id: str | None,
+    ) -> tuple[Exercise | None, list[str]]:
+        eligible = [
+            exercise
+            for exercise in self.catalog.exercises
+            if self._is_eligible(exercise, preferences)
+        ]
+        if not eligible:
+            return None, []
+        return choose_from_shuffle_bag(
+            eligible,
+            item_id=lambda exercise: exercise.id,
+            remaining_ids=remaining_ids,
+            last_id=last_id,
+            random_source=self.random,
+        )
+
     @staticmethod
     def _is_eligible(
         exercise: Exercise, preferences: ExercisePreferences
@@ -113,7 +135,7 @@ class ExerciseSelector:
         if exercise.id in preferences.excluded_exercise_ids:
             return False
         tags = set(exercise.tags)
-        if preferences.seated_only and "standing" in tags:
+        if preferences.seated_only and "seated" not in tags:
             return False
         if not preferences.allow_balance_exercises and "balance" in tags:
             return False
