@@ -693,6 +693,7 @@ class ShellMixin:
             and self._tracking_enabled
             and self._pending_exercise is not None
             and self._exercise_dialog is None
+            and not self._exercise_postpone_timer.isActive()
         ):
             self._present_exercise()
 

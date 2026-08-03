@@ -148,18 +148,61 @@ class BreakPreferences(StrictModel):
     suggest_position_change: bool = True
     suggest_standing: bool = True
     suggest_walking: bool = True
+    legacy_walk_includes_drinks: bool = False
     suggest_guided_exercise: bool = True
     eye_reminders_enabled: bool = True
     eye_interval_minutes: int = Field(default=20, ge=10, le=60)
     eye_duration_seconds: int = Field(default=20, ge=10, le=120)
+    suggest_nature_view: bool = True
     suggest_blinking: bool = True
     suggest_closed_eye_rest: bool = True
+    hydration_reminders_enabled: bool = True
+    hydration_interval_minutes: int = Field(default=60, ge=20, le=240)
+    hydration_duration_seconds: int = Field(default=30, ge=15, le=180)
+    reset_reminders_enabled: bool = True
+    reset_interval_minutes: int = Field(default=90, ge=30, le=240)
+    reset_duration_minutes: int = Field(default=5, ge=1, le=15)
+    suggest_tea_or_coffee: bool = True
+    suggest_reset_walking: bool = True
+    suggest_breathing_reset: bool = True
+    suggest_offscreen_reset: bool = True
+    suggest_reset_guided_exercise: bool = True
+
+    @model_validator(mode="before")
+    @classmethod
+    def preserve_existing_channel_defaults(cls, value):
+        if not isinstance(value, dict) or not value:
+            return value
+        existing_fields = {
+            "movement_reminders_enabled",
+            "movement_interval_minutes",
+            "eye_reminders_enabled",
+            "eye_interval_minutes",
+        }
+        if not existing_fields.intersection(value):
+            return value
+        if (
+            "hydration_reminders_enabled" in value
+            or "reset_reminders_enabled" in value
+        ):
+            return value
+        migrated = dict(value)
+        migrated.setdefault("hydration_reminders_enabled", False)
+        migrated.setdefault("reset_reminders_enabled", False)
+        migrated.setdefault("suggest_nature_view", False)
+        migrated.setdefault(
+            "legacy_walk_includes_drinks",
+            bool(migrated.get("suggest_walking", True)),
+        )
+        return migrated
 
     @model_validator(mode="after")
     def enabled_reminders_need_a_channel(self) -> BreakPreferences:
         if self.enabled and not (
             self.movement_reminders_enabled
             or self.eye_reminders_enabled
+            or self.hydration_reminders_enabled
+            or self.reset_reminders_enabled
         ):
             raise ValueError("at least one break reminder channel is required")
         if (
@@ -175,6 +218,20 @@ class BreakPreferences(StrictModel):
             )
         ):
             raise ValueError("at least one movement suggestion is required")
+        if (
+            self.enabled
+            and self.reset_reminders_enabled
+            and not any(
+                (
+                    self.suggest_tea_or_coffee,
+                    self.suggest_reset_walking,
+                    self.suggest_breathing_reset,
+                    self.suggest_offscreen_reset,
+                    self.suggest_reset_guided_exercise,
+                )
+            )
+        ):
+            raise ValueError("at least one longer reset suggestion is required")
         return self
 
 
@@ -209,20 +266,34 @@ class AppData(StrictModel):
     history_preferences: HistoryPreferences = Field(default_factory=HistoryPreferences)
     reminder_history: list[ReminderEvent] = Field(default_factory=list)
     recent_exercise_ids: list[str] = Field(default_factory=list)
+    exercise_shuffle_bag: list[str] = Field(default_factory=list)
+    last_exercise_id: str | None = None
+    break_activity_bags: dict[str, list[str]] = Field(default_factory=dict)
+    last_break_activity_ids: dict[str, str] = Field(default_factory=dict)
     last_exercise_offer_at: datetime | None = None
 
     @model_validator(mode="before")
     @classmethod
     def migrate_legacy_break_preferences(cls, value):
-        if not isinstance(value, dict) or "break_preferences" in value:
-            return value
-        policy = value.get("alert_policy")
-        if not isinstance(policy, dict):
-            return value
-        legacy_interval = policy.get("sedentary_break_minutes")
-        if legacy_interval is None:
+        if not isinstance(value, dict):
             return value
         migrated = dict(value)
+        if "last_exercise_id" not in migrated:
+            recent_exercise_ids = migrated.get("recent_exercise_ids")
+            if (
+                isinstance(recent_exercise_ids, list)
+                and recent_exercise_ids
+                and isinstance(recent_exercise_ids[-1], str)
+            ):
+                migrated["last_exercise_id"] = recent_exercise_ids[-1]
+        if "break_preferences" in migrated:
+            return migrated
+        policy = migrated.get("alert_policy")
+        if not isinstance(policy, dict):
+            return migrated
+        legacy_interval = policy.get("sedentary_break_minutes")
+        if legacy_interval is None:
+            return migrated
         # Older versions represented every independent break as a guided
         # exercise, so preserve that cadence until the user opts into more.
         migrated["break_preferences"] = {

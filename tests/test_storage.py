@@ -38,3 +38,38 @@ def test_legacy_sedentary_break_settings_keep_prior_behavior() -> None:
     assert not data.break_preferences.suggest_standing
     assert not data.break_preferences.suggest_walking
     assert data.break_preferences.suggest_guided_exercise
+    assert not data.break_preferences.hydration_reminders_enabled
+    assert not data.break_preferences.reset_reminders_enabled
+    assert not data.break_preferences.suggest_nature_view
+    assert not data.break_preferences.legacy_walk_includes_drinks
+
+
+def test_existing_break_settings_do_not_enable_new_channels() -> None:
+    data = AppData.model_validate(
+        {
+            "schema_version": 1,
+            "break_preferences": {
+                "movement_interval_minutes": 30,
+                "eye_interval_minutes": 20,
+            },
+        }
+    )
+
+    assert not data.break_preferences.hydration_reminders_enabled
+    assert not data.break_preferences.reset_reminders_enabled
+    assert not data.break_preferences.suggest_nature_view
+    assert data.break_preferences.legacy_walk_includes_drinks
+
+
+def test_recent_exercise_seeds_non_repeating_upgrade_state() -> None:
+    data = AppData.model_validate(
+        {
+            "schema_version": 1,
+            "recent_exercise_ids": [
+                "shoulder-shrug",
+                "wrist-side-bend",
+            ],
+        }
+    )
+
+    assert data.last_exercise_id == "wrist-side-bend"

@@ -255,6 +255,16 @@ class EvidenceDialog(QDialog):
                 "does not promote palming, eye yoga, or blue-light products."
             )
             + "</p>"
+            f"<h2>{tr('Restorative pause guidance')}</h2>"
+            "<p>"
+            + tr(
+                "Water reminders are neutral convenience cues rather than "
+                "intake targets, and tea or coffee prompts are reasons to "
+                "step away rather than recommendations to consume caffeine. "
+                "The breathing and greenery options are based on promising "
+                "individual trials, not established treatments."
+            )
+            + "</p>"
             f"<h2>{tr('Guidance sources')}</h2>"
             f"<ul>{source_html}</ul>"
             f"<h2>{tr('Media')}</h2>"

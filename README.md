@@ -44,11 +44,13 @@ from the baseline demonstrated for that camera setup.
 - Local foreground-person segmentation chooses the strongest visible subject,
   rejects partial out-of-frame detections, and blurs the non-person camera
   preview background. The temporary mask is discarded with each frame.
-- An evidence-linked catalog of eight conservative movements with accessibility
-  filters and original pregenerated MP4 instructions.
+- An evidence-linked catalog of 13 conservative movements with accessibility
+  filters. Eight retain original pregenerated MP4 instructions and five
+  additional Vulture Lite movements use the same sourced text-first panel.
 - Configurable break management that runs independently of posture alerts:
-  position changes, standing, a short walk or drink break, existing guided
-  movements, and optional distance-view, blink, or closed-eye prompts.
+  position changes, standing, walking, guided movements, distance or greenery
+  views, blinking, closed-eye rest, water, tea or coffee, slow breathing, and
+  full off-screen resets.
 - Local persistence of settings, calibration statistics, and recent reminder
   timestamps. Camera frames are discarded immediately after inference.
 
@@ -222,21 +224,34 @@ controls.
 
 ### Break management
 
-Open **Settings → Break management** to configure two independent reminder
+Open **Settings → Break management** to configure four independent reminder
 channels:
 
 - **Movement and position changes** default to every 30 minutes with a
-  two-minute suggestion. Vulture rotates between changing the seated position,
-  standing, walking away for water, tea, or coffee, and the existing guided
-  movement catalog. The interval, suggested duration, activity mix, and amount
-  of camera-away time that resets the timer are configurable.
+  two-minute suggestion. Vulture shuffles changing the seated position,
+  standing, an easy walk, and the guided movement catalog.
 - **Eye comfort** defaults to a 20-second distance-view prompt every 20 minutes.
-  Optional prompts add five slow, complete blinks or a gentle closed-eye rest.
-  Vulture does not prescribe palming, eye rotations, "eye yoga," or blue-light
-  products.
+  The non-repeating shuffle also includes a distant green view when available,
+  five slow complete blinks, and a gentle closed-eye rest. Vulture does not
+  prescribe palming, eye rotations, "eye yoga," or blue-light products.
+- **Water** defaults to a neutral 30-second cue every 60 minutes. It does not
+  set an intake target and remains the intentionally recurring single-item
+  channel.
+- **Longer reset** defaults to five minutes every 90 minutes and shuffles tea
+  or coffee, an easy walk, a slower breathing pause, a full off-screen reset,
+  and a guided movement.
 
-Only time with valid posture tracking advances the timers. A sufficiently long
-period away from the camera counts as a break, and reminders can always be
+Within every multi-item channel, Vulture chooses randomly without replacement:
+every enabled option appears before the bag refills, and a new cycle avoids
+repeating the previous item. The activity and exercise bags are stored locally,
+so restarting the app or changing language does not reset the sequence.
+
+Saved 0.2.0 profiles keep their previous distance-eye and combined
+walk/water/tea/coffee activity mix. The new water, longer-reset, and greenery
+options remain off for those profiles until they are enabled in Settings.
+
+Only time with valid posture tracking advances all four timers. A sufficiently
+long period away from the camera counts as a break, and reminders can always be
 dismissed; Vulture never blocks the desktop.
 
 The defaults are guidance rather than clinical thresholds. UK HSE recommends
@@ -256,6 +271,11 @@ Sources:
 - [Albulescu et al. 2022: micro-break systematic review and meta-analysis](https://doi.org/10.1371/journal.pone.0272460)
 - [American Optometric Association: computer vision syndrome](https://www.aoa.org/healthy-eyes/eye-and-vision-conditions/computer-vision-syndrome)
 - [Wilkins et al.: “20-20-20 Rule: Are These Numbers Justified?”](https://pubmed.ncbi.nlm.nih.gov/36473088/)
+- [Homer et al. 2021: simple resistance activity interruptions](https://pubmed.ncbi.nlm.nih.gov/33905343/)
+- [Yin et al. 2024: interruption-frequency meta-analysis](https://pubmed.ncbi.nlm.nih.gov/39630056/)
+- [Yaghoubitajani et al. 2026: workplace micro-exercise meta-analysis](https://pubmed.ncbi.nlm.nih.gov/42297926/)
+- [Balban et al. 2023: structured respiration trial](https://pubmed.ncbi.nlm.nih.gov/36630953/)
+- [Lee et al. 2015: green-view micro-break trial](https://doi.org/10.1016/j.jenvp.2015.04.003)
 
 Vulture is not a medical device and these reminders do not diagnose, treat, or
 prevent a condition. Persistent pain, blurred vision, eye redness, light
@@ -323,11 +343,12 @@ Defaults are intentionally conservative:
   buffer without counting the transition itself;
 - notification cooldown of 2 minutes;
 - movement-break offer after 5 notifications within 20 minutes;
-- an independent movement-break offer after 55 minutes of continuous tracking.
+- independent eye, movement, water, and longer-reset timers with configurable
+  intervals and durations.
 
-When a movement break is due, Vulture raises the main window and opens the
-bundled video immediately in the right-side panel beside the live camera
-preview. There is no intermediate notification to click.
+Ordinary break activities use one system notification, bundling channels that
+become due together. A guided movement raises the main window and opens its
+instructions in the right-side panel beside the live camera preview.
 
 The exercise panel offers three choices. **Done** marks the movement complete
 and clears it. **Remind me later** closes the panel and re-opens it after a
@@ -354,14 +375,14 @@ Vulture stops its camera thread rather than merely suspending posture scoring,
 clears the preview, and disables calibration until **Resume tracking** is
 selected.
 
-## Exercise videos
+## Exercise guidance
 
-The eight bundled clips are language-neutral generated demonstrations created
-for Vulture. They contain no narration, text, logos, or footage of a real
-person. Most use the shared mannequin style; a minimal geometric fallback
-remains where a reviewed mannequin replacement is not yet available. The
-movement instructions and doses—not the artwork—are linked to the authoritative
-sources in [docs/EVIDENCE.md](docs/EVIDENCE.md).
+The thirteen bundled clips are language-neutral generated demonstrations
+created for Vulture. They contain no narration, text, logos, or footage of a
+real person. Twelve use the shared mannequin style; a minimal geometric
+fallback remains for `ankle-point-flex` until a reviewed mannequin replacement
+is available. The movement instructions and doses—not the artwork—are linked
+to the authoritative sources in [docs/EVIDENCE.md](docs/EVIDENCE.md).
 
 Copy-ready generation prompts and review requirements are in
 `src/vulture/resources/exercises/video-prompts.json`. Prepend its shared
@@ -465,15 +486,15 @@ stay language-neutral and must never depict a real person.
   purple, blue, gray) or ships as per-state variants, and exports to the
   platform bundle formats (`.png`, Windows `.ico`, macOS `.icns`). A clean
   monochrome silhouette that Qt can tint per state is ideal.
-- **A review pass over the instructional videos.** The eight bundled clips are
-  generated, language-neutral demonstrations. Watch each one against its
+- **A review pass over the instructional videos.** The thirteen bundled clips
+  are generated, language-neutral demonstrations. Watch each one against its
   generation prompt and against the technique and dose recorded in
   [docs/EVIDENCE.md](docs/EVIDENCE.md), then flag any clip that drifts from the
   specified technique, breaks the shared continuity lock, or shows
   anatomically incorrect movement. The copy-ready prompts, the shared
   `continuity_lock`, and the review requirement are all in
   `src/vulture/resources/exercises/video-prompts.json`.
-- **One missing instructional video.** Seven clips are full mannequin
+- **One replacement instructional video.** Twelve clips are full mannequin
   demonstrations (~2.6 MB each); `ankle-point-flex.mp4` is still a minimal
   geometric placeholder (~28 KB). It needs a proper replacement generated from
   the `ankle-point-flex` prompt in `video-prompts.json` (prepend the shared

@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "medical_disclaimer": "These movement prompts are general information for adults who can exercise safely. They do not diagnose, treat, prevent, or rehabilitate any condition. If you have an injury, recent surgery, osteoporosis, significant balance impairment, or another condition affecting exercise, ask a qualified clinician which movements are suitable.",
   "global_safety": "Use a stable, non-wheeled chair and a clear floor area. Move slowly, breathe normally, and stay within a comfortable range. Do not bounce, force a joint, or continue through pain. Stop for pain, severe discomfort, dizziness, chest discomfort, unusual breathlessness, numbness, or loss of balance.",
   "media_provenance": "The bundled videos are language-neutral generated demonstrations created for Vulture. They contain no narration, text, logos, or footage of a real person. Most use the shared mannequin style; a minimal geometric fallback remains where a reviewed mannequin replacement is not yet available. The generation prompts and review requirements are included in video-prompts.json; the movement guidance and doses are tied to the cited evidence sources.",
@@ -107,6 +107,46 @@
       "url": "https://bmjopen.bmj.com/content/12/1/e054288",
       "publication_or_review_date": "2022-01-31",
       "supports": "Workplace exercise may reduce pain, but heterogeneous studies and high risk of bias prevent firm treatment or prevention claims."
+    },
+    {
+      "id": "homer-2021",
+      "organization": "Diabetes Care",
+      "title": "Frequency of Interruptions to Sitting Time: Benefits for Postprandial Metabolism in Type 2 Diabetes",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/33905343/",
+      "publication_or_review_date": "2021-06",
+      "supports": "In 23 adults with medication-controlled type 2 diabetes, six minutes of simple resistance activities each hour reduced acute post-meal glucose and insulin compared with uninterrupted sitting; the study does not validate shorter isolated prompts or long-term outcomes."
+    },
+    {
+      "id": "yin-2024",
+      "organization": "Scandinavian Journal of Medicine & Science in Sports",
+      "title": "Optimal Frequency of Interrupting Prolonged Sitting for Cardiometabolic Health: A Systematic Review and Meta-Analysis of Randomized Crossover Trials",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/39630056/",
+      "publication_or_review_date": "2024-12",
+      "supports": "Higher-frequency interruptions, at least every 30 minutes, showed a modest glucose advantage over less frequent interruptions, but the certainty of evidence was low and other outcomes did not differ significantly."
+    },
+    {
+      "id": "yaghoubitajani-2026",
+      "organization": "Scientific Reports",
+      "title": "Effectiveness of micro-exercises for managing neck/shoulder pain in sedentary workers: a systematic review and meta-analysis",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/42297926/",
+      "publication_or_review_date": "2026-06-15",
+      "supports": "Repeated workplace micro-exercise programs may improve neck and shoulder pain and disability, but certainty ranged from moderate to very low, heterogeneity was high, and isolated reminder doses were not tested."
+    },
+    {
+      "id": "balban-2023",
+      "organization": "Cell Reports Medicine",
+      "title": "Brief structured respiration practices enhance mood and reduce physiological arousal",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/36630953/",
+      "publication_or_review_date": "2023-01-10",
+      "supports": "A remote randomized trial found that daily five-minute breathwork, especially exhale-focused cyclic sighing, improved mood and reduced respiratory rate; one optional reminder is not a treatment protocol."
+    },
+    {
+      "id": "lee-2015",
+      "organization": "Journal of Environmental Psychology",
+      "title": "40-second green roof views sustain attention: The role of micro-breaks in attention restoration",
+      "url": "https://doi.org/10.1016/j.jenvp.2015.04.003",
+      "publication_or_review_date": "2015",
+      "supports": "A laboratory study of 150 students found fewer sustained-attention lapses after a 40-second green-roof view than after a concrete-roof view; this is a promising single study rather than a universal prescription."
     }
   ],
   "exercises": [
@@ -260,6 +300,104 @@
       "source_ids": ["nhs-strength"],
       "evidence_note": "Instructions and dose follow the supported version in NHS strength-exercises guidance; the app does not show the unsupported progression.",
       "media_path": "videos/supported-calf-raise.mp4",
+      "media_duration_seconds": 10
+    },
+    {
+      "id": "head-glide",
+      "title": "Head glide",
+      "short_prompt": "Draw your head gently back without lifting the chin.",
+      "dose": "Hold briefly; repeat up to 5 times",
+      "steps": [
+        "Sit or stand upright with your gaze level.",
+        "Keep the chin level and glide the head straight back, as if making a small double chin.",
+        "Pause without forcing the range, then release fully."
+      ],
+      "target_areas": ["neck", "upper back"],
+      "tags": ["seated", "standing", "mobility"],
+      "safety": "Keep the movement small and slow. Stop for pain, dizziness, tingling, numbness, or other unusual symptoms.",
+      "contraindication_flags": ["acute neck injury", "new dizziness", "new tingling or numbness"],
+      "source_ids": ["ccohs-stretching", "yaghoubitajani-2026"],
+      "evidence_note": "The technique follows CCOHS workstation guidance. The review supports repeated workplace micro-exercise programs broadly, not this isolated movement as treatment.",
+      "media_path": "videos/head-glide.mp4",
+      "media_duration_seconds": 10
+    },
+    {
+      "id": "shoulder-blade-squeeze",
+      "title": "Shoulder-blade squeeze",
+      "short_prompt": "Bring the shoulder blades gently toward one another.",
+      "dose": "Hold up to 5 seconds; repeat up to 5 times",
+      "steps": [
+        "Sit or stand tall with your arms relaxed.",
+        "Let the shoulders stay low as you draw the shoulder blades gently together.",
+        "Hold briefly, breathe normally, and release."
+      ],
+      "target_areas": ["shoulders", "upper back"],
+      "tags": ["seated", "standing", "mobility"],
+      "safety": "Use only a comfortable range. Stop if the neck or shoulders become painful.",
+      "contraindication_flags": ["acute neck or shoulder injury", "recent upper-body surgery"],
+      "source_ids": ["ccohs-stretching", "yaghoubitajani-2026"],
+      "evidence_note": "The technique and conservative dose follow CCOHS workstation guidance. The review does not validate one isolated reminder dose.",
+      "media_path": "videos/shoulder-blade-squeeze.mp4",
+      "media_duration_seconds": 10
+    },
+    {
+      "id": "shoulder-roll",
+      "title": "Slow shoulder rolls",
+      "short_prompt": "Circle the shoulders slowly in both directions.",
+      "dose": "5 backward rolls, then 5 forward",
+      "steps": [
+        "Let your arms hang easily and keep your head facing forward.",
+        "Roll both shoulders slowly backward five times.",
+        "Pause, then roll them slowly forward five times."
+      ],
+      "target_areas": ["shoulders", "upper back"],
+      "tags": ["seated", "standing", "mobility"],
+      "safety": "Keep the circles comfortable and unforced. Stop if the movement causes pain.",
+      "contraindication_flags": ["acute neck or shoulder injury"],
+      "source_ids": ["ccohs-stretching", "yaghoubitajani-2026"],
+      "evidence_note": "The technique follows CCOHS workstation guidance. Evidence for repeated workplace programs should not be read as proof that one shoulder-roll prompt treats pain.",
+      "media_path": "videos/shoulder-roll.mp4",
+      "media_duration_seconds": 10
+    },
+    {
+      "id": "finger-opening",
+      "title": "Finger opening sequence",
+      "short_prompt": "Move slowly from an open hand into a gentle fist and back.",
+      "dose": "3 slow rounds per hand",
+      "steps": [
+        "Open one hand and spread the fingers without straining.",
+        "Make a gentle fist with the thumb resting outside the fingers.",
+        "Slide the fingertips toward the base of the fingers, then open the hand again.",
+        "Repeat with the other hand."
+      ],
+      "target_areas": ["hands", "fingers"],
+      "tags": ["seated", "mobility"],
+      "safety": "Do not force the fingers with the other hand. Stop for pain, tingling, or numbness.",
+      "contraindication_flags": ["acute hand or finger injury", "new tingling or numbness"],
+      "source_ids": ["ccohs-stretching"],
+      "evidence_note": "The sequence and conservative dose follow CCOHS workstation guidance.",
+      "media_path": "videos/finger-opening.mp4",
+      "media_duration_seconds": 10
+    },
+    {
+      "id": "simple-resistance-circuit",
+      "title": "Simple resistance circuit",
+      "short_prompt": "Combine a few supported lower-body movements in one calm round.",
+      "dose": "One slow round; about 2-3 minutes",
+      "steps": [
+        "Stand behind a stable chair with a clear floor around you.",
+        "Complete up to 5 shallow supported mini-squats.",
+        "Complete up to 5 supported calf raises.",
+        "Lift one knee at a time for up to 5 lifts per side.",
+        "Finish with 5 gentle tighten-and-release contractions around the hips and buttocks."
+      ],
+      "target_areas": ["hips", "thighs", "calves"],
+      "tags": ["standing", "balance", "strength"],
+      "safety": "Use stable support and a comfortable range. Choose a seated movement if standing is unsafe or unsteady.",
+      "contraindication_flags": ["significant balance impairment", "acute lower-limb injury", "unstable support", "medical restriction on resistance exercise"],
+      "source_ids": ["homer-2021"],
+      "evidence_note": "The trial used longer six-minute hourly circuits in adults with medication-controlled type 2 diabetes. Vulture offers a shorter sampler for activity variation and does not claim the trial's metabolic effect.",
+      "media_path": "videos/simple-resistance-circuit.mp4",
       "media_duration_seconds": 10
     }
   ]
