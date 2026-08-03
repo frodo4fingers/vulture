@@ -532,6 +532,7 @@ def _close_test_window(
     application: QApplication,
 ) -> None:
     window.break_timer.stop()
+    window._close_secondary_windows()
     window._dismiss_side_panel()
     window._close_history()
     window.tray.hide()
@@ -539,7 +540,7 @@ def _close_test_window(
     application.processEvents()
 
 
-def _open_settings_panel(
+def _open_settings_window(
     window: MainWindow,
     application: QApplication,
 ) -> SettingsDialog:
@@ -547,9 +548,10 @@ def _open_settings_panel(
     application.processEvents()
     dialog = window._settings_dialog
     assert isinstance(dialog, SettingsDialog)
-    assert dialog is window._side_panel
-    assert window.side_panel_host.widget() is dialog
-    assert not dialog.isWindow()
+    assert dialog.isWindow()
+    assert dialog.isVisible()
+    assert window._side_panel is None
+    assert window.side_panel_frame.isHidden()
     return dialog
 
 
@@ -568,7 +570,7 @@ def test_settings_updates_system_startup_registration(
         autostart_manager=manager,
     )
 
-    dialog = _open_settings_panel(window, application)
+    dialog = _open_settings_window(window, application)
     assert dialog.start_at_login.isEnabled()
     dialog.start_at_login.setChecked(True)
     dialog.movement_interval_minutes.setValue(45)
@@ -583,7 +585,7 @@ def test_settings_updates_system_startup_registration(
     assert saved.break_preferences.movement_interval_minutes == 45
     assert not saved.break_preferences.eye_reminders_enabled
     assert window._settings_dialog is None
-    assert window.side_panel_host.isHidden()
+    assert window.side_panel_frame.isHidden()
     _close_test_window(window, application)
 
 
@@ -604,7 +606,7 @@ def test_settings_roll_back_startup_when_preferences_cannot_save(
 
     monkeypatch.setattr(window, "_save_data", lambda: False)
 
-    dialog = _open_settings_panel(window, application)
+    dialog = _open_settings_window(window, application)
     dialog.start_at_login.setChecked(True)
     dialog._validate_and_accept()
     application.processEvents()
@@ -629,7 +631,7 @@ def test_settings_surface_startup_registration_failures(
         autostart_manager=manager,
     )
 
-    dialog = _open_settings_panel(window, application)
+    dialog = _open_settings_window(window, application)
     dialog.start_at_login.setChecked(True)
     dialog._validate_and_accept()
     application.processEvents()
@@ -657,7 +659,7 @@ def test_settings_disable_startup_control_when_state_cannot_be_read(
         autostart_manager=manager,
     )
 
-    dialog = _open_settings_panel(window, application)
+    dialog = _open_settings_window(window, application)
     assert not dialog.start_at_login.isEnabled()
     assert any(
         "permission denied" in label.text()
@@ -682,7 +684,7 @@ def test_settings_remove_stale_startup_registration(
         autostart_manager=manager,
     )
 
-    dialog = _open_settings_panel(window, application)
+    dialog = _open_settings_window(window, application)
     dialog.start_at_login.setChecked(False)
     dialog._validate_and_accept()
     application.processEvents()
@@ -711,7 +713,7 @@ def test_settings_refresh_startup_state_before_saving(
         autostart_manager=manager,
     )
 
-    dialog = _open_settings_panel(window, application)
+    dialog = _open_settings_window(window, application)
     dialog.start_at_login.setChecked(False)
     dialog._validate_and_accept()
     application.processEvents()
@@ -915,7 +917,7 @@ def test_recalibrate_baseline_routes_only_the_selected_stage(
     calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
     selection = CalibrationStepSelectionDialog(setup.calibration)
     window = SimpleNamespace(
-        _calibration_panel=selection,
+        _calibration_window=selection,
         _camera_is_healthy=lambda: True,
         _state=TrackerState.GOOD,
         _run_recalibration_dialog=lambda *args, **kwargs: calls.append(
@@ -953,7 +955,7 @@ def test_recalibrate_posture_routes_only_baseline_check_and_selected_step(
         )
     )
     window = SimpleNamespace(
-        _calibration_panel=selection,
+        _calibration_window=selection,
         _camera_is_healthy=lambda: True,
         _state=TrackerState.GOOD,
         _run_recalibration_dialog=lambda *args, **kwargs: calls.append(
@@ -1095,6 +1097,7 @@ def _make_window(tmp_path):
 
 
 def _teardown_window(window, application):
+    window._close_secondary_windows()
     window._dismiss_side_panel()
     window._exercise_postpone_timer.stop()
     window._close_history()
@@ -1114,12 +1117,35 @@ def _assert_embedded_panel(
     assert not panel.isWindow()
 
 
-def test_all_main_dialogs_use_right_side_panel(
+def _assert_modeless_window(
+    window: MainWindow,
+    dialog: QDialog,
+) -> None:
+    assert dialog.isWindow()
+    assert dialog.isVisible()
+    assert dialog.windowModality() is Qt.WindowModality.NonModal
+    assert window.side_panel_frame.isHidden()
+
+
+def _assert_modal_window(
+    window: MainWindow,
+    dialog: QDialog,
+    modality: Qt.WindowModality,
+) -> None:
+    assert dialog.isWindow()
+    assert dialog.isVisible()
+    assert dialog.windowModality() is modality
+    assert window.side_panel_frame.isHidden()
+
+
+def test_secondary_windows_coexist_with_embedded_task_flows(
     application: QApplication,
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
     window = _make_window(tmp_path)
+    window.show()
+    application.processEvents()
     monkeypatch.setattr(
         ui_module,
         "discover_cameras",
@@ -1132,38 +1158,70 @@ def test_all_main_dialogs_use_right_side_panel(
         ],
     )
 
+    original_geometry = window.geometry()
+    original_preview_size = window.preview_stack.size()
+    original_preview_minimum = window.preview_stack.minimumSize()
+    original_splitter_sizes = window.workspace_splitter.sizes()
+
     window._add_setup()
     application.processEvents()
-    assert isinstance(window._setup_dialog, SetupDialog)
-    _assert_embedded_panel(window, window._setup_dialog)
-    window._setup_dialog.reject()
+    setup_dialog = window._setup_dialog
+    assert isinstance(setup_dialog, SetupDialog)
+    _assert_modal_window(
+        window,
+        setup_dialog,
+        Qt.WindowModality.WindowModal,
+    )
+    assert window.geometry() == original_geometry
+    assert window.preview_stack.size() == original_preview_size
+    assert window.preview_stack.minimumSize() == original_preview_minimum
+    assert window.workspace_splitter.sizes() == original_splitter_sizes
+
+    window._add_setup()
     application.processEvents()
+    assert window._setup_dialog is setup_dialog
+    setup_dialog.reject()
+    application.processEvents()
+
+    original_geometry = window.geometry()
+    original_preview_size = window.preview_stack.size()
+    original_preview_minimum = window.preview_stack.minimumSize()
+    original_splitter_sizes = window.workspace_splitter.sizes()
 
     window._show_settings()
-    application.processEvents()
-    assert isinstance(window._settings_dialog, SettingsDialog)
-    _assert_embedded_panel(window, window._settings_dialog)
-    window._settings_dialog.reject()
-    application.processEvents()
-
     window._show_evidence()
-    application.processEvents()
-    assert isinstance(window._evidence_dialog, EvidenceDialog)
-    _assert_embedded_panel(window, window._evidence_dialog)
-    window._evidence_dialog.reject()
-    application.processEvents()
-
     window._show_workday_summary()
     application.processEvents()
-    assert isinstance(window._summary_dialog, WorkdaySummaryDialog)
-    _assert_embedded_panel(window, window._summary_dialog)
-    window._summary_dialog.reject()
+
+    settings = window._settings_dialog
+    evidence = window._evidence_dialog
+    summary = window._summary_dialog
+    assert isinstance(settings, SettingsDialog)
+    assert isinstance(evidence, EvidenceDialog)
+    assert isinstance(summary, WorkdaySummaryDialog)
+    _assert_modeless_window(window, settings)
+    _assert_modeless_window(window, evidence)
+    _assert_modeless_window(window, summary)
+    assert window.geometry() == original_geometry
+    assert window.preview_stack.size() == original_preview_size
+    assert window.preview_stack.minimumSize() == original_preview_minimum
+    assert window.workspace_splitter.sizes() == original_splitter_sizes
+
+    window._show_settings()
+    window._show_evidence()
+    window._show_workday_summary()
     application.processEvents()
+    assert window._settings_dialog is settings
+    assert window._evidence_dialog is evidence
+    assert window._summary_dialog is summary
 
     window._offer_exercise()
     application.processEvents()
     assert isinstance(window._exercise_dialog, ExerciseDialog)
     _assert_embedded_panel(window, window._exercise_dialog)
+    assert settings.isVisible()
+    assert evidence.isVisible()
+    assert summary.isVisible()
 
     _teardown_window(window, application)
 
@@ -1174,13 +1232,13 @@ def test_side_panel_has_shared_title_and_close_action(
 ) -> None:
     window = _make_window(tmp_path)
 
-    window._show_evidence()
+    window._show_notice("Saved data unavailable", "Disk is read-only.")
     application.processEvents()
 
-    assert window.side_panel_title.text() == "Evidence and safety"
+    assert window.side_panel_title.text() == "Saved data unavailable"
     assert (
         window.side_panel_close_button.accessibleName()
-        == "Close Evidence and safety"
+        == "Close Saved data unavailable"
     )
 
     window.side_panel_close_button.click()
@@ -1519,7 +1577,7 @@ def test_language_only_settings_save_preserves_break_state(
     window._pending_exercise = pending_exercise
     window._pending_exercise_reset_channels = (BreakChannel.RESET,)
 
-    settings = _open_settings_panel(window, application)
+    settings = _open_settings_window(window, application)
     settings.language_combo.setCurrentIndex(
         settings.language_combo.findData("es")
     )
@@ -1547,7 +1605,7 @@ def test_break_settings_reset_only_the_changed_channel(
     window._tracked_seconds_since_hydration_break = 300
     window._tracked_seconds_since_reset_break = 400
 
-    settings = _open_settings_panel(window, application)
+    settings = _open_settings_window(window, application)
     settings.movement_interval_minutes.setValue(45)
     settings._validate_and_accept()
     application.processEvents()
@@ -1606,68 +1664,15 @@ def test_first_run_state_leads_to_camera_setup(
     _teardown_window(window, application)
 
 
-def test_main_window_size_returns_after_side_panel_closes(
-    application: QApplication,
-    tmp_path: Path,
-) -> None:
-    window = _make_window(tmp_path)
-    original_size = QSize(760, 650)
-    window.resize(original_size)
-
-    window._show_evidence()
-    application.processEvents()
-
-    assert window._size_before_side_panel == original_size
-    assert isinstance(window._evidence_dialog, EvidenceDialog)
-
-    window._evidence_dialog.reject()
-    QTest.qWait(1)
-    application.processEvents()
-
-    assert window._side_panel is None
-    assert window._size_before_side_panel is None
-    assert window.size() == original_size
-
-    _teardown_window(window, application)
-
-
-def test_main_window_size_survives_side_panel_replacement(
-    application: QApplication,
-    tmp_path: Path,
-) -> None:
-    window = _make_window(tmp_path)
-    original_size = QSize(760, 650)
-    window.resize(original_size)
-
-    window._show_settings()
-    application.processEvents()
-    assert window._size_before_side_panel == original_size
-
-    window._show_evidence()
-    application.processEvents()
-
-    assert window._settings_dialog is None
-    assert isinstance(window._evidence_dialog, EvidenceDialog)
-    assert window._size_before_side_panel == original_size
-
-    window._evidence_dialog.reject()
-    QTest.qWait(1)
-    application.processEvents()
-
-    assert window.size() == original_size
-    assert window._size_before_side_panel is None
-
-    _teardown_window(window, application)
-
-
 @pytest.mark.parametrize(
     ("show_method", "dialog_attribute"),
     [
+        ("_show_settings", "_settings_dialog"),
         ("_show_workday_summary", "_summary_dialog"),
-        ("_offer_exercise", "_exercise_dialog"),
+        ("_show_evidence", "_evidence_dialog"),
     ],
 )
-def test_tall_side_panels_open_without_vertical_scrollbar(
+def test_secondary_windows_preserve_main_camera_geometry(
     application: QApplication,
     tmp_path: Path,
     show_method: str,
@@ -1675,14 +1680,192 @@ def test_tall_side_panels_open_without_vertical_scrollbar(
 ) -> None:
     window = _make_window(tmp_path)
     window.resize(760, 650)
-    window.screen = lambda: SimpleNamespace(
-        availableGeometry=lambda: QRect(0, 0, 1920, 1080)
-    )
+    window.show()
+    application.processEvents()
+    original_geometry = window.geometry()
+    original_preview_size = window.preview_stack.size()
+    original_preview_minimum = window.preview_stack.minimumSize()
+    original_splitter_sizes = window.workspace_splitter.sizes()
 
     getattr(window, show_method)()
     application.processEvents()
 
-    assert getattr(window, dialog_attribute) is not None
+    dialog = getattr(window, dialog_attribute)
+    assert isinstance(dialog, QDialog)
+    assert dialog.isWindow()
+    assert dialog.isVisible()
+    assert window._side_panel is None
+    assert window.geometry() == original_geometry
+    assert window.preview_stack.size() == original_preview_size
+    assert window.preview_stack.minimumSize() == original_preview_minimum
+    assert window.workspace_splitter.sizes() == original_splitter_sizes
+
+    dialog.reject()
+    QTest.qWait(1)
+    application.processEvents()
+
+    assert getattr(window, dialog_attribute) is None
+    assert window.geometry() == original_geometry
+    assert window.preview_stack.size() == original_preview_size
+    assert window.preview_stack.minimumSize() == original_preview_minimum
+    assert window.workspace_splitter.sizes() == original_splitter_sizes
+
+    _teardown_window(window, application)
+
+
+def test_summary_window_remembers_its_own_size(
+    application: QApplication,
+    tmp_path: Path,
+) -> None:
+    window = _make_window(tmp_path)
+    window._show_workday_summary()
+    application.processEvents()
+    summary = window._summary_dialog
+    assert isinstance(summary, WorkdaySummaryDialog)
+    remembered_size = QSize(700, 560)
+    summary.resize(remembered_size)
+    summary.reject()
+    application.processEvents()
+
+    window._show_workday_summary()
+    application.processEvents()
+
+    reopened = window._summary_dialog
+    assert isinstance(reopened, WorkdaySummaryDialog)
+    assert reopened.size() == remembered_size
+
+    _teardown_window(window, application)
+
+
+def test_tray_close_hides_and_restores_secondary_windows(
+    application: QApplication,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    window = _make_window(tmp_path)
+    window.show()
+    window._show_settings()
+    window._show_evidence()
+    window._show_workday_summary()
+    application.processEvents()
+    settings = window._settings_dialog
+    evidence = window._evidence_dialog
+    summary = window._summary_dialog
+    assert settings is not None
+    assert evidence is not None
+    assert summary is not None
+
+    monkeypatch.setattr(
+        QSystemTrayIcon,
+        "isSystemTrayAvailable",
+        staticmethod(lambda: True),
+    )
+    monkeypatch.setattr(window, "_show_tray_message", lambda *_args: None)
+
+    window.close()
+    application.processEvents()
+
+    assert not window.isVisible()
+    assert window._settings_dialog is settings
+    assert window._evidence_dialog is evidence
+    assert window._summary_dialog is summary
+    assert not settings.isVisible()
+    assert not evidence.isVisible()
+    assert not summary.isVisible()
+    assert window._secondary_window_presenter.has_open_windows()
+
+    window._show_window()
+    application.processEvents()
+
+    assert window.isVisible()
+    assert settings.isVisible()
+    assert evidence.isVisible()
+    assert summary.isVisible()
+
+    _teardown_window(window, application)
+
+
+def test_language_reload_closes_secondary_windows(
+    application: QApplication,
+    tmp_path: Path,
+) -> None:
+    window = _make_window(tmp_path)
+    window._show_settings()
+    window._show_evidence()
+    window._show_workday_summary()
+    application.processEvents()
+    assert window._secondary_window_presenter.has_open_windows()
+
+    runtime_state = window.prepare_for_language_reload()
+
+    assert runtime_state is not None
+    assert window._settings_dialog is None
+    assert window._evidence_dialog is None
+    assert window._summary_dialog is None
+    assert not window._secondary_window_presenter.has_open_windows()
+
+    _teardown_window(window, application)
+
+
+def test_exercise_return_to_tray_rehides_secondary_windows(
+    application: QApplication,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    window = _make_window(tmp_path)
+    window.show()
+    window._show_settings()
+    application.processEvents()
+    settings = window._settings_dialog
+    assert settings is not None
+
+    monkeypatch.setattr(
+        QSystemTrayIcon,
+        "isSystemTrayAvailable",
+        staticmethod(lambda: True),
+    )
+    monkeypatch.setattr(window, "_show_tray_message", lambda *_args: None)
+    window.close()
+    application.processEvents()
+    assert not window.isVisible()
+    assert not settings.isVisible()
+
+    window._offer_exercise()
+    application.processEvents()
+    exercise = window._exercise_dialog
+    assert isinstance(exercise, ExerciseDialog)
+    assert window.isVisible()
+    assert settings.isVisible()
+
+    exercise.reject()
+    for _ in range(4):
+        application.processEvents()
+
+    assert not window.isVisible()
+    assert window._settings_dialog is settings
+    assert not settings.isVisible()
+
+    window._show_window()
+    application.processEvents()
+    assert settings.isVisible()
+
+    _teardown_window(window, application)
+
+
+def test_tall_exercise_panel_opens_without_vertical_scrollbar(
+    application: QApplication,
+    tmp_path: Path,
+) -> None:
+    window = _make_window(tmp_path)
+    window.resize(760, 650)
+    window.screen = lambda: SimpleNamespace(
+        availableGeometry=lambda: QRect(0, 0, 1920, 1080)
+    )
+
+    window._offer_exercise()
+    application.processEvents()
+
+    assert window._exercise_dialog is not None
     assert not window.side_panel_host.verticalScrollBar().isVisible()
 
     _teardown_window(window, application)
@@ -1695,19 +1878,27 @@ def test_settings_fit_without_horizontal_scroll_at_compact_width(
     window = _make_window(tmp_path)
     window.resize(760, 650)
     window.screen = lambda: SimpleNamespace(
-        availableGeometry=lambda: QRect(0, 0, 800, 650)
+        availableGeometry=lambda: QRect(0, 0, 800, 600)
     )
 
     window._show_settings()
     application.processEvents()
 
-    assert not window.side_panel_host.horizontalScrollBar().isVisible()
+    dialog = window._settings_dialog
+    assert isinstance(dialog, SettingsDialog)
+    dialog.resize(440, 500)
+    application.processEvents()
+    assert not dialog.scroll_area.horizontalScrollBar().isVisible()
+    assert (
+        dialog.scroll_area.horizontalScrollBarPolicy()
+        is Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+    )
     _teardown_window(window, application)
 
 
 @pytest.mark.parametrize(
     "available_size",
-    [(1366, 768), (800, 650)],
+    [(1366, 768), (800, 600)],
 )
 def test_workday_summary_stays_horizontally_reachable(
     application: QApplication,
@@ -1729,27 +1920,17 @@ def test_workday_summary_stays_horizontally_reachable(
     window._show_workday_summary()
     application.processEvents()
 
-    panel = window._summary_dialog
-    viewport = window.side_panel_host.viewport()
-    assert panel is not None
-    # The panel is always fully reachable horizontally: it fits the viewport
-    # width and never falls back to a horizontal scrollbar.
-    assert panel.width() <= viewport.width()
-    assert not window.side_panel_host.horizontalScrollBar().isVisible()
-    # It is never vertically clipped either: it either fits the viewport or
-    # stays reachable through the vertical scrollbar. The exact height at which
-    # the scrollbar appears depends on platform font and control metrics, so we
-    # assert the reachability invariant rather than a fixed pixel threshold.
-    fits_vertically = panel.height() <= viewport.height()
-    assert (
-        fits_vertically
-        or window.side_panel_host.verticalScrollBar().isVisible()
-    )
+    summary = window._summary_dialog
+    assert isinstance(summary, WorkdaySummaryDialog)
+    assert summary.isWindow()
+    assert summary.width() <= available_width
+    assert summary.height() <= available_height
+    assert window.side_panel_frame.isHidden()
 
     _teardown_window(window, application)
 
 
-def test_embedded_setup_save_transitions_to_calibration(
+def test_add_setup_window_transitions_to_calibration_window(
     application: QApplication,
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -1768,27 +1949,48 @@ def test_embedded_setup_save_transitions_to_calibration(
     window._stop_camera = lambda *_args, **_kwargs: True
     window._activate_setup = lambda: None
     window._camera_is_healthy = lambda: True
+    window.show()
+    application.processEvents()
+    original_geometry = window.geometry()
+    original_preview_minimum = window.preview_stack.minimumSize()
+    original_splitter_sizes = window.workspace_splitter.sizes()
 
     window._add_setup()
     application.processEvents()
-    setup_panel = window._setup_dialog
-    assert isinstance(setup_panel, SetupDialog)
-    setup_panel.name_edit.setText("Standing desk")
-    setup_panel._validate_and_accept()
+    setup_window = window._setup_dialog
+    assert isinstance(setup_window, SetupDialog)
+    _assert_modal_window(
+        window,
+        setup_window,
+        Qt.WindowModality.WindowModal,
+    )
+    assert window.geometry() == original_geometry
+    assert window.preview_stack.minimumSize() == original_preview_minimum
+    assert window.workspace_splitter.sizes() == original_splitter_sizes
+
+    setup_window.name_edit.setText("Standing desk")
+    setup_window._validate_and_accept()
     application.processEvents()
 
     assert len(window.data.setups) == 1
     assert window.data.setups[0].name == "Standing desk"
     assert window.data.active_setup_id == window.data.setups[0].id
-    assert isinstance(window._calibration_panel, CalibrationDialog)
-    _assert_embedded_panel(window, window._calibration_panel)
+    assert isinstance(window._calibration_window, CalibrationDialog)
+    _assert_modal_window(
+        window,
+        window._calibration_window,
+        Qt.WindowModality.ApplicationModal,
+    )
+    assert window.geometry() == original_geometry
+    assert window.preview_stack.minimumSize() == original_preview_minimum
+    assert window.workspace_splitter.sizes() == original_splitter_sizes
 
-    window._calibration_panel.reject()
+    window._calibration_window.reject()
     application.processEvents()
     _teardown_window(window, application)
 
 
-def test_full_calibration_is_embedded_right_of_live_preview(
+def test_full_calibration_is_exclusive_window_beside_live_preview(
     application: QApplication,
     tmp_path: Path,
 ) -> None:
@@ -1796,32 +1998,62 @@ def test_full_calibration_is_embedded_right_of_live_preview(
     setup = _install_test_setup(window, calibration=None)
     window._camera_is_healthy = lambda: True
     window._activate_setup = lambda: None
+    window.screen = lambda: SimpleNamespace(
+        availableGeometry=lambda: QRect(0, 0, 800, 600)
+    )
+    window.show()
+    application.processEvents()
+    original_geometry = window.geometry()
+    original_preview_size = window.preview_stack.size()
+    original_preview_minimum = window.preview_stack.minimumSize()
+    original_splitter_sizes = window.workspace_splitter.sizes()
 
     window._calibrate()
     application.processEvents()
 
-    panel = window._calibration_panel
-    assert isinstance(panel, CalibrationDialog)
-    assert not panel.isWindow()
-    assert window.workspace_splitter.widget(1) is window.side_panel_frame
+    calibration = window._calibration_window
+    assert isinstance(calibration, CalibrationDialog)
+    _assert_modal_window(
+        window,
+        calibration,
+        Qt.WindowModality.ApplicationModal,
+    )
+    assert calibration.width() <= 800
+    assert calibration.height() <= 600
+    assert (
+        calibration.scroll_area.horizontalScrollBarPolicy()
+        is Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+    )
     assert window.preview.isVisible()
-    assert window.side_panel_host.isVisible()
     assert not window.setup_combo.isEnabled()
+    assert window.geometry() == original_geometry
+    assert window.preview_stack.size() == original_preview_size
+    assert window.preview_stack.minimumSize() == original_preview_minimum
+    assert window.workspace_splitter.sizes() == original_splitter_sizes
+
+    window._calibrate()
+    application.processEvents()
+    assert window._calibration_window is calibration
 
     profile = make_profile()
-    panel.profile = profile
-    panel.accept()
+    calibration.profile = profile
+    calibration.accept()
     application.processEvents()
 
     assert setup.calibration == profile
     assert not window._calibration_flow_active
-    assert window.side_panel_host.isHidden()
+    assert window._calibration_window is None
+    assert window.side_panel_frame.isHidden()
     assert window.setup_combo.isEnabled()
+    assert window.geometry() == original_geometry
+    assert window.preview_stack.size() == original_preview_size
+    assert window.preview_stack.minimumSize() == original_preview_minimum
+    assert window.workspace_splitter.sizes() == original_splitter_sizes
 
     _teardown_window(window, application)
 
 
-def test_recalibration_chooser_transitions_to_embedded_capture_panel(
+def test_recalibration_chooser_transitions_to_exclusive_capture_window(
     application: QApplication,
     tmp_path: Path,
 ) -> None:
@@ -1829,13 +2061,32 @@ def test_recalibration_chooser_transitions_to_embedded_capture_panel(
     setup = _install_test_setup(window, calibration=make_profile())
     window._camera_is_healthy = lambda: True
     window._activate_setup = lambda: None
+    window.show()
+    application.processEvents()
+    original_geometry = window.geometry()
+    original_preview_size = window.preview_stack.size()
+    original_preview_minimum = window.preview_stack.minimumSize()
+    original_splitter_sizes = window.workspace_splitter.sizes()
 
     window._recalibrate_step()
     application.processEvents()
 
-    selection = window._calibration_panel
+    selection = window._calibration_window
     assert isinstance(selection, CalibrationStepSelectionDialog)
-    assert not selection.isWindow()
+    _assert_modal_window(
+        window,
+        selection,
+        Qt.WindowModality.ApplicationModal,
+    )
+    assert window.geometry() == original_geometry
+    assert window.preview_stack.size() == original_preview_size
+    assert window.preview_stack.minimumSize() == original_preview_minimum
+    assert window.workspace_splitter.sizes() == original_splitter_sizes
+
+    window._recalibrate_step()
+    application.processEvents()
+    assert window._calibration_window is selection
+
     selection.step_combo.setCurrentIndex(
         selection.step_combo.findData(
             PostureCategory.SHOULDERS_SUNK.value
@@ -1847,20 +2098,29 @@ def test_recalibration_chooser_transitions_to_embedded_capture_panel(
     )
     application.processEvents()
 
-    capture = window._calibration_panel
+    capture = window._calibration_window
     assert isinstance(capture, CalibrationDialog)
-    assert not capture.isWindow()
+    _assert_modal_window(
+        window,
+        capture,
+        Qt.WindowModality.ApplicationModal,
+    )
     assert capture is window._calibration_dialog
     assert len(capture.steps) == 2
     assert capture.steps[0].category is None
     assert capture.steps[1].category is PostureCategory.SHOULDERS_SUNK
     assert window.preview.isVisible()
+    assert window.geometry() == original_geometry
+    assert window.preview_stack.size() == original_preview_size
+    assert window.preview_stack.minimumSize() == original_preview_minimum
+    assert window.workspace_splitter.sizes() == original_splitter_sizes
 
     capture.reject()
     application.processEvents()
 
     assert not window._calibration_flow_active
-    assert window.side_panel_host.isHidden()
+    assert window._calibration_window is None
+    assert window.side_panel_frame.isHidden()
     assert setup.calibration is not None
 
     _teardown_window(window, application)
@@ -1878,7 +2138,7 @@ def test_recalibration_chooser_keeps_media_and_copy_together(
     window._recalibrate_step()
     application.processEvents()
 
-    panel = window._calibration_panel
+    panel = window._calibration_window
     assert isinstance(panel, CalibrationStepSelectionDialog)
     layout = panel.layout()
     spacing = layout.spacing()
@@ -1902,7 +2162,7 @@ def test_calibration_reference_image_keeps_widescreen_ratio() -> None:
     assert image.sizeHint() == QSize(480, 270)
 
 
-def test_camera_error_closes_calibration_panel_without_popup(
+def test_camera_error_closes_calibration_window_without_popup(
     application: QApplication,
     tmp_path: Path,
 ) -> None:
@@ -1912,7 +2172,7 @@ def test_camera_error_closes_calibration_panel_without_popup(
     window._activate_setup = lambda: None
     window._calibrate()
     application.processEvents()
-    assert window._calibration_panel is not None
+    assert window._calibration_window is not None
 
     current_camera = object()
     window.camera_thread = current_camera
@@ -1924,13 +2184,14 @@ def test_camera_error_closes_calibration_panel_without_popup(
     assert window._notice_dialog is None
     assert window._state is TrackerState.CAMERA_UNAVAILABLE
     assert not window._calibration_flow_active
-    assert window.side_panel_host.isHidden()
+    assert window._calibration_window is None
+    assert window.side_panel_frame.isHidden()
 
     window.camera_thread = None
     _teardown_window(window, application)
 
 
-def test_language_reload_cancels_embedded_calibration(
+def test_language_reload_cancels_calibration_window(
     application: QApplication,
     tmp_path: Path,
 ) -> None:
@@ -1947,11 +2208,43 @@ def test_language_reload_cancels_embedded_calibration(
 
     assert runtime_state is not None
     assert not window._calibration_flow_active
-    assert window.side_panel_host.isHidden()
+    assert window._calibration_window is None
+    assert window.side_panel_frame.isHidden()
     assert window._calibration_dialog is None
 
     window.deleteLater()
     application.processEvents()
+
+
+def test_calibration_defers_exercise_until_window_closes(
+    application: QApplication,
+    tmp_path: Path,
+) -> None:
+    window = _make_window(tmp_path)
+    _install_test_setup(window, calibration=None)
+    window._camera_is_healthy = lambda: True
+    window._activate_setup = lambda: None
+
+    window._calibrate()
+    application.processEvents()
+    calibration = window._calibration_window
+    assert isinstance(calibration, CalibrationDialog)
+
+    window._offer_exercise()
+    application.processEvents()
+
+    assert window._pending_exercise is not None
+    assert window._exercise_dialog is None
+
+    calibration.reject()
+    for _ in range(4):
+        application.processEvents()
+
+    assert not window._calibration_flow_active
+    assert isinstance(window._exercise_dialog, ExerciseDialog)
+    _assert_embedded_panel(window, window._exercise_dialog)
+
+    _teardown_window(window, application)
 
 
 def test_offer_exercise_opens_dialog_directly(
@@ -1974,29 +2267,32 @@ def test_offer_exercise_opens_dialog_directly(
     _teardown_window(window, application)
 
 
-def test_background_exercise_waits_for_active_panel(
+def test_background_exercise_coexists_with_settings_window(
     application: QApplication,
     tmp_path: Path,
 ) -> None:
     window = _make_window(tmp_path)
     original_size = QSize(760, 650)
     window.resize(original_size)
-    settings = _open_settings_panel(window, application)
+    settings = _open_settings_window(window, application)
 
     window._offer_exercise()
     application.processEvents()
 
     assert window._settings_dialog is settings
-    assert window._exercise_dialog is None
+    assert settings.isVisible()
+    assert isinstance(window._exercise_dialog, ExerciseDialog)
+    _assert_embedded_panel(window, window._exercise_dialog)
     assert window._pending_exercise is not None
     assert window.open_exercise_action.isVisible()
+    assert window._size_before_side_panel == original_size
 
     settings.reject()
     application.processEvents()
 
+    assert window._settings_dialog is None
     assert isinstance(window._exercise_dialog, ExerciseDialog)
     _assert_embedded_panel(window, window._exercise_dialog)
-    assert window._size_before_side_panel == original_size
 
     window._exercise_dialog.reject()
     QTest.qWait(1)
@@ -2008,23 +2304,26 @@ def test_background_exercise_waits_for_active_panel(
     _teardown_window(window, application)
 
 
-def test_notice_waits_for_active_panel(
+def test_notice_coexists_with_settings_window(
     application: QApplication,
     tmp_path: Path,
 ) -> None:
     window = _make_window(tmp_path)
-    settings = _open_settings_panel(window, application)
+    settings = _open_settings_window(window, application)
 
     window._show_notice("Saved data unavailable", "Disk is read-only.")
     application.processEvents()
 
     assert window._settings_dialog is settings
-    assert window._notice_dialog is None
-    assert window._pending_notice is not None
+    assert settings.isVisible()
+    assert isinstance(window._notice_dialog, NoticeDialog)
+    assert window._pending_notice is None
+    _assert_embedded_panel(window, window._notice_dialog)
 
     settings.reject()
     application.processEvents()
 
+    assert window._settings_dialog is None
     assert isinstance(window._notice_dialog, NoticeDialog)
     _assert_embedded_panel(window, window._notice_dialog)
 
@@ -2372,7 +2671,7 @@ def test_closing_settings_keeps_postponed_exercise_snoozed(
     application.processEvents()
     assert window._exercise_postpone_timer.isActive()
 
-    settings = _open_settings_panel(window, application)
+    settings = _open_settings_window(window, application)
     settings.reject()
     application.processEvents()
 

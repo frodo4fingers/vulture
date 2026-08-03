@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pydantic import ValidationError
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -11,6 +12,7 @@ from PySide6.QtWidgets import (
     QFrame,
     QGroupBox,
     QLabel,
+    QScrollArea,
     QSizePolicy,
     QSpinBox,
     QVBoxLayout,
@@ -43,13 +45,25 @@ class SettingsDialog(QDialog):
         startup_setting_available: bool = True,
         startup_setting_error: str | None = None,
     ) -> None:
-        super().__init__(parent)
+        super().__init__(parent, Qt.WindowType.Window)
         self.setWindowTitle(tr("Vulture settings"))
-        self.setMinimumWidth(360)
-        self.setProperty("preferredSidePanelWidth", 540)
+        self.setMinimumSize(440, 420)
+        self.resize(620, 640)
         break_preferences = break_preferences or BreakPreferences()
 
-        layout = QVBoxLayout(self)
+        outer_layout = QVBoxLayout(self)
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        self.scroll_area.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        content = QWidget()
+        layout = QVBoxLayout(content)
+        layout.setContentsMargins(0, 0, 0, 0)
+        self.scroll_area.setWidget(content)
+        outer_layout.addWidget(self.scroll_area, 1)
+
         interface_group = QGroupBox(tr("Interface"))
         interface_group.setSizePolicy(
             QSizePolicy.Policy.Preferred,
@@ -540,7 +554,7 @@ class SettingsDialog(QDialog):
         )
         buttons.accepted.connect(self._validate_and_accept)
         buttons.rejected.connect(self.reject)
-        layout.addWidget(buttons)
+        outer_layout.addWidget(buttons)
         self._policy = policy
         self._break_preferences = break_preferences
         self._preferences = preferences

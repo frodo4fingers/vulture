@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QDialog
 
 from vulture.i18n import tr
@@ -20,21 +21,21 @@ from .calibration import (
 
 
 class CalibrationFlowMixin:
-    def _hide_calibration_panel(self) -> None:
-        self._hide_side_panel(self._calibration_panel)
-        self._calibration_panel = None
-
     def _cancel_active_calibration(self) -> None:
-        if self._calibration_panel is not None:
-            self._calibration_panel.reject()
+        if self._calibration_window is not None:
+            self._calibration_window.reject()
         elif self._calibration_flow_active:
             self._end_calibration_flow()
 
     def _end_calibration_flow(self) -> None:
         self._calibration_dialog = None
-        self._hide_calibration_panel()
+        self._calibration_window = None
         self._calibration_flow_active = False
         self._refresh_setup_combo()
+        QTimer.singleShot(
+            0,
+            lambda: self._show_deferred_panel(allow_exercise=True),
+        )
 
     def _persist_calibration_profile(
         self,
@@ -94,14 +95,17 @@ class CalibrationFlowMixin:
         )
         self._suspend_history()
         self._reset_break_tracking()
-        dialog = CalibrationDialog()
+        dialog = CalibrationDialog(self)
         self._calibration_dialog = dialog
+        self._show_calibration_window(
+            dialog,
+            key="calibration-capture",
+        )
         dialog.finished.connect(
             lambda result, active_dialog=dialog: (
                 self._finish_full_calibration(active_dialog, result)
             )
         )
-        self._show_calibration_panel(dialog)
 
     def _finish_full_calibration(
         self,
@@ -202,7 +206,14 @@ class CalibrationFlowMixin:
 
         if not self._begin_calibration_flow():
             return
-        selection = CalibrationStepSelectionDialog(setup.calibration)
+        selection = CalibrationStepSelectionDialog(
+            setup.calibration,
+            self,
+        )
+        self._show_calibration_window(
+            selection,
+            key="calibration-selection",
+        )
         selection.finished.connect(
             lambda result, active_selection=selection, active_setup=setup: (
                 self._finish_recalibration_selection(
@@ -212,7 +223,6 @@ class CalibrationFlowMixin:
                 )
             )
         )
-        self._show_calibration_panel(selection)
 
     def _finish_recalibration_selection(
         self,
@@ -220,7 +230,7 @@ class CalibrationFlowMixin:
         setup: SetupProfile,
         result: int,
     ) -> None:
-        if selection is not self._calibration_panel:
+        if selection is not self._calibration_window:
             return
         if result != QDialog.DialogCode.Accepted:
             self._end_calibration_flow()
@@ -327,10 +337,15 @@ class CalibrationFlowMixin:
         self._reset_break_tracking()
         self._set_state(TrackerState.CALIBRATING, tracking_message)
         dialog = CalibrationDialog(
+            self,
             steps=steps,
             base_profile=base_profile,
         )
         self._calibration_dialog = dialog
+        self._show_calibration_window(
+            dialog,
+            key="calibration-capture",
+        )
         dialog.finished.connect(
             lambda result, active_dialog=dialog, active_setup=setup: (
                 self._finish_recalibration_dialog(
@@ -343,7 +358,6 @@ class CalibrationFlowMixin:
                 )
             )
         )
-        self._show_calibration_panel(dialog)
 
     def _finish_recalibration_dialog(
         self,
