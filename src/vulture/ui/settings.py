@@ -133,8 +133,8 @@ class SettingsDialog(QDialog):
         break_intro = SemanticLabel(
             tr(
                 "Good posture can still be too static. Vulture can remind "
-                "you to vary position, stand, walk away, or rest your eyes "
-                "even when posture tracking is green."
+                "you to vary position, rest your eyes, drink, or step fully "
+                "away even when posture tracking is green."
             ),
             tone="info",
         )
@@ -147,6 +147,14 @@ class SettingsDialog(QDialog):
             break_preferences.enabled
         )
         break_layout.addWidget(self.break_reminders_enabled)
+        shuffle_note = QLabel(
+            tr(
+                "Within each channel, enabled suggestions are shuffled "
+                "without repeats until every option has appeared."
+            )
+        )
+        shuffle_note.setWordWrap(True)
+        break_layout.addWidget(shuffle_note)
 
         self.movement_reminders_enabled = QCheckBox(
             tr("Movement and position changes")
@@ -204,7 +212,7 @@ class SettingsDialog(QDialog):
         )
         movement_layout.addLayout(movement_form)
 
-        movement_options_label = QLabel(tr("Rotate suggestions between"))
+        movement_options_label = QLabel(tr("Shuffle suggestions between"))
         movement_options_font = movement_options_label.font()
         movement_options_font.setBold(True)
         movement_options_label.setFont(movement_options_font)
@@ -219,9 +227,12 @@ class SettingsDialog(QDialog):
         self.suggest_standing.setChecked(
             break_preferences.suggest_standing
         )
-        self.suggest_walking = QCheckBox(
+        walking_label = (
             tr("Walk away, refill water, or make tea or coffee")
+            if break_preferences.legacy_walk_includes_drinks
+            else tr("Take an easy walk")
         )
+        self.suggest_walking = QCheckBox(walking_label)
         self.suggest_walking.setChecked(
             break_preferences.suggest_walking
         )
@@ -282,6 +293,12 @@ class SettingsDialog(QDialog):
         )
         eye_explanation.setWordWrap(True)
         eye_layout.addWidget(eye_explanation)
+        self.suggest_nature_view = QCheckBox(
+            tr("Look toward distant greenery when available")
+        )
+        self.suggest_nature_view.setChecked(
+            break_preferences.suggest_nature_view
+        )
         self.suggest_blinking = QCheckBox(
             tr("Add five slow, complete blinks")
         )
@@ -294,9 +311,129 @@ class SettingsDialog(QDialog):
         self.suggest_closed_eye_rest.setChecked(
             break_preferences.suggest_closed_eye_rest
         )
+        eye_layout.addWidget(self.suggest_nature_view)
         eye_layout.addWidget(self.suggest_blinking)
         eye_layout.addWidget(self.suggest_closed_eye_rest)
         break_layout.addWidget(self.eye_controls)
+
+        hydration_divider = QFrame()
+        hydration_divider.setFrameShape(QFrame.Shape.HLine)
+        hydration_divider.setFrameShadow(QFrame.Shadow.Sunken)
+        break_layout.addWidget(hydration_divider)
+
+        self.hydration_reminders_enabled = QCheckBox(tr("Water reminder"))
+        hydration_heading_font = self.hydration_reminders_enabled.font()
+        hydration_heading_font.setBold(True)
+        self.hydration_reminders_enabled.setFont(hydration_heading_font)
+        self.hydration_reminders_enabled.setChecked(
+            break_preferences.hydration_reminders_enabled
+        )
+        break_layout.addWidget(self.hydration_reminders_enabled)
+
+        self.hydration_controls = QWidget()
+        hydration_layout = QFormLayout(self.hydration_controls)
+        hydration_layout.setContentsMargins(22, 0, 0, 0)
+        hydration_layout.setRowWrapPolicy(
+            QFormLayout.RowWrapPolicy.WrapLongRows
+        )
+        self.hydration_interval_minutes = QSpinBox()
+        self.hydration_interval_minutes.setRange(20, 240)
+        self.hydration_interval_minutes.setValue(
+            break_preferences.hydration_interval_minutes
+        )
+        self.hydration_interval_minutes.setSuffix(tr(" minutes"))
+        self.hydration_duration_seconds = QSpinBox()
+        self.hydration_duration_seconds.setRange(15, 180)
+        self.hydration_duration_seconds.setValue(
+            break_preferences.hydration_duration_seconds
+        )
+        self.hydration_duration_seconds.setSuffix(tr(" seconds"))
+        hydration_layout.addRow(
+            tr("Water reminder every"),
+            self.hydration_interval_minutes,
+        )
+        hydration_layout.addRow(
+            tr("Suggested length"),
+            self.hydration_duration_seconds,
+        )
+        break_layout.addWidget(self.hydration_controls)
+
+        reset_divider = QFrame()
+        reset_divider.setFrameShape(QFrame.Shape.HLine)
+        reset_divider.setFrameShadow(QFrame.Shadow.Sunken)
+        break_layout.addWidget(reset_divider)
+
+        self.reset_reminders_enabled = QCheckBox(tr("Longer reset"))
+        reset_heading_font = self.reset_reminders_enabled.font()
+        reset_heading_font.setBold(True)
+        self.reset_reminders_enabled.setFont(reset_heading_font)
+        self.reset_reminders_enabled.setChecked(
+            break_preferences.reset_reminders_enabled
+        )
+        break_layout.addWidget(self.reset_reminders_enabled)
+
+        self.reset_controls = QWidget()
+        reset_layout = QVBoxLayout(self.reset_controls)
+        reset_layout.setContentsMargins(22, 0, 0, 0)
+        reset_form = QFormLayout()
+        reset_form.setRowWrapPolicy(
+            QFormLayout.RowWrapPolicy.WrapLongRows
+        )
+        self.reset_interval_minutes = QSpinBox()
+        self.reset_interval_minutes.setRange(30, 240)
+        self.reset_interval_minutes.setValue(
+            break_preferences.reset_interval_minutes
+        )
+        self.reset_interval_minutes.setSuffix(tr(" minutes"))
+        self.reset_duration_minutes = QSpinBox()
+        self.reset_duration_minutes.setRange(1, 15)
+        self.reset_duration_minutes.setValue(
+            break_preferences.reset_duration_minutes
+        )
+        self.reset_duration_minutes.setSuffix(tr(" minutes"))
+        reset_form.addRow(tr("Every"), self.reset_interval_minutes)
+        reset_form.addRow(
+            tr("Suggested length"),
+            self.reset_duration_minutes,
+        )
+        reset_layout.addLayout(reset_form)
+        reset_options_label = QLabel(tr("Shuffle suggestions between"))
+        reset_options_font = reset_options_label.font()
+        reset_options_font.setBold(True)
+        reset_options_label.setFont(reset_options_font)
+        reset_layout.addWidget(reset_options_label)
+        self.suggest_tea_or_coffee = QCheckBox(tr("Make tea or coffee"))
+        self.suggest_tea_or_coffee.setChecked(
+            break_preferences.suggest_tea_or_coffee
+        )
+        self.suggest_reset_walking = QCheckBox(tr("Take an easy walk"))
+        self.suggest_reset_walking.setChecked(
+            break_preferences.suggest_reset_walking
+        )
+        self.suggest_breathing_reset = QCheckBox(
+            tr("Take a slower breathing reset")
+        )
+        self.suggest_breathing_reset.setChecked(
+            break_preferences.suggest_breathing_reset
+        )
+        self.suggest_offscreen_reset = QCheckBox(
+            tr("Take a full off-screen reset")
+        )
+        self.suggest_offscreen_reset.setChecked(
+            break_preferences.suggest_offscreen_reset
+        )
+        self.suggest_reset_guided_exercise = QCheckBox(
+            tr("Open a guided movement")
+        )
+        self.suggest_reset_guided_exercise.setChecked(
+            break_preferences.suggest_reset_guided_exercise
+        )
+        reset_layout.addWidget(self.suggest_tea_or_coffee)
+        reset_layout.addWidget(self.suggest_reset_walking)
+        reset_layout.addWidget(self.suggest_breathing_reset)
+        reset_layout.addWidget(self.suggest_offscreen_reset)
+        reset_layout.addWidget(self.suggest_reset_guided_exercise)
+        break_layout.addWidget(self.reset_controls)
 
         evidence_note = SemanticLabel(
             tr(
@@ -304,7 +441,8 @@ class SettingsDialog(QDialog):
                 "any exact schedule, and light walking has stronger acute "
                 "evidence than standing alone. The 20-20-20 eye rule is "
                 "widely recommended, but its exact timing has limited trial "
-                "evidence."
+                "evidence. Water and longer-reset intervals are convenience "
+                "defaults, not intake or treatment prescriptions."
             ),
             tone="info",
         )
@@ -318,6 +456,12 @@ class SettingsDialog(QDialog):
             self._sync_break_controls
         )
         self.eye_reminders_enabled.toggled.connect(
+            self._sync_break_controls
+        )
+        self.hydration_reminders_enabled.toggled.connect(
+            self._sync_break_controls
+        )
+        self.reset_reminders_enabled.toggled.connect(
             self._sync_break_controls
         )
         self._sync_break_controls()
@@ -408,11 +552,19 @@ class SettingsDialog(QDialog):
         enabled = self.break_reminders_enabled.isChecked()
         self.movement_reminders_enabled.setEnabled(enabled)
         self.eye_reminders_enabled.setEnabled(enabled)
+        self.hydration_reminders_enabled.setEnabled(enabled)
+        self.reset_reminders_enabled.setEnabled(enabled)
         self.movement_controls.setEnabled(
             enabled and self.movement_reminders_enabled.isChecked()
         )
         self.eye_controls.setEnabled(
             enabled and self.eye_reminders_enabled.isChecked()
+        )
+        self.hydration_controls.setEnabled(
+            enabled and self.hydration_reminders_enabled.isChecked()
+        )
+        self.reset_controls.setEnabled(
+            enabled and self.reset_reminders_enabled.isChecked()
         )
 
     def _validate_and_accept(self) -> None:
@@ -464,6 +616,12 @@ class SettingsDialog(QDialog):
                 ),
                 suggest_standing=self.suggest_standing.isChecked(),
                 suggest_walking=self.suggest_walking.isChecked(),
+                legacy_walk_includes_drinks=(
+                    self._break_preferences.legacy_walk_includes_drinks
+                    and self.suggest_walking.isChecked()
+                    and not self.hydration_reminders_enabled.isChecked()
+                    and not self.reset_reminders_enabled.isChecked()
+                ),
                 suggest_guided_exercise=(
                     self.suggest_guided_exercise.isChecked()
                 ),
@@ -472,16 +630,53 @@ class SettingsDialog(QDialog):
                 ),
                 eye_interval_minutes=self.eye_interval_minutes.value(),
                 eye_duration_seconds=self.eye_duration_seconds.value(),
+                suggest_nature_view=(
+                    self.suggest_nature_view.isChecked()
+                ),
                 suggest_blinking=self.suggest_blinking.isChecked(),
                 suggest_closed_eye_rest=(
                     self.suggest_closed_eye_rest.isChecked()
+                ),
+                hydration_reminders_enabled=(
+                    self.hydration_reminders_enabled.isChecked()
+                ),
+                hydration_interval_minutes=(
+                    self.hydration_interval_minutes.value()
+                ),
+                hydration_duration_seconds=(
+                    self.hydration_duration_seconds.value()
+                ),
+                reset_reminders_enabled=(
+                    self.reset_reminders_enabled.isChecked()
+                ),
+                reset_interval_minutes=(
+                    self.reset_interval_minutes.value()
+                ),
+                reset_duration_minutes=(
+                    self.reset_duration_minutes.value()
+                ),
+                suggest_tea_or_coffee=(
+                    self.suggest_tea_or_coffee.isChecked()
+                ),
+                suggest_reset_walking=(
+                    self.suggest_reset_walking.isChecked()
+                ),
+                suggest_breathing_reset=(
+                    self.suggest_breathing_reset.isChecked()
+                ),
+                suggest_offscreen_reset=(
+                    self.suggest_offscreen_reset.isChecked()
+                ),
+                suggest_reset_guided_exercise=(
+                    self.suggest_reset_guided_exercise.isChecked()
                 ),
             )
         except ValidationError:
             self.feedback_label.setText(
                 tr(
-                    "Choose movement or eye reminders, and keep at least one "
-                    "movement suggestion enabled."
+                    "Enable at least one break channel, and keep at least one "
+                    "suggestion in each enabled movement or longer-reset "
+                    "channel."
                 )
             )
             self.feedback_label.show()

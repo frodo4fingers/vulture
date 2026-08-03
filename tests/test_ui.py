@@ -11,6 +11,7 @@ import pytest
 
 import vulture.ui as ui_module
 from vulture.autostart import AutostartError, AutostartSnapshot
+from vulture.breaks import BreakChannel
 from vulture.exercises import load_exercise_catalog
 from vulture.history import (
     BASELINE_POSTURE,
@@ -1225,10 +1226,14 @@ def test_settings_break_controls_validate_and_round_trip(
 
     assert dialog.movement_controls.isEnabled()
     assert dialog.eye_controls.isEnabled()
+    assert dialog.hydration_controls.isEnabled()
+    assert dialog.reset_controls.isEnabled()
     dialog.movement_reminders_enabled.setChecked(False)
     assert not dialog.movement_controls.isEnabled()
     dialog.eye_interval_minutes.setValue(30)
     dialog.eye_duration_seconds.setValue(40)
+    dialog.hydration_interval_minutes.setValue(75)
+    dialog.reset_interval_minutes.setValue(120)
     dialog._validate_and_accept()
 
     assert dialog.values()[0].sedentary_break_minutes == 30
@@ -1236,6 +1241,8 @@ def test_settings_break_controls_validate_and_round_trip(
     assert not break_preferences.movement_reminders_enabled
     assert break_preferences.eye_interval_minutes == 30
     assert break_preferences.eye_duration_seconds == 40
+    assert break_preferences.hydration_interval_minutes == 75
+    assert break_preferences.reset_interval_minutes == 120
     dialog.close()
     application.processEvents()
 
@@ -1249,10 +1256,12 @@ def test_settings_break_controls_validate_and_round_trip(
     )
     invalid.movement_reminders_enabled.setChecked(False)
     invalid.eye_reminders_enabled.setChecked(False)
+    invalid.hydration_reminders_enabled.setChecked(False)
+    invalid.reset_reminders_enabled.setChecked(False)
     invalid._validate_and_accept()
 
     assert not invalid.feedback_label.isHidden()
-    assert "Choose movement or eye reminders" in (
+    assert "Enable at least one break channel" in (
         invalid.feedback_label.text()
     )
     invalid.close()
@@ -1273,6 +1282,7 @@ def test_combined_break_due_uses_one_movement_notification(
         suggest_walking=False,
         suggest_guided_exercise=False,
         eye_interval_minutes=20,
+        suggest_nature_view=False,
     )
     messages: list[tuple[str, str]] = []
     window._show_tray_message = (
@@ -1284,11 +1294,18 @@ def test_combined_break_due_uses_one_movement_notification(
         window._check_break_reminders()
 
     assert len(messages) == 3
-    assert messages[0][0] == "Time for a movement break"
+    assert messages[0][0] == "Time for a short break"
     assert "Change how you are sitting for about 3 minutes" in messages[0][1]
-    assert "6 m (20 ft) away" in messages[0][1]
-    assert "five slow, complete blinks" in messages[1][1]
-    assert "close your eyes gently" in messages[2][1]
+    eye_messages = [message for _title, message in messages]
+    assert any("6 m (20 ft) away" in message for message in eye_messages)
+    assert any(
+        "five slow, complete blinks" in message
+        for message in eye_messages
+    )
+    assert any(
+        "close your eyes gently" in message
+        for message in eye_messages
+    )
     assert window._tracked_seconds_since_break == 0
     assert window._tracked_seconds_since_eye_break == 0
     _teardown_window(window, application)
@@ -1304,6 +1321,7 @@ def test_eye_only_break_uses_configured_distance_prompt(
         movement_reminders_enabled=False,
         eye_interval_minutes=10,
         eye_duration_seconds=30,
+        suggest_nature_view=False,
         suggest_blinking=False,
         suggest_closed_eye_rest=False,
     )
@@ -1345,12 +1363,199 @@ def test_guided_break_reuses_existing_exercise_flow(
         eye_reminders_enabled=False,
     )
     offers: list[bool] = []
-    window._offer_exercise = lambda: offers.append(True)
+    window._offer_exercise = lambda **_kwargs: offers.append(True)
     window._tracked_seconds_since_break = 20 * 60
 
     window._check_break_reminders()
 
     assert offers == [True]
+    _teardown_window(window, application)
+
+
+def test_water_and_longer_reset_share_one_due_notification(
+    application: QApplication,
+    tmp_path: Path,
+) -> None:
+    window = _make_window(tmp_path)
+    _install_test_setup(window, calibration=None)
+    window.data.break_preferences = BreakPreferences(
+        movement_reminders_enabled=False,
+        eye_reminders_enabled=False,
+        hydration_reminders_enabled=True,
+        hydration_interval_minutes=60,
+        reset_reminders_enabled=True,
+        reset_interval_minutes=60,
+        suggest_tea_or_coffee=False,
+        suggest_reset_walking=False,
+        suggest_breathing_reset=False,
+        suggest_offscreen_reset=True,
+        suggest_reset_guided_exercise=False,
+    )
+    window.data.break_activity_bags["reset"] = ["offscreen"]
+    messages: list[tuple[str, str]] = []
+    window._show_tray_message = (
+        lambda title, message, *_args: messages.append((title, message))
+    )
+    window._tracked_seconds_since_hydration_break = 60 * 60
+    window._tracked_seconds_since_reset_break = 60 * 60
+
+    window._check_break_reminders()
+
+    assert len(messages) == 1
+    assert messages[0][0] == "Time for a short break"
+    assert "refill a glass or bottle" in messages[0][1]
+    assert "fully off-screen" in messages[0][1]
+    assert window._tracked_seconds_since_hydration_break == 0
+    assert window._tracked_seconds_since_reset_break == 0
+    _teardown_window(window, application)
+
+
+def test_break_channels_keep_independent_shuffle_history(
+    application: QApplication,
+    tmp_path: Path,
+) -> None:
+    window = _make_window(tmp_path)
+    _install_test_setup(window, calibration=None)
+    window.data.break_preferences = BreakPreferences(
+        movement_interval_minutes=20,
+        suggest_position_change=False,
+        suggest_standing=False,
+        suggest_walking=False,
+        suggest_guided_exercise=True,
+        eye_reminders_enabled=False,
+        hydration_reminders_enabled=False,
+        reset_reminders_enabled=True,
+        reset_interval_minutes=30,
+        suggest_tea_or_coffee=True,
+        suggest_reset_walking=False,
+        suggest_breathing_reset=False,
+        suggest_offscreen_reset=False,
+        suggest_reset_guided_exercise=True,
+    )
+    window.data.break_activity_bags = {
+        "movement": ["guided_exercise"],
+        "reset": ["guided_exercise"],
+    }
+    window.data.last_break_activity_ids = {
+        "movement": "walk",
+        "reset": "tea_or_coffee",
+    }
+    offered_channels: list[tuple[BreakChannel, ...]] = []
+
+    def record_offer(
+        *,
+        reset_channels: tuple[BreakChannel, ...],
+    ) -> None:
+        offered_channels.append(reset_channels)
+        window._reset_break_channels(reset_channels)
+
+    window._offer_exercise = record_offer
+    window._tracked_seconds_since_break = 20 * 60
+    window._tracked_seconds_since_reset_break = 30 * 60
+
+    window._check_break_reminders()
+
+    assert offered_channels == [
+        (BreakChannel.MOVEMENT, BreakChannel.RESET)
+    ]
+    assert window.data.break_activity_bags["movement"] == []
+    assert window.data.break_activity_bags["reset"] == []
+    assert window.data.last_break_activity_ids == {
+        "movement": "guided_exercise",
+        "reset": "guided_exercise",
+    }
+
+    messages: list[tuple[str, str]] = []
+    window._show_tray_message = (
+        lambda title, message, *_args: messages.append((title, message))
+    )
+    window._tracked_seconds_since_reset_break = 30 * 60
+    window._check_break_reminders()
+
+    assert len(messages) == 1
+    assert "make tea, coffee" in messages[0][1]
+    assert (
+        window.data.last_break_activity_ids["reset"]
+        == "tea_or_coffee"
+    )
+    _teardown_window(window, application)
+
+
+def test_manual_exercise_offer_resets_only_movement_timer(
+    application: QApplication,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    window = _make_window(tmp_path)
+    window._tracked_seconds_since_break = 100
+    window._tracked_seconds_since_eye_break = 200
+    window._tracked_seconds_since_hydration_break = 300
+    window._tracked_seconds_since_reset_break = 400
+    monkeypatch.setattr(
+        window.selector,
+        "choose_from_bag",
+        lambda *_args, **_kwargs: (None, []),
+    )
+
+    window._offer_exercise()
+
+    assert window._tracked_seconds_since_break == 0
+    assert window._tracked_seconds_since_eye_break == 200
+    assert window._tracked_seconds_since_hydration_break == 300
+    assert window._tracked_seconds_since_reset_break == 400
+    _teardown_window(window, application)
+
+
+def test_language_only_settings_save_preserves_break_state(
+    application: QApplication,
+    tmp_path: Path,
+) -> None:
+    window = _make_window(tmp_path)
+    window._tracked_seconds_since_break = 100
+    window._tracked_seconds_since_eye_break = 200
+    window._tracked_seconds_since_hydration_break = 300
+    window._tracked_seconds_since_reset_break = 400
+    pending_exercise = window.catalog.exercises[0]
+    window._pending_exercise = pending_exercise
+    window._pending_exercise_reset_channels = (BreakChannel.RESET,)
+
+    settings = _open_settings_panel(window, application)
+    settings.language_combo.setCurrentIndex(
+        settings.language_combo.findData("es")
+    )
+    settings._validate_and_accept()
+    application.processEvents()
+
+    assert window._tracked_seconds_since_break == 100
+    assert window._tracked_seconds_since_eye_break == 200
+    assert window._tracked_seconds_since_hydration_break == 300
+    assert window._tracked_seconds_since_reset_break == 400
+    assert window._pending_exercise is pending_exercise
+    assert window._pending_exercise_reset_channels == (
+        BreakChannel.RESET,
+    )
+    _teardown_window(window, application)
+
+
+def test_break_settings_reset_only_the_changed_channel(
+    application: QApplication,
+    tmp_path: Path,
+) -> None:
+    window = _make_window(tmp_path)
+    window._tracked_seconds_since_break = 100
+    window._tracked_seconds_since_eye_break = 200
+    window._tracked_seconds_since_hydration_break = 300
+    window._tracked_seconds_since_reset_break = 400
+
+    settings = _open_settings_panel(window, application)
+    settings.movement_interval_minutes.setValue(45)
+    settings._validate_and_accept()
+    application.processEvents()
+
+    assert window._tracked_seconds_since_break == 0
+    assert window._tracked_seconds_since_eye_break == 200
+    assert window._tracked_seconds_since_hydration_break == 300
+    assert window._tracked_seconds_since_reset_break == 400
     _teardown_window(window, application)
 
 
@@ -1365,6 +1570,8 @@ def test_away_time_resets_break_counters(
     )
     window._tracked_seconds_since_break = 700
     window._tracked_seconds_since_eye_break = 500
+    window._tracked_seconds_since_hydration_break = 400
+    window._tracked_seconds_since_reset_break = 300
     window._tracking_gap_started_at = 100.0
     monkeypatch.setattr(
         "vulture.ui.tracking_flow.time.monotonic",
@@ -1375,6 +1582,8 @@ def test_away_time_resets_break_counters(
 
     assert window._tracked_seconds_since_break == 0
     assert window._tracked_seconds_since_eye_break == 0
+    assert window._tracked_seconds_since_hydration_break == 0
+    assert window._tracked_seconds_since_reset_break == 0
     assert window._tracking_gap_started_at is None
     _teardown_window(window, application)
 
@@ -2152,6 +2361,27 @@ def test_postponed_exercise_rearms_while_tracking_is_paused(
     _teardown_window(window, application)
 
 
+def test_closing_settings_keeps_postponed_exercise_snoozed(
+    application: QApplication,
+    tmp_path: Path,
+) -> None:
+    window = _make_window(tmp_path)
+    window._offer_exercise()
+    application.processEvents()
+    window._exercise_dialog._postpone()
+    application.processEvents()
+    assert window._exercise_postpone_timer.isActive()
+
+    settings = _open_settings_panel(window, application)
+    settings.reject()
+    application.processEvents()
+
+    assert window._exercise_dialog is None
+    assert window._pending_exercise is not None
+    assert window._exercise_postpone_timer.isActive()
+    _teardown_window(window, application)
+
+
 def test_window_frame_close_postpones_exercise(
     application: QApplication,
     tmp_path: Path,
@@ -2242,7 +2472,11 @@ def test_offer_without_matching_exercise_shows_tray_message(
     tmp_path: Path,
 ) -> None:
     window = _make_window(tmp_path)
-    monkeypatch.setattr(window.selector, "choose", lambda *_a, **_k: None)
+    monkeypatch.setattr(
+        window.selector,
+        "choose_from_bag",
+        lambda *_a, **_k: (None, []),
+    )
     messages: list[tuple[str, str]] = []
     monkeypatch.setattr(
         window,

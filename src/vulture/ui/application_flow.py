@@ -10,9 +10,10 @@ from PySide6.QtWidgets import (
 )
 
 from vulture.autostart import AutostartError, AutostartSnapshot
+from vulture.breaks import BreakChannel
 from vulture.history import HistoryStorageError
 from vulture.i18n import tr
-from vulture.models import TrackerState
+from vulture.models import BreakPreferences, TrackerState
 from vulture.storage import StorageError
 from vulture.tracking import PostureEvaluator
 
@@ -28,6 +29,58 @@ from .summary_dialog import WorkdaySummaryDialog
 
 
 class ApplicationFlowMixin:
+    @staticmethod
+    def _changed_break_channels(
+        previous: BreakPreferences,
+        current: BreakPreferences,
+    ) -> tuple[BreakChannel, ...]:
+        all_channels = tuple(BreakChannel)
+        if (
+            previous.enabled != current.enabled
+            or previous.away_reset_minutes != current.away_reset_minutes
+        ):
+            return all_channels
+
+        changed: list[BreakChannel] = []
+        channel_fields = {
+            BreakChannel.MOVEMENT: (
+                "movement_reminders_enabled",
+                "movement_interval_minutes",
+                "suggest_position_change",
+                "suggest_standing",
+                "suggest_walking",
+                "legacy_walk_includes_drinks",
+                "suggest_guided_exercise",
+            ),
+            BreakChannel.EYE: (
+                "eye_reminders_enabled",
+                "eye_interval_minutes",
+                "suggest_nature_view",
+                "suggest_blinking",
+                "suggest_closed_eye_rest",
+            ),
+            BreakChannel.HYDRATION: (
+                "hydration_reminders_enabled",
+                "hydration_interval_minutes",
+            ),
+            BreakChannel.RESET: (
+                "reset_reminders_enabled",
+                "reset_interval_minutes",
+                "suggest_tea_or_coffee",
+                "suggest_reset_walking",
+                "suggest_breathing_reset",
+                "suggest_offscreen_reset",
+                "suggest_reset_guided_exercise",
+            ),
+        }
+        for channel, fields in channel_fields.items():
+            if any(
+                getattr(previous, field) != getattr(current, field)
+                for field in fields
+            ):
+                changed.append(channel)
+        return tuple(changed)
+
     def _show_workday_summary(self) -> None:
         if self._language_reload_preparing:
             return
@@ -184,6 +237,13 @@ class ApplicationFlowMixin:
             requested_startup_enabled,
             new_break_preferences,
         ) = dialog.values()
+        changed_break_channels = self._changed_break_channels(
+            previous_values[4],
+            new_break_preferences,
+        )
+        exercise_preferences_changed = (
+            new_exercise_preferences != previous_values[1]
+        )
         self._hide_side_panel(dialog)
         startup_snapshot: AutostartSnapshot | None = None
         startup_enabled = False
@@ -263,8 +323,10 @@ class ApplicationFlowMixin:
                         critical=True,
                     )
             return
-        self._clear_pending_exercise()
-        self._reset_break_tracking()
+        if exercise_preferences_changed:
+            self._clear_pending_exercise()
+        if changed_break_channels:
+            self._reset_break_channels(changed_break_channels)
         if self._summary_dialog is not None:
             self._summary_dialog.close()
         if self.history_recorder is not None:

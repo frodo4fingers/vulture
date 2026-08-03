@@ -14,6 +14,7 @@ from PySide6.QtGui import QImage
 from PySide6.QtWidgets import QApplication, QToolButton
 
 from vulture.autostart import AutostartSnapshot
+from vulture.breaks import BreakChannel
 import vulture.exercises as exercises_module
 import vulture.i18n as i18n_module
 from vulture.exercises import load_exercise_catalog
@@ -302,8 +303,15 @@ def test_window_reload_preserves_paused_session_state(
     old_window._tracking_enabled = False
     old_window._tracked_seconds_since_break = 321.5
     old_window._tracked_seconds_since_eye_break = 123.5
-    old_window._movement_suggestion_index = 2
-    old_window._eye_suggestion_index = 1
+    old_window._tracked_seconds_since_hydration_break = 234.5
+    old_window._tracked_seconds_since_reset_break = 345.5
+    old_window._tracking_gap_started_at = 987.5
+    pending_exercise = old_window.catalog.exercises[0]
+    old_window._pending_exercise = pending_exercise
+    old_window._pending_exercise_reset_channels = (
+        BreakChannel.RESET,
+    )
+    old_window._exercise_postpone_timer.start(90_000)
 
     runtime_state = old_window.prepare_for_language_reload()
     assert runtime_state is not None
@@ -320,11 +328,19 @@ def test_window_reload_preserves_paused_session_state(
     assert not replacement._tracking_enabled
     assert replacement._tracked_seconds_since_break == 321.5
     assert replacement._tracked_seconds_since_eye_break == 123.5
-    assert replacement._movement_suggestion_index == 2
-    assert replacement._eye_suggestion_index == 1
+    assert replacement._tracked_seconds_since_hydration_break == 234.5
+    assert replacement._tracked_seconds_since_reset_break == 345.5
+    assert replacement._tracking_gap_started_at == 987.5
+    assert replacement._pending_exercise is not None
+    assert replacement._pending_exercise.id == pending_exercise.id
+    assert replacement._pending_exercise_reset_channels == (
+        BreakChannel.RESET,
+    )
+    assert replacement._exercise_postpone_timer.isActive()
     assert replacement.pause_button.text() == "Reanudar seguimiento"
 
     replacement.break_timer.stop()
+    replacement._exercise_postpone_timer.stop()
     replacement._close_history()
     replacement.tray.hide()
     replacement.deleteLater()

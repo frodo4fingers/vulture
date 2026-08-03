@@ -8,6 +8,7 @@ from PySide6.QtGui import QImage
 from PySide6.QtWidgets import QDialog, QMainWindow
 
 from vulture.autostart import AutostartManager
+from vulture.breaks import BreakActivitySelector, BreakChannel
 from vulture.camera import CameraThread
 from vulture.exercises import (
     Exercise,
@@ -40,8 +41,15 @@ class MainWindowRuntimeState(StrictModel):
     tracking_enabled: bool = True
     tracked_seconds_since_break: float = Field(default=0.0, ge=0)
     tracked_seconds_since_eye_break: float = Field(default=0.0, ge=0)
-    movement_suggestion_index: int = Field(default=0, ge=0)
-    eye_suggestion_index: int = Field(default=0, ge=0)
+    tracked_seconds_since_hydration_break: float = Field(
+        default=0.0,
+        ge=0,
+    )
+    tracked_seconds_since_reset_break: float = Field(default=0.0, ge=0)
+    pending_exercise_id: str | None = None
+    pending_exercise_reset_channels: tuple[BreakChannel, ...] = ()
+    exercise_postpone_remaining_ms: int = Field(default=0, ge=0)
+    tracking_gap_started_at: float | None = None
     evaluator_state: PostureEvaluatorState | None = None
     history_disabled_for_session: bool = False
 
@@ -70,6 +78,7 @@ class MainWindow(
         self.catalog = catalog
         self.autostart_manager = autostart_manager or AutostartManager()
         self.selector = ExerciseSelector(catalog)
+        self.break_activity_selector = BreakActivitySelector()
         self.escalator = ReminderEscalator()
         self.camera_thread: CameraThread | None = None
         self.evaluator: PostureEvaluator | None = None
@@ -87,6 +96,10 @@ class MainWindow(
         self._notice_dialog: NoticeDialog | None = None
         self._pending_notice: tuple[str, str, bool] | None = None
         self._pending_exercise: Exercise | None = None
+        self._pending_exercise_reset_channels: tuple[
+            BreakChannel,
+            ...,
+        ] = ()
         self._latest_image: QImage | None = None
         self._tracking_enabled = (
             runtime_state.tracking_enabled
@@ -99,8 +112,8 @@ class MainWindow(
         self._exercise_dialog_open = False
         self._tracked_seconds_since_break = 0.0
         self._tracked_seconds_since_eye_break = 0.0
-        self._movement_suggestion_index = 0
-        self._eye_suggestion_index = 0
+        self._tracked_seconds_since_hydration_break = 0.0
+        self._tracked_seconds_since_reset_break = 0.0
         self._last_valid_tracking_at: float | None = None
         self._tracking_gap_started_at: float | None = None
         self._state = TrackerState.STOPPED
@@ -172,14 +185,29 @@ class MainWindow(
             self._restore_runtime_state(runtime_state)
 
     def _runtime_state(self) -> MainWindowRuntimeState:
+        postpone_remaining = self._exercise_postpone_timer.remainingTime()
         return MainWindowRuntimeState(
             tracking_enabled=self._tracking_enabled,
             tracked_seconds_since_break=self._tracked_seconds_since_break,
             tracked_seconds_since_eye_break=(
                 self._tracked_seconds_since_eye_break
             ),
-            movement_suggestion_index=self._movement_suggestion_index,
-            eye_suggestion_index=self._eye_suggestion_index,
+            tracked_seconds_since_hydration_break=(
+                self._tracked_seconds_since_hydration_break
+            ),
+            tracked_seconds_since_reset_break=(
+                self._tracked_seconds_since_reset_break
+            ),
+            pending_exercise_id=(
+                self._pending_exercise.id
+                if self._pending_exercise is not None
+                else None
+            ),
+            pending_exercise_reset_channels=(
+                self._pending_exercise_reset_channels
+            ),
+            exercise_postpone_remaining_ms=max(0, postpone_remaining),
+            tracking_gap_started_at=self._tracking_gap_started_at,
             evaluator_state=(
                 self.evaluator.snapshot()
                 if self.evaluator is not None
@@ -201,12 +229,44 @@ class MainWindow(
         self._tracked_seconds_since_eye_break = (
             state.tracked_seconds_since_eye_break
         )
-        self._movement_suggestion_index = (
-            state.movement_suggestion_index
+        self._tracked_seconds_since_hydration_break = (
+            state.tracked_seconds_since_hydration_break
         )
-        self._eye_suggestion_index = state.eye_suggestion_index
+        self._tracked_seconds_since_reset_break = (
+            state.tracked_seconds_since_reset_break
+        )
+        if state.pending_exercise_id is not None:
+            pending_exercise = next(
+                (
+                    exercise
+                    for exercise in self.catalog.exercises
+                    if exercise.id == state.pending_exercise_id
+                ),
+                None,
+            )
+            if pending_exercise is not None:
+                self._pending_exercise = pending_exercise
+                self._pending_exercise_reset_channels = (
+                    state.pending_exercise_reset_channels
+                )
+                self.open_exercise_action.setText(
+                    tr(
+                        "Open movement: {exercise}",
+                        exercise=pending_exercise.title,
+                    )
+                )
+                self.open_exercise_action.setVisible(True)
+                self._apply_icon()
+                if state.exercise_postpone_remaining_ms > 0:
+                    self._exercise_postpone_timer.start(
+                        state.exercise_postpone_remaining_ms
+                    )
+                elif self._tracking_enabled:
+                    QTimer.singleShot(0, self._present_exercise)
+                else:
+                    self._schedule_exercise_postpone()
         self._last_valid_tracking_at = None
-        self._tracking_gap_started_at = None
+        self._tracking_gap_started_at = state.tracking_gap_started_at
         if self.evaluator is not None and state.evaluator_state is not None:
             self.evaluator.restore(state.evaluator_state)
         self._set_tracking_controls()

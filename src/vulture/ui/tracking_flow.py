@@ -8,11 +8,16 @@ from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import QSystemTrayIcon
 
 from vulture.breaks import (
-    MovementBreakActivity,
+    BreakChannel,
+    break_channel_title,
+    eye_break_activities,
     eye_break_message,
+    hydration_break_activities,
+    hydration_break_message,
+    movement_break_activities,
     movement_break_message,
-    next_eye_break_activity,
-    next_movement_break_activity,
+    reset_break_activities,
+    reset_break_message,
 )
 from vulture.history import DailyPostureSummary, HistoryStorageError
 from vulture.i18n import tr
@@ -228,97 +233,144 @@ class TrackingFlowMixin:
         preferences = self.data.break_preferences
         if not preferences.enabled:
             return
-        movement_due = (
-            preferences.movement_reminders_enabled
-            and self._tracked_seconds_since_break
-            >= preferences.movement_interval_minutes * 60
-        )
-        eye_due = (
-            preferences.eye_reminders_enabled
-            and self._tracked_seconds_since_eye_break
-            >= preferences.eye_interval_minutes * 60
-        )
-        if movement_due:
-            self._show_movement_break_reminder(
-                include_eye_break=eye_due
+        due_channels = tuple(
+            channel
+            for channel, due in (
+                (
+                    BreakChannel.MOVEMENT,
+                    preferences.movement_reminders_enabled
+                    and self._tracked_seconds_since_break
+                    >= preferences.movement_interval_minutes * 60,
+                ),
+                (
+                    BreakChannel.EYE,
+                    preferences.eye_reminders_enabled
+                    and self._tracked_seconds_since_eye_break
+                    >= preferences.eye_interval_minutes * 60,
+                ),
+                (
+                    BreakChannel.HYDRATION,
+                    preferences.hydration_reminders_enabled
+                    and self._tracked_seconds_since_hydration_break
+                    >= preferences.hydration_interval_minutes * 60,
+                ),
+                (
+                    BreakChannel.RESET,
+                    preferences.reset_reminders_enabled
+                    and self._tracked_seconds_since_reset_break
+                    >= preferences.reset_interval_minutes * 60,
+                ),
             )
-        elif eye_due:
-            self._show_eye_break_reminder()
+            if due
+        )
+        if due_channels:
+            self._show_due_break_reminder(due_channels)
 
     def _check_sedentary_break(self) -> None:
         self._check_break_reminders()
 
-    def _show_movement_break_reminder(
+    def _show_due_break_reminder(
         self,
-        *,
-        include_eye_break: bool,
+        due_channels: tuple[BreakChannel, ...],
     ) -> None:
         preferences = self.data.break_preferences
-        selected_eye_message: str | None = None
-        if include_eye_break:
-            eye_activity = next_eye_break_activity(
-                preferences,
-                self._eye_suggestion_index,
-            )
-            self._eye_suggestion_index += 1
-            selected_eye_message = eye_break_message(
-                eye_activity,
-                preferences.eye_duration_seconds,
-            )
-        activity = next_movement_break_activity(
-            preferences,
-            self._movement_suggestion_index,
-        )
-        self._movement_suggestion_index += 1
-        if activity is MovementBreakActivity.GUIDED_EXERCISE:
-            if selected_eye_message is not None:
-                self._show_tray_message(
-                    tr("Eye comfort break"),
-                    selected_eye_message,
-                    QSystemTrayIcon.MessageIcon.Information,
-                    8_000,
+        messages: list[tuple[BreakChannel, str]] = []
+        exercise_channels: list[BreakChannel] = []
+        for channel in due_channels:
+            activity = self._choose_break_activity(channel)
+            if activity.value == "guided_exercise":
+                exercise_channels.append(channel)
+                continue
+            if channel is BreakChannel.MOVEMENT:
+                message = movement_break_message(
+                    activity,
+                    preferences.movement_duration_minutes,
                 )
-                self._reset_eye_break_tracking()
-            self._offer_exercise()
-            return
-        self._show_tray_message(
-            tr("Time for a movement break"),
-            movement_break_message(
-                activity,
-                preferences.movement_duration_minutes,
-                eye_message=selected_eye_message,
-            ),
-            QSystemTrayIcon.MessageIcon.Information,
-            10_000,
-        )
-        self._reset_movement_break_tracking()
-        if selected_eye_message is not None:
-            self._reset_eye_break_tracking()
+            elif channel is BreakChannel.EYE:
+                message = eye_break_message(
+                    activity,
+                    preferences.eye_duration_seconds,
+                )
+            elif channel is BreakChannel.HYDRATION:
+                message = hydration_break_message(
+                    preferences.hydration_duration_seconds
+                )
+            else:
+                message = reset_break_message(
+                    activity,
+                    preferences.reset_duration_minutes,
+                )
+            messages.append((channel, message))
+            self._reset_break_channels((channel,))
 
-    def _show_eye_break_reminder(self) -> None:
+        self._save_data()
+        if messages:
+            title = (
+                break_channel_title(messages[0][0])
+                if len(due_channels) == 1
+                else tr("Time for a short break")
+            )
+            message = "\n".join(
+                (
+                    text
+                    if len(messages) == 1
+                    else f"{break_channel_title(channel)}: {text}"
+                )
+                for channel, text in messages
+            )
+            self._show_tray_message(
+                title,
+                message,
+                QSystemTrayIcon.MessageIcon.Information,
+                10_000,
+            )
+        if exercise_channels:
+            self._offer_exercise(
+                reset_channels=tuple(exercise_channels)
+            )
+
+    def _choose_break_activity(self, channel: BreakChannel):
         preferences = self.data.break_preferences
-        activity = next_eye_break_activity(
-            preferences,
-            self._eye_suggestion_index,
+        if channel is BreakChannel.MOVEMENT:
+            activities = movement_break_activities(preferences)
+        elif channel is BreakChannel.EYE:
+            activities = eye_break_activities(preferences)
+        elif channel is BreakChannel.HYDRATION:
+            activities = hydration_break_activities(preferences)
+        else:
+            activities = reset_break_activities(preferences)
+        selected, remaining = self.break_activity_selector.choose(
+            activities,
+            self.data.break_activity_bags.get(channel.value, []),
+            self.data.last_break_activity_ids.get(channel.value),
         )
-        self._eye_suggestion_index += 1
-        self._show_tray_message(
-            tr("Eye comfort break"),
-            eye_break_message(
-                activity,
-                preferences.eye_duration_seconds,
-            ),
-            QSystemTrayIcon.MessageIcon.Information,
-            8_000,
-        )
-        self._reset_eye_break_tracking()
+        self.data.break_activity_bags[channel.value] = remaining
+        self.data.last_break_activity_ids[channel.value] = selected.value
+        return selected
 
-    def _offer_exercise(self) -> None:
+    def _offer_exercise(
+        self,
+        *,
+        reset_channels: tuple[BreakChannel, ...] = (
+            BreakChannel.MOVEMENT,
+        ),
+    ) -> None:
         if self._language_reload_preparing or self._exercise_dialog_open:
             return
-        exercise = self.selector.choose(
+        if self._pending_exercise is not None:
+            self._pending_exercise_reset_channels = (
+                self._merge_exercise_reset_channels(
+                    self._pending_exercise_reset_channels,
+                    reset_channels,
+                )
+            )
+            self._reset_requested_break_tracking(reset_channels)
+            self._present_exercise()
+            return
+        exercise, remaining = self.selector.choose_from_bag(
             self.data.exercise_preferences,
-            self.data.recent_exercise_ids,
+            self.data.exercise_shuffle_bag,
+            self.data.last_exercise_id,
         )
         if exercise is None:
             self._clear_pending_exercise()
@@ -330,10 +382,13 @@ class TrackingFlowMixin:
                 QSystemTrayIcon.MessageIcon.Information,
                 6000,
             )
-            self._reset_break_tracking()
+            self._reset_requested_break_tracking(reset_channels)
             return
+        self.data.exercise_shuffle_bag = remaining
+        self.data.last_exercise_id = exercise.id
         self._cancel_exercise_postpone()
         self._pending_exercise = exercise
+        self._pending_exercise_reset_channels = reset_channels
         self.open_exercise_action.setText(
             tr(
                 "Open movement: {exercise}",
@@ -345,7 +400,7 @@ class TrackingFlowMixin:
         self._save_data()
         self._apply_icon()
         self._present_exercise()
-        self._reset_break_tracking()
+        self._reset_requested_break_tracking(reset_channels)
 
     def _present_exercise(self) -> None:
         if self._language_reload_preparing:
@@ -441,14 +496,29 @@ class TrackingFlowMixin:
         if outcome == ExerciseOutcome.POSTPONED:
             self._schedule_exercise_postpone()
         else:
+            reset_channels = self._pending_exercise_reset_channels
             self._clear_pending_exercise()
-            self._reset_break_tracking()
+            self._reset_requested_break_tracking(reset_channels)
 
     def _clear_pending_exercise(self) -> None:
         self._cancel_exercise_postpone()
         self._pending_exercise = None
+        self._pending_exercise_reset_channels = ()
         self.open_exercise_action.setVisible(False)
         self._apply_icon()
+
+    @staticmethod
+    def _merge_exercise_reset_channels(
+        current: tuple[BreakChannel, ...],
+        additional: tuple[BreakChannel, ...],
+    ) -> tuple[BreakChannel, ...]:
+        return tuple(dict.fromkeys((*current, *additional)))
+
+    def _reset_requested_break_tracking(
+        self,
+        channels: tuple[BreakChannel, ...],
+    ) -> None:
+        self._reset_break_channels(channels)
 
     def _record_valid_tracking(self) -> None:
         now = time.monotonic()
@@ -465,6 +535,8 @@ class TrackingFlowMixin:
             if elapsed <= 2.0:
                 self._tracked_seconds_since_break += elapsed
                 self._tracked_seconds_since_eye_break += elapsed
+                self._tracked_seconds_since_hydration_break += elapsed
+                self._tracked_seconds_since_reset_break += elapsed
             elif elapsed >= away_reset_seconds:
                 self._reset_break_counters()
         self._last_valid_tracking_at = now
@@ -477,12 +549,28 @@ class TrackingFlowMixin:
     def _reset_break_counters(self) -> None:
         self._tracked_seconds_since_break = 0.0
         self._tracked_seconds_since_eye_break = 0.0
+        self._tracked_seconds_since_hydration_break = 0.0
+        self._tracked_seconds_since_reset_break = 0.0
 
     def _reset_movement_break_tracking(self) -> None:
         self._tracked_seconds_since_break = 0.0
 
     def _reset_eye_break_tracking(self) -> None:
         self._tracked_seconds_since_eye_break = 0.0
+
+    def _reset_break_channels(
+        self,
+        channels: tuple[BreakChannel, ...],
+    ) -> None:
+        for channel in channels:
+            if channel is BreakChannel.MOVEMENT:
+                self._reset_movement_break_tracking()
+            elif channel is BreakChannel.EYE:
+                self._reset_eye_break_tracking()
+            elif channel is BreakChannel.HYDRATION:
+                self._tracked_seconds_since_hydration_break = 0.0
+            else:
+                self._tracked_seconds_since_reset_break = 0.0
 
     def _reset_break_tracking(self) -> None:
         self._reset_break_counters()
