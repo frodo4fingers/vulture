@@ -274,7 +274,7 @@ class TrackingFlowMixin:
         due_channels: tuple[BreakChannel, ...],
     ) -> None:
         preferences = self.data.break_preferences
-        messages: list[tuple[BreakChannel, str]] = []
+        messages: list[tuple[BreakChannel, str, int]] = []
         exercise_channels: list[BreakChannel] = []
         for channel in due_channels:
             activity = self._choose_break_activity(channel)
@@ -286,13 +286,20 @@ class TrackingFlowMixin:
                     activity,
                     preferences.movement_duration_minutes,
                 )
+                duration_seconds = (
+                    preferences.movement_duration_minutes * 60
+                )
             elif channel is BreakChannel.EYE:
                 message = eye_break_message(
                     activity,
                     preferences.eye_duration_seconds,
                 )
+                duration_seconds = preferences.eye_duration_seconds
             elif channel is BreakChannel.HYDRATION:
                 message = hydration_break_message(
+                    preferences.hydration_duration_seconds
+                )
+                duration_seconds = (
                     preferences.hydration_duration_seconds
                 )
             else:
@@ -300,7 +307,10 @@ class TrackingFlowMixin:
                     activity,
                     preferences.reset_duration_minutes,
                 )
-            messages.append((channel, message))
+                duration_seconds = (
+                    preferences.reset_duration_minutes * 60
+                )
+            messages.append((channel, message, duration_seconds))
             self._reset_break_channels((channel,))
 
         self._save_data()
@@ -316,13 +326,20 @@ class TrackingFlowMixin:
                     if len(messages) == 1
                     else f"{break_channel_title(channel)}: {text}"
                 )
-                for channel, text in messages
+                for channel, text, _duration_seconds in messages
+            )
+            timeout_milliseconds = (
+                max(
+                    duration_seconds
+                    for _channel, _text, duration_seconds in messages
+                )
+                * 1000
             )
             self._show_tray_message(
                 title,
                 message,
                 QSystemTrayIcon.MessageIcon.Information,
-                10_000,
+                timeout_milliseconds,
             )
         if exercise_channels:
             self._offer_exercise(

@@ -1326,7 +1326,7 @@ def test_settings_break_controls_validate_and_round_trip(
     application.processEvents()
 
 
-def test_combined_break_due_uses_one_movement_notification(
+def test_combined_break_due_uses_one_native_notification(
     application: QApplication,
     tmp_path: Path,
 ) -> None:
@@ -1342,9 +1342,11 @@ def test_combined_break_due_uses_one_movement_notification(
         eye_interval_minutes=20,
         suggest_nature_view=False,
     )
-    messages: list[tuple[str, str]] = []
+    messages: list[tuple[str, str, int]] = []
     window._show_tray_message = (
-        lambda title, message, *_args: messages.append((title, message))
+        lambda title, message, _icon, timeout: messages.append(
+            (title, message, timeout)
+        )
     )
     for _ in range(3):
         window._tracked_seconds_since_break = 20 * 60
@@ -1354,7 +1356,9 @@ def test_combined_break_due_uses_one_movement_notification(
     assert len(messages) == 3
     assert messages[0][0] == "Time for a short break"
     assert "Change how you are sitting for about 3 minutes" in messages[0][1]
-    eye_messages = [message for _title, message in messages]
+    eye_messages = [
+        message for _title, message, _duration in messages
+    ]
     assert any("6 m (20 ft) away" in message for message in eye_messages)
     assert any(
         "five slow, complete blinks" in message
@@ -1363,6 +1367,10 @@ def test_combined_break_due_uses_one_movement_notification(
     assert any(
         "close your eyes gently" in message
         for message in eye_messages
+    )
+    assert all(
+        timeout == 180_000
+        for _title, _message, timeout in messages
     )
     assert window._tracked_seconds_since_break == 0
     assert window._tracked_seconds_since_eye_break == 0
@@ -1383,9 +1391,11 @@ def test_eye_only_break_uses_configured_distance_prompt(
         suggest_blinking=False,
         suggest_closed_eye_rest=False,
     )
-    messages: list[tuple[str, str]] = []
+    messages: list[tuple[str, str, int]] = []
     window._show_tray_message = (
-        lambda title, message, *_args: messages.append((title, message))
+        lambda title, message, _icon, timeout: messages.append(
+            (title, message, timeout)
+        )
     )
     window._tracked_seconds_since_break = 300
     window._tracked_seconds_since_eye_break = 10 * 60
@@ -1399,6 +1409,7 @@ def test_eye_only_break_uses_configured_distance_prompt(
                 "Look at something about 6 m (20 ft) away for 30 seconds "
                 "and let your focus relax."
             ),
+            30_000,
         )
     ]
     assert window._tracked_seconds_since_break == 300
@@ -1450,9 +1461,11 @@ def test_water_and_longer_reset_share_one_due_notification(
         suggest_reset_guided_exercise=False,
     )
     window.data.break_activity_bags["reset"] = ["offscreen"]
-    messages: list[tuple[str, str]] = []
+    messages: list[tuple[str, str, int]] = []
     window._show_tray_message = (
-        lambda title, message, *_args: messages.append((title, message))
+        lambda title, message, _icon, timeout: messages.append(
+            (title, message, timeout)
+        )
     )
     window._tracked_seconds_since_hydration_break = 60 * 60
     window._tracked_seconds_since_reset_break = 60 * 60
@@ -1463,6 +1476,7 @@ def test_water_and_longer_reset_share_one_due_notification(
     assert messages[0][0] == "Time for a short break"
     assert "refill a glass or bottle" in messages[0][1]
     assert "fully off-screen" in messages[0][1]
+    assert messages[0][2] == 300_000
     assert window._tracked_seconds_since_hydration_break == 0
     assert window._tracked_seconds_since_reset_break == 0
     _teardown_window(window, application)
@@ -1523,15 +1537,18 @@ def test_break_channels_keep_independent_shuffle_history(
         "reset": "guided_exercise",
     }
 
-    messages: list[tuple[str, str]] = []
+    messages: list[tuple[str, str, int]] = []
     window._show_tray_message = (
-        lambda title, message, *_args: messages.append((title, message))
+        lambda title, message, _icon, timeout: messages.append(
+            (title, message, timeout)
+        )
     )
     window._tracked_seconds_since_reset_break = 30 * 60
     window._check_break_reminders()
 
     assert len(messages) == 1
     assert "make tea, coffee" in messages[0][1]
+    assert messages[0][2] == 300_000
     assert (
         window.data.last_break_activity_ids["reset"]
         == "tea_or_coffee"
