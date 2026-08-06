@@ -254,6 +254,12 @@ Only time with valid posture tracking advances all four timers. A sufficiently
 long period away from the camera counts as a break, and reminders can always be
 dismissed; Vulture never blocks the desktop.
 
+Break reminders use native system notifications. Vulture requests a timeout
+matching the configured suggested length; when several channels become due
+together, it requests the longest included duration. The operating system or
+desktop environment may shorten or ignore that timeout and controls the
+notification position.
+
 The defaults are guidance rather than clinical thresholds. UK HSE recommends
 short, frequent breaks or changes of activity and explicitly notes that exact
 timing depends on the work. Acute randomized evidence and systematic reviews
@@ -346,9 +352,11 @@ Defaults are intentionally conservative:
 - independent eye, movement, water, and longer-reset timers with configurable
   intervals and durations.
 
-Ordinary break activities use one system notification, bundling channels that
-become due together. A guided movement raises the main window and opens its
-instructions in the right-side panel beside the live camera preview.
+Ordinary break activities use one native system notification, bundling channels
+that become due together. Vulture requests the configured activity length as
+the timeout, but the operating system remains authoritative. A guided movement
+raises the main window and opens its instructions in the right-side panel
+beside the live camera preview.
 
 The exercise panel offers three choices. **Done** marks the movement complete
 and clears it. **Remind me later** closes the panel and re-opens it after a
