@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+import json
+
+import pytest
+from pydantic import ValidationError
+
 from vulture.models import AppData, CameraDescriptor, SetupProfile
 from vulture.storage import AppDataStore
 
@@ -73,3 +78,46 @@ def test_recent_exercise_seeds_non_repeating_upgrade_state() -> None:
     )
 
     assert data.last_exercise_id == "wrist-side-bend"
+
+
+def test_settings_from_a_newer_version_still_load(tmp_path) -> None:
+    path = tmp_path / "settings.json"
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "interface_language": "en",
+                "notification_position": "bottom_center",
+                "break_preferences": {
+                    "movement_interval_minutes": 45,
+                    "notification_sound": "chime",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    data = AppDataStore(path).load()
+
+    assert data.interface_language == "en"
+    assert data.break_preferences.movement_interval_minutes == 45
+
+
+def test_unknown_settings_are_dropped_on_the_next_save(tmp_path) -> None:
+    path = tmp_path / "settings.json"
+    path.write_text(
+        json.dumps({"schema_version": 1, "notification_position": "bottom_center"}),
+        encoding="utf-8",
+    )
+    store = AppDataStore(path)
+
+    store.save(store.load())
+
+    assert "notification_position" not in json.loads(path.read_text(encoding="utf-8"))
+
+
+def test_unknown_fields_remain_rejected_outside_stored_settings() -> None:
+    with pytest.raises(ValidationError):
+        AppData.model_validate(
+            {"schema_version": 1, "notification_position": "bottom_center"}
+        )
