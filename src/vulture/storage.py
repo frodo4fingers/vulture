@@ -8,7 +8,7 @@ from platformdirs import user_config_path
 from pydantic import ValidationError
 
 from vulture.i18n import tr
-from vulture.models import AppData, utc_now
+from vulture.models import AppData, stored_data_context, utc_now
 
 
 class StorageError(RuntimeError):
@@ -25,7 +25,10 @@ class AppDataStore:
         if not self.path.exists():
             return AppData()
         try:
-            return AppData.model_validate_json(self.path.read_text(encoding="utf-8"))
+            return AppData.model_validate_json(
+                self.path.read_text(encoding="utf-8"),
+                context=stored_data_context(),
+            )
         except (OSError, ValidationError, ValueError) as error:
             raise StorageError(
                 tr(

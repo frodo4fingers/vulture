@@ -15,8 +15,8 @@
    transitions freeze rather than erase accumulated bad-posture time; the gap
    is not counted and expiry starts a new streak.
 5. `ui.main_window.MainWindow` composes the UI workflows that update the system
-   tray, store reminder events, and invoke `exercises.ReminderEscalator` and
-   `ExerciseSelector`.
+   tray, request timer-aligned break notifications, store reminder events, and
+   invoke `exercises.ReminderEscalator` and `ExerciseSelector`.
 6. `history.WorkdayRecorder` groups valid assessments into local posture
    episodes and checkpoints them to `PostureHistoryStore`; gaps, pause,
    calibration, camera loss, and setup changes close the active episode.
@@ -47,6 +47,12 @@ overflow menu. A `QStackedWidget` replaces the unused camera canvas with a
 focused first-run setup state until a setup exists. Semantic information,
 safety, good-stage, and unwanted-stage labels derive light/dark colors from the
 active palette rather than assuming a light theme.
+
+Posture, ordinary break, and operational messages use native
+`QSystemTrayIcon` notifications. For an ordinary break, the timeout hint
+matches the configured activity duration; channels that become due together
+use the longest included duration. The operating system or desktop environment
+controls the final lifetime and placement and may ignore Qt's timeout hint.
 
 Exercise escalation stores one pending movement in `MainWindow`. When a
 movement is due, `MainWindow` raises itself and embeds the bundled video in an

@@ -17,8 +17,35 @@ def utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+DISCARD_UNKNOWN_FIELDS = "discard_unknown_fields"
+
+
+def stored_data_context() -> dict[str, bool]:
+    """Validation context for data written by another Vulture version.
+
+    Settings files can contain fields this build no longer knows, for example
+    after a downgrade or after an experimental setting was removed. Such files
+    stay loadable and the unknown fields are ignored.
+    """
+
+    return {DISCARD_UNKNOWN_FIELDS: True}
+
+
 class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
+
+    @model_validator(mode="before")
+    @classmethod
+    def discard_unknown_stored_fields(cls, value, info):
+        if not isinstance(value, dict):
+            return value
+        context = info.context
+        if not isinstance(context, dict) or not context.get(DISCARD_UNKNOWN_FIELDS):
+            return value
+        known_fields = cls.model_fields.keys()
+        if value.keys() <= known_fields:
+            return value
+        return {key: item for key, item in value.items() if key in known_fields}
 
 
 class PostureCategory(StrEnum):
