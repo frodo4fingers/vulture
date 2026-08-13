@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+import os
 import sys
 from collections.abc import Callable
 from pathlib import Path
+
+_numeric_threads = os.environ.get("VULTURE_NUMERIC_THREADS", "1")
+os.environ["OPENBLAS_NUM_THREADS"] = _numeric_threads
+os.environ["OMP_NUM_THREADS"] = _numeric_threads
 
 from vulture import __version__
 from vulture.autostart import START_MINIMIZED_FLAG

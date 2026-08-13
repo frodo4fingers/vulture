@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import sys
 import time
 from pathlib import Path, PurePosixPath
@@ -30,11 +31,53 @@ from PySide6.QtMultimedia import (
     QVideoSink,
 )
 
+DEFAULT_ANALYSIS_FPS = 5.0
+DEFAULT_PREVIEW_FPS = 2.0
+DEFAULT_PREVIEW_MAX_WIDTH = 320
+_LOGGER = logging.getLogger(__name__)
+
+
+def _configure_opencv_runtime() -> None:
+    cv2.setNumThreads(1)
+
+
+def _advance_deadline(
+    deadline: float,
+    now: float,
+    interval: float,
+) -> float:
+    if deadline <= 0.0:
+        return now + interval
+    periods = max(1, int((now - deadline) // interval) + 1)
+    return deadline + periods * interval
+
+
+def _deadline_is_due(
+    deadline: float,
+    now: float,
+    interval: float,
+) -> bool:
+    return deadline <= 0.0 or now + interval * 0.1 >= deadline
+
+
+def _fourcc_name(value: float) -> str:
+    encoded = int(value)
+    return "".join(
+        chr((encoded >> shift) & 0xFF)
+        for shift in (0, 8, 16, 24)
+    ).strip("\x00")
+
 
 def _blur_background(
     rgb_frame: np.ndarray,
     person_mask: np.ndarray | None,
 ) -> np.ndarray:
+    if (
+        person_mask is None
+        or person_mask.ndim != 2
+        or person_mask.shape != rgb_frame.shape[:2]
+    ):
+        return np.ascontiguousarray(rgb_frame)
     height, width = rgb_frame.shape[:2]
     reduced_width = max(80, width // 4)
     reduced_height = max(60, height // 4)
@@ -53,12 +96,6 @@ def _blur_background(
         (width, height),
         interpolation=cv2.INTER_LINEAR,
     )
-    if (
-        person_mask is None
-        or person_mask.ndim != 2
-        or person_mask.shape != rgb_frame.shape[:2]
-    ):
-        return np.ascontiguousarray(blurred)
     mask = np.nan_to_num(
         person_mask.astype(np.float32, copy=False),
         nan=0.0,
@@ -280,17 +317,256 @@ def _uses_native_camera_identity() -> bool:
     )
 
 
+class _CameraAnalysisWorker:
+    def __init__(self, owner: "CameraThread") -> None:
+        self.owner = owner
+        self.detector: MediaPipeDetector | None = None
+        self.extractor = FeatureExtractor()
+        self._opened = False
+        self._next_preview_at = 0.0
+
+    def _start_detector(self) -> bool:
+        self.detector = MediaPipeDetector()
+        return not self.owner.isInterruptionRequested()
+
+    def _process_rgb_frame(self, rgb_frame: np.ndarray) -> None:
+        if (
+            rgb_frame.ndim != 3
+            or rgb_frame.shape[2] != 3
+            or rgb_frame.dtype != np.uint8
+        ):
+            raise ValueError(tr("The camera returned an invalid frame."))
+        height, width, _channels = rgb_frame.shape
+        if not self._opened:
+            self._opened = True
+            self.owner.camera_opened.emit(width, height)
+
+        if self.detector is None:
+            raise RuntimeError(
+                tr("The landmark detector is not available.")
+            )
+        observation = self.detector.process(rgb_frame)
+        self.owner._mark_inference_complete()
+        self._emit_preview_if_due(rgb_frame)
+        if observation is None:
+            self.owner.tracking_lost.emit(utc_now())
+            return
+        features = self.extractor.extract(
+            observation,
+            width,
+            height,
+        )
+        if features is None:
+            self.owner.tracking_lost.emit(utc_now())
+        else:
+            self.owner.feature_ready.emit(features)
+
+    def _emit_preview_if_due(self, rgb_frame: np.ndarray) -> None:
+        if not self.owner.preview_enabled:
+            return
+        now = time.monotonic()
+        if now < self._next_preview_at:
+            return
+        self._next_preview_at = _advance_deadline(
+            self._next_preview_at,
+            now,
+            1.0 / max(self.owner.preview_fps, 1.0),
+        )
+        if self.detector is None:
+            return
+        preview_source = rgb_frame
+        person_mask = getattr(self.detector, "person_mask", None)
+        height, width = rgb_frame.shape[:2]
+        if width > DEFAULT_PREVIEW_MAX_WIDTH:
+            preview_width = DEFAULT_PREVIEW_MAX_WIDTH
+            preview_height = max(1, round(height * preview_width / width))
+            preview_source = cv2.resize(
+                rgb_frame,
+                (preview_width, preview_height),
+                interpolation=cv2.INTER_AREA,
+            )
+            if person_mask is not None:
+                person_mask = cv2.resize(
+                    person_mask,
+                    (preview_width, preview_height),
+                    interpolation=cv2.INTER_LINEAR,
+                )
+        preview_frame = _blur_background(
+            preview_source,
+            person_mask,
+        )
+        preview = _rgb_frame_to_image(preview_frame)
+        if self.owner.descriptor.mirror_preview:
+            preview = preview.mirrored(True, False)
+        self.owner.preview_ready.emit(preview)
+
+    def _close_detector(self) -> None:
+        if self.detector is not None:
+            self.detector.close()
+            self.detector = None
+
+
+class _OpenCVCameraWorker(_CameraAnalysisWorker):
+    def __init__(self, owner: "CameraThread") -> None:
+        super().__init__(owner)
+        self.capture: cv2.VideoCapture | None = None
+        self._next_frame_at = 0.0
+
+    def start(self) -> bool:
+        if self.owner.isInterruptionRequested():
+            return False
+        try:
+            _configure_opencv_runtime()
+            if not self._start_detector():
+                return False
+            self.capture = cv2.VideoCapture(
+                self.owner.descriptor.locator,
+                cv2.CAP_V4L2,
+            )
+            if not self.capture.isOpened():
+                self.owner._report_error(
+                    tr(
+                        "Could not use {camera}: {detail} {help}",
+                        camera=self.owner.descriptor.display_name,
+                        detail=tr("The camera could not be opened."),
+                        help=self.owner._camera_access_help(),
+                    )
+                )
+                return False
+            self.capture.set(
+                cv2.CAP_PROP_FRAME_WIDTH,
+                self.owner.descriptor.width,
+            )
+            self.capture.set(
+                cv2.CAP_PROP_FRAME_HEIGHT,
+                self.owner.descriptor.height,
+            )
+            self.capture.set(
+                cv2.CAP_PROP_FPS,
+                max(self.owner.target_fps * 2.0, 10.0),
+            )
+            self.capture.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+            selected_fourcc = _fourcc_name(
+                self.capture.get(cv2.CAP_PROP_FOURCC)
+            )
+            _LOGGER.info(
+                "Opened %s at %.0fx%.0f %.1f FPS using %s",
+                self.owner.descriptor.locator,
+                self.capture.get(cv2.CAP_PROP_FRAME_WIDTH),
+                self.capture.get(cv2.CAP_PROP_FRAME_HEIGHT),
+                self.capture.get(cv2.CAP_PROP_FPS),
+                selected_fourcc or "driver default",
+            )
+            return True
+        except (cv2.error, OSError, RuntimeError, TypeError, ValueError) as error:
+            self.owner._report_error(
+                tr(
+                    "Could not start {camera}: {error}. {help}",
+                    camera=self.owner.descriptor.display_name,
+                    error=error,
+                    help=self.owner._camera_access_help(),
+                )
+            )
+            return False
+
+    def run(self) -> None:
+        try:
+            if not self.start():
+                return
+            while not self.owner.isInterruptionRequested():
+                if self.capture is None:
+                    raise RuntimeError(
+                        tr("The camera could not be opened.")
+                    )
+                try:
+                    ok, bgr_frame = self.capture.read()
+                except (
+                    cv2.error,
+                    OSError,
+                    RuntimeError,
+                    TypeError,
+                    ValueError,
+                ) as error:
+                    self.owner._report_error(
+                        tr(
+                            "Could not use {camera}: {detail} {help}",
+                            camera=self.owner.descriptor.display_name,
+                            detail=str(error),
+                            help=self.owner._camera_access_help(),
+                        )
+                    )
+                    return
+                if not ok or bgr_frame is None:
+                    self.owner._report_error(
+                        tr(
+                            "{camera} is no longer available. {help}",
+                            camera=self.owner.descriptor.display_name,
+                            help=self.owner._camera_access_help(),
+                        )
+                    )
+                    return
+                self.owner._mark_frame_received()
+                now = time.monotonic()
+                frame_interval = 1.0 / max(self.owner.target_fps, 1.0)
+                if not _deadline_is_due(
+                    self._next_frame_at,
+                    now,
+                    frame_interval,
+                ):
+                    continue
+                self._next_frame_at = _advance_deadline(
+                    self._next_frame_at,
+                    now,
+                    frame_interval,
+                )
+                try:
+                    self._process_bgr_frame(bgr_frame)
+                except (
+                    cv2.error,
+                    BufferError,
+                    OSError,
+                    RuntimeError,
+                    TypeError,
+                    ValueError,
+                ) as error:
+                    self.owner._report_error(
+                        tr("Camera analysis failed: {error}", error=error)
+                    )
+                    return
+        finally:
+            self.close()
+
+    def _process_bgr_frame(self, bgr_frame: np.ndarray) -> None:
+        rgb_frame = cv2.cvtColor(
+            bgr_frame,
+            cv2.COLOR_BGR2RGB,
+        )
+        self._process_rgb_frame(rgb_frame)
+
+    def close(self) -> None:
+        if self.capture is not None:
+            self.capture.release()
+            self.capture = None
+        self._close_detector()
+
+
 class _NativeCameraWorker(QObject):
     def __init__(self, owner: "CameraThread") -> None:
         super().__init__()
         self.owner = owner
+        self._analysis = _CameraAnalysisWorker(owner)
         self.camera: QCamera | None = None
         self.session: QMediaCaptureSession | None = None
         self.sink: QVideoSink | None = None
-        self.detector: MediaPipeDetector | None = None
-        self.extractor = FeatureExtractor()
         self._next_frame_at = 0.0
-        self._opened = False
+
+    @property
+    def detector(self):
+        return self._analysis.detector
+
+    @detector.setter
+    def detector(self, detector) -> None:
+        self._analysis.detector = detector
 
     def start(self) -> bool:
         if self.owner.isInterruptionRequested():
@@ -314,8 +590,8 @@ class _NativeCameraWorker(QObject):
             )
             return False
         try:
-            self.detector = MediaPipeDetector()
-            if self.owner.isInterruptionRequested():
+            _configure_opencv_runtime()
+            if not self._analysis._start_detector():
                 return False
             self.camera = QCamera(device)
             camera_format = self._closest_camera_format(device)
@@ -366,9 +642,23 @@ class _NativeCameraWorker(QObject):
         if self.owner.isInterruptionRequested():
             self.owner.quit()
             return
-        now = time.monotonic()
-        if now < self._next_frame_at:
+        if not frame.isValid():
+            self.owner.tracking_lost.emit(utc_now())
             return
+        self.owner._mark_frame_received()
+        now = time.monotonic()
+        frame_interval = 1.0 / max(self.owner.target_fps, 1.0)
+        if not _deadline_is_due(
+            self._next_frame_at,
+            now,
+            frame_interval,
+        ):
+            return
+        self._next_frame_at = _advance_deadline(
+            self._next_frame_at,
+            now,
+            frame_interval,
+        )
 
         try:
             image = frame.toImage()
@@ -395,45 +685,19 @@ class _NativeCameraWorker(QObject):
                 .reshape(height, width, 3)
                 .copy()
             )
-            if not self._opened:
-                self._opened = True
-                self.owner.camera_opened.emit(width, height)
-
-            if self.detector is None:
-                raise RuntimeError(
-                    tr("The landmark detector is not available.")
-                )
-            observation = self.detector.process(rgb_frame)
-            preview_frame = _blur_background(
-                rgb_frame,
-                getattr(self.detector, "person_mask", None),
-            )
-            preview = _rgb_frame_to_image(preview_frame)
-            if self.owner.descriptor.mirror_preview:
-                preview = preview.mirrored(True, False)
-            self.owner.preview_ready.emit(preview)
-            if observation is None:
-                self.owner.tracking_lost.emit(utc_now())
-                return
-            features = self.extractor.extract(
-                observation,
-                width,
-                height,
-            )
-            if features is None:
-                self.owner.tracking_lost.emit(utc_now())
-            else:
-                self.owner.feature_ready.emit(features)
-        except (BufferError, OSError, RuntimeError, TypeError, ValueError) as error:
+            self._analysis._process_rgb_frame(rgb_frame)
+        except (
+            cv2.error,
+            BufferError,
+            OSError,
+            RuntimeError,
+            TypeError,
+            ValueError,
+        ) as error:
             self.owner._report_error(
                 tr("Camera analysis failed: {error}", error=error)
             )
             self.owner.quit()
-        finally:
-            self._next_frame_at = (
-                time.monotonic()
-                + 1.0 / max(self.owner.target_fps, 1.0)
-            )
 
     @Slot(QCamera.Error, str)
     def _on_error(self, _error: QCamera.Error, message: str) -> None:
@@ -453,9 +717,7 @@ class _NativeCameraWorker(QObject):
     def close(self) -> None:
         if self.camera is not None:
             self.camera.stop()
-        if self.detector is not None:
-            self.detector.close()
-            self.detector = None
+        self._analysis._close_detector()
         self.sink = None
         self.session = None
         self.camera = None
@@ -471,13 +733,18 @@ class CameraThread(QThread):
     def __init__(
         self,
         descriptor: CameraDescriptor,
-        target_fps: float = 10.0,
+        target_fps: float = DEFAULT_ANALYSIS_FPS,
+        preview_fps: float = DEFAULT_PREVIEW_FPS,
         parent=None,
     ) -> None:
         super().__init__(parent)
         self.descriptor = descriptor
         self.target_fps = target_fps
+        self.preview_fps = preview_fps
+        self.preview_enabled = True
         self.failure_message: str | None = None
+        self.last_frame_at: float | None = None
+        self.last_inference_at: float | None = None
         self._startup_timer: QTimer | None = None
         self._startup_pending = False
         application = QCoreApplication.instance()
@@ -489,6 +756,25 @@ class CameraThread(QThread):
         )
         self.camera_opened.connect(self._on_camera_opened)
         self.finished.connect(self._stop_startup_timer)
+
+    def set_preview_enabled(self, enabled: bool) -> None:
+        self.preview_enabled = enabled
+
+    def _mark_frame_received(self) -> None:
+        self.last_frame_at = time.monotonic()
+
+    def _mark_inference_complete(self) -> None:
+        self.last_inference_at = time.monotonic()
+
+    def seconds_since_last_output(
+        self,
+        now: float | None = None,
+    ) -> float | None:
+        last_output_at = self.last_inference_at or self.last_frame_at
+        if last_output_at is None:
+            return None
+        current_time = time.monotonic() if now is None else now
+        return max(0.0, current_time - last_output_at)
 
     def _report_error(self, message: str) -> None:
         if self.failure_message is not None:
@@ -518,6 +804,8 @@ class CameraThread(QThread):
         priority: QThread.Priority = QThread.Priority.InheritPriority,
     ) -> None:
         self.failure_message = None
+        self.last_frame_at = None
+        self.last_inference_at = None
         self._startup_pending = True
         if self._startup_timer is None:
             self._startup_timer = QTimer(self)
@@ -554,6 +842,9 @@ class CameraThread(QThread):
             self._startup_timer.stop()
 
     def run(self) -> None:
+        if sys.platform.startswith("linux"):
+            _OpenCVCameraWorker(self).run()
+            return
         worker = _NativeCameraWorker(self)
         try:
             if not worker.start():
