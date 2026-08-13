@@ -498,7 +498,14 @@ def test_native_video_frame_is_converted_for_local_inference() -> None:
     assert tracking_lost[0].tzinfo is not None
 
 
-def test_native_capture_drops_queued_frames_after_slow_inference() -> None:
+def test_native_capture_drops_queued_frames_after_slow_inference(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        camera_module.time,
+        "monotonic",
+        lambda: 10.0,
+    )
     descriptor = CameraDescriptor(
         stable_id="qt-camera-test",
         display_name="Test camera",
