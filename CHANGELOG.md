@@ -2,6 +2,21 @@
 
 Notable user-visible changes are recorded here.
 
+## 0.5.0 - 2026-08-13
+
+### Added
+
+- Added the first supervised C++ vision-worker foundation with bounded,
+  versioned IPC, heartbeat checks, crash detection, startup cleanup, and forced
+  termination. It is not yet selected as the runtime camera backend.
+- Native worker compilation is now checked on Linux, Windows, and Apple
+  silicon in continuous integration.
+
+### Changed
+
+- Reduced the outer margins around the main workspace and embedded side panels
+  while preserving spacing inside forms and control groups.
+
 ## 0.4.0 - 2026-08-13
 
 ### Changed
