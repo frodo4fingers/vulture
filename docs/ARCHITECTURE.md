@@ -2,7 +2,7 @@
 
 ## Data flow
 
-1. `camera.CameraThread` owns Qt-native camera capture and local MediaPipe
+1. `camera.CameraThread` owns platform camera capture and local MediaPipe
    inference.
 2. `vision.FeatureExtractor` converts landmarks to normalized visual proxies
    and category-specific confidence values. Frames and raw landmarks are not
@@ -127,14 +127,32 @@ select a different device. Legacy index-based profiles are not resolved on
 these native targets because an index cannot prove that the calibrated camera
 is still selected.
 
-On every platform, `CameraThread` creates `QCamera`,
-`QMediaCaptureSession`, and `QVideoSink` inside its own event-loop thread,
-applies frame rotation metadata, converts throttled native frames to RGB, then
-feeds the same local MediaPipe and `FeatureExtractor` pipeline. A first-frame
-deadline surfaces native backends that neither activate nor emit an error. The
-thread's event loop is explicitly stopped during setup switching or shutdown.
-Platform-specific errors point to macOS or Windows camera privacy settings, or
-Linux device permissions.
+On Linux, `CameraThread` opens the resolved stable Video4Linux path through
+OpenCV. This keeps Qt's FFmpeg V4L2 buffer lifecycle out of the long-running
+capture path, so a device reset or disconnect becomes a reported read failure
+instead of a native Qt process crash. The Linux path retains the camera
+driver's selected capture format, keeps only one OpenCV image worker, and
+requests enough camera frames to keep the analysis deadline supplied. Frames
+that arrive ahead of the monotonic deadline are discarded rather than queued.
+On macOS and Windows, `CameraThread` creates `QCamera`,
+`QMediaCaptureSession`, and `QVideoSink` inside its own event-loop thread and
+applies frame rotation metadata. Both paths use a monotonic five-frame-per-
+second analysis deadline and feed the same local MediaPipe and
+`FeatureExtractor` pipeline. CPU inference is the default on every platform
+because it provides the reliable recognition baseline. Linux users can
+explicitly test the MediaPipe GPU delegate with
+`VULTURE_MEDIAPIPE_DELEGATE=gpu`; initialization failure falls back to CPU.
+Preview generation has a separate two-frame-per-second deadline and is disabled
+while the main window is hidden or minimized. Preview images are reduced to at
+most 320 pixels wide before background processing and display scaling. If
+person segmentation is temporarily unavailable, the local preview remains
+unblurred rather than turning into an unusable fully blurred frame. A
+first-frame deadline surfaces backends that neither activate nor emit an error.
+An ongoing main-thread heartbeat replaces old posture results after three
+seconds without camera or inference progress and reports the camera unavailable
+after ten seconds. The thread is explicitly stopped during setup switching or
+shutdown. Platform-specific errors point to macOS or Windows camera privacy
+settings, or Linux device permissions.
 
 The bundled pose model also emits ephemeral segmentation masks for up to two
 detected poses. Candidates with required landmarks outside the frame or without

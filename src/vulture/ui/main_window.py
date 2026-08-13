@@ -103,6 +103,7 @@ class MainWindow(
             ...,
         ] = ()
         self._latest_image: QImage | None = None
+        self._camera_liveness_stage = 0
         self._tracking_enabled = (
             runtime_state.tracking_enabled
             if runtime_state is not None
@@ -172,6 +173,12 @@ class MainWindow(
         self.history_timer.setInterval(10_000)
         self.history_timer.timeout.connect(self._checkpoint_history)
         self.history_timer.start()
+        self.camera_liveness_timer = QTimer(self)
+        self.camera_liveness_timer.setInterval(1_000)
+        self.camera_liveness_timer.timeout.connect(
+            self._check_camera_liveness
+        )
+        self.camera_liveness_timer.start()
 
         if self._history_error is not None:
             QTimer.singleShot(0, self._show_initial_history_error)

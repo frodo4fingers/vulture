@@ -36,6 +36,9 @@ from .exercises import (
 
 
 class TrackingFlowMixin:
+    _CAMERA_UNCERTAIN_AFTER_SECONDS = 3.0
+    _CAMERA_UNAVAILABLE_AFTER_SECONDS = 10.0
+
     def _toggle_tracking(self) -> None:
         if self._language_reload_preparing:
             return
@@ -88,7 +91,11 @@ class TrackingFlowMixin:
         sender = self.sender()
         if sender is not None and sender is not self.camera_thread:
             return
-        if self._language_reload_preparing or not self._tracking_enabled:
+        if (
+            self._language_reload_preparing
+            or not self._tracking_enabled
+            or not self._camera_preview_visible()
+        ):
             return
         self._latest_image = image
         self._draw_preview()
@@ -110,12 +117,85 @@ class TrackingFlowMixin:
         self._draw_preview()
         super().resizeEvent(event)
 
+    def showEvent(self, event) -> None:
+        self._sync_camera_preview_state()
+        super().showEvent(event)
+
+    def hideEvent(self, event) -> None:
+        self._sync_camera_preview_state(force_hidden=True)
+        super().hideEvent(event)
+
+    def _camera_preview_visible(self) -> bool:
+        return self.isVisible() and not self.isMinimized()
+
+    def _sync_camera_preview_state(
+        self,
+        *,
+        force_hidden: bool = False,
+    ) -> None:
+        if self.camera_thread is not None:
+            self.camera_thread.set_preview_enabled(
+                not force_hidden and self._camera_preview_visible()
+            )
+
+    def _reset_camera_liveness(self) -> None:
+        self._camera_liveness_stage = 0
+
+    def _check_camera_liveness(self) -> None:
+        camera_thread = self.camera_thread
+        if (
+            self._language_reload_preparing
+            or not self._tracking_enabled
+            or camera_thread is None
+        ):
+            self._reset_camera_liveness()
+            return
+        if camera_thread.failure_message is not None:
+            return
+        if not camera_thread.isRunning():
+            age = self._CAMERA_UNAVAILABLE_AFTER_SECONDS
+        else:
+            age = camera_thread.seconds_since_last_output()
+            if age is None:
+                return
+        if age < self._CAMERA_UNCERTAIN_AFTER_SECONDS:
+            self._reset_camera_liveness()
+            return
+        self._suspend_history()
+        self._mark_tracking_interrupted()
+        if self.evaluator is not None:
+            self.evaluator.mark_tracking_uncertain(
+                datetime.now().astimezone()
+            )
+        if (
+            age >= self._CAMERA_UNAVAILABLE_AFTER_SECONDS
+            and self._camera_liveness_stage < 2
+        ):
+            self._camera_liveness_stage = 2
+            self._set_state(
+                TrackerState.CAMERA_UNAVAILABLE,
+                tr(
+                    "Camera processing has stopped. Reconnect the camera or "
+                    "release and resume tracking."
+                ),
+            )
+        elif self._camera_liveness_stage < 1:
+            self._camera_liveness_stage = 1
+            self._set_state(
+                TrackerState.LOW_CONFIDENCE,
+                tr(
+                    "Camera frames are delayed. Waiting for tracking to "
+                    "resume."
+                ),
+            )
+
     def _on_feature(self, frame: FeatureFrame) -> None:
         sender = self.sender()
         if sender is not None and sender is not self.camera_thread:
             return
         if self._language_reload_preparing:
             return
+        self._camera_liveness_stage = 0
         if self._calibration_dialog is not None:
             self._calibration_dialog.ingest(frame)
             return
@@ -160,6 +240,7 @@ class TrackingFlowMixin:
             or not self._tracking_enabled
         ):
             return
+        self._camera_liveness_stage = 0
         if (
             self.evaluator is not None
             and not self.evaluator.mark_tracking_uncertain(captured_at)
@@ -179,6 +260,7 @@ class TrackingFlowMixin:
             return
         if self.sender() is not self.camera_thread:
             return
+        self._camera_liveness_stage = 2
         self._suspend_history()
         self._mark_tracking_interrupted()
         self._set_state(TrackerState.CAMERA_UNAVAILABLE, message)

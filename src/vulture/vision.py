@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import logging
 import math
+import os
+import sys
 import time
 from collections.abc import Mapping
 from pathlib import Path
@@ -40,6 +43,7 @@ MIN_PERSON_MASK_FRACTION = 0.01
 MAX_PERSON_MASK_FRACTION = 0.98
 MIN_MASK_LANDMARK_SUPPORT = 0.15
 MAX_DETECTED_POSES = 2
+_LOGGER = logging.getLogger(__name__)
 
 
 class VisionDependencyError(RuntimeError):
@@ -443,6 +447,7 @@ class MediaPipeDetector:
         minimum_detection_confidence: float = 0.6,
         pose_model_path: Path | None = None,
         face_model_path: Path | None = None,
+        delegate: str | None = None,
     ) -> None:
         try:
             import mediapipe as mp
@@ -463,10 +468,64 @@ class MediaPipeDetector:
         vision = mp.tasks.vision
         running_mode = vision.RunningMode.VIDEO
         self._mp = mp
-        self._pose = vision.PoseLandmarker.create_from_options(
+        delegate_name = (
+            delegate
+            or os.environ.get("VULTURE_MEDIAPIPE_DELEGATE", "cpu")
+        ).lower()
+        if delegate_name not in {"auto", "cpu", "gpu"}:
+            raise ValueError(
+                "VULTURE_MEDIAPIPE_DELEGATE must be auto, cpu, or gpu"
+            )
+        delegates = [mp.tasks.BaseOptions.Delegate.CPU]
+        if delegate_name == "gpu" or (
+            delegate_name == "auto" and sys.platform.startswith("linux")
+        ):
+            delegates.insert(0, mp.tasks.BaseOptions.Delegate.GPU)
+        last_error: RuntimeError | None = None
+        for delegate in delegates:
+            try:
+                self._pose, self._face = self._create_landmarkers(
+                    vision,
+                    pose_asset,
+                    face_asset,
+                    running_mode,
+                    minimum_detection_confidence,
+                    delegate,
+                )
+                self.delegate = delegate.name.lower()
+                break
+            except RuntimeError as error:
+                last_error = error
+                if delegate is mp.tasks.BaseOptions.Delegate.GPU:
+                    _LOGGER.warning(
+                        "MediaPipe GPU acceleration is unavailable; using CPU: "
+                        "%s",
+                        error,
+                    )
+                    continue
+                raise
+        else:
+            if last_error is not None:
+                raise last_error
+            raise RuntimeError(tr("The landmark detector is not available."))
+        self._last_timestamp_ms = 0
+        self.person_mask: np.ndarray | None = None
+
+    @staticmethod
+    def _create_landmarkers(
+        vision,
+        pose_asset: Path,
+        face_asset: Path,
+        running_mode,
+        minimum_detection_confidence: float,
+        delegate,
+    ):
+        mp = __import__("mediapipe")
+        pose = vision.PoseLandmarker.create_from_options(
             vision.PoseLandmarkerOptions(
                 base_options=mp.tasks.BaseOptions(
-                    model_asset_path=str(pose_asset)
+                    model_asset_path=str(pose_asset),
+                    delegate=delegate,
                 ),
                 running_mode=running_mode,
                 num_poses=MAX_DETECTED_POSES,
@@ -476,22 +535,30 @@ class MediaPipeDetector:
                 output_segmentation_masks=True,
             )
         )
-        self._face = vision.FaceLandmarker.create_from_options(
-            vision.FaceLandmarkerOptions(
-                base_options=mp.tasks.BaseOptions(
-                    model_asset_path=str(face_asset)
-                ),
-                running_mode=running_mode,
-                num_faces=1,
-                min_face_detection_confidence=minimum_detection_confidence,
-                min_face_presence_confidence=minimum_detection_confidence,
-                min_tracking_confidence=0.6,
-                output_face_blendshapes=False,
-                output_facial_transformation_matrixes=False,
+        try:
+            face = vision.FaceLandmarker.create_from_options(
+                vision.FaceLandmarkerOptions(
+                    base_options=mp.tasks.BaseOptions(
+                        model_asset_path=str(face_asset),
+                        delegate=delegate,
+                    ),
+                    running_mode=running_mode,
+                    num_faces=1,
+                    min_face_detection_confidence=(
+                        minimum_detection_confidence
+                    ),
+                    min_face_presence_confidence=(
+                        minimum_detection_confidence
+                    ),
+                    min_tracking_confidence=0.6,
+                    output_face_blendshapes=False,
+                    output_facial_transformation_matrixes=False,
+                )
             )
-        )
-        self._last_timestamp_ms = 0
-        self.person_mask: np.ndarray | None = None
+        except RuntimeError:
+            pose.close()
+            raise
+        return pose, face
 
     @staticmethod
     def _confidence(item, attribute: str) -> float:

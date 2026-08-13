@@ -2,14 +2,18 @@
 
 ## Local processing
 
-OpenCV reads frames from the selected camera and MediaPipe performs landmark
-inference in the camera thread. Each frame is converted into a preview image
-and normalized feature values, then released. Vulture has no network client,
-telemetry SDK, account system, cloud endpoint, or upload code.
+OpenCV reads frames from the selected camera on Linux; Qt's native multimedia
+capture does so on macOS and Windows. MediaPipe performs landmark inference in
+the camera thread. Analyzed frames are converted into normalized feature
+values, then released. A lower-rate preview is generated only while the main
+window is visible. Vulture has no network client, telemetry SDK, account
+system, cloud endpoint, or upload code.
 
-The preview is displayed only in application memory. Vulture does not record
-the preview, camera frames, raw pose landmarks, raw face landmarks, audio, or
-exercise activity.
+The preview is displayed only in application memory. Its background is blurred
+when person segmentation is available; while segmentation is unavailable, the
+local preview remains unblurred so the user can correct camera positioning.
+Vulture does not record the preview, camera frames, raw pose landmarks, raw
+face landmarks, audio, or exercise activity.
 
 ## Persisted data
 

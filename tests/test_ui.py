@@ -785,6 +785,46 @@ def test_stale_tracking_loss_has_no_ui_side_effects() -> None:
     assert window._last_valid_tracking_at is not None
 
 
+def test_camera_liveness_replaces_stale_posture_state() -> None:
+    states: list[TrackerState] = []
+
+    class Camera:
+        failure_message = None
+
+        def __init__(self) -> None:
+            self.age = 4.0
+
+        def isRunning(self) -> bool:
+            return True
+
+        def seconds_since_last_output(self) -> float:
+            return self.age
+
+    camera = Camera()
+    window = SimpleNamespace(
+        camera_thread=camera,
+        _language_reload_preparing=False,
+        _tracking_enabled=True,
+        _camera_liveness_stage=0,
+        _CAMERA_UNCERTAIN_AFTER_SECONDS=3.0,
+        _CAMERA_UNAVAILABLE_AFTER_SECONDS=10.0,
+        evaluator=None,
+        _suspend_history=lambda: None,
+        _mark_tracking_interrupted=lambda: None,
+        _set_state=lambda state, _message: states.append(state),
+    )
+
+    MainWindow._check_camera_liveness(window)
+    camera.age = 11.0
+    MainWindow._check_camera_liveness(window)
+
+    assert states == [
+        TrackerState.LOW_CONFIDENCE,
+        TrackerState.CAMERA_UNAVAILABLE,
+    ]
+    assert window._camera_liveness_stage == 2
+
+
 def test_replaced_camera_signals_are_ignored() -> None:
     old_camera = object()
     current_camera = object()

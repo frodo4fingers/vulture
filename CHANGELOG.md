@@ -2,6 +2,25 @@
 
 Notable user-visible changes are recorded here.
 
+## Unreleased
+
+### Changed
+
+- Camera analysis now targets five frames per second with a monotonic cadence,
+  limits OpenCV's worker fan-out, and produces smaller previews at a lower
+  cadence only while the window is visible. MediaPipe CPU inference remains
+  the reliable default; GPU inference is available through
+  `VULTURE_MEDIAPIPE_DELEGATE=gpu`.
+- The preview remains visible while person segmentation is temporarily
+  unavailable instead of blurring the entire frame.
+- Tracking now replaces stale posture results with an explicit delayed-camera
+  state and reports the camera unavailable if processing remains stopped.
+
+### Fixed
+
+- Linux camera capture now reports device resets or disconnects instead of
+  allowing Qt's FFmpeg V4L2 buffer path to terminate the application.
+
 ## 0.3.1 - 2026-08-11
 
 ### Fixed

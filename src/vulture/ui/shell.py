@@ -448,11 +448,15 @@ class ShellMixin:
         self.preview.setText(tr("Starting camera..."))
         self.preview.setAccessibleName(tr("Camera preview"))
         self.camera_thread = CameraThread(camera, parent=self)
+        self.camera_thread.set_preview_enabled(
+            self._camera_preview_visible()
+        )
         self.camera_thread.preview_ready.connect(self._on_preview)
         self.camera_thread.feature_ready.connect(self._on_feature)
         self.camera_thread.tracking_lost.connect(self._on_tracking_lost)
         self.camera_thread.camera_error.connect(self._on_camera_error)
         self.camera_thread.start()
+        self._reset_camera_liveness()
         self._reset_break_tracking()
         if setup.calibration is None:
             self._set_state(
@@ -484,6 +488,7 @@ class ShellMixin:
             self.camera_thread is not None
             and self.camera_thread.isRunning()
             and self.camera_thread.failure_message is None
+            and self._camera_liveness_stage < 2
         )
 
     def _show_camera_release_error(self) -> None:
@@ -687,6 +692,8 @@ class ShellMixin:
 
     def changeEvent(self, event: QEvent) -> None:
         super().changeEvent(event)
+        if event.type() == QEvent.Type.WindowStateChange:
+            self._sync_camera_preview_state()
         if (
             event.type() == QEvent.Type.WindowStateChange
             and getattr(self, "_size_before_side_panel", None) is not None
