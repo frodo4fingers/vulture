@@ -25,6 +25,13 @@
 8. `autostart.AutostartManager` reads and changes the current user's native
    login-startup registration without duplicating that state in `AppData`.
 
+An experimental `vulture-vision-worker` process boundary is under development
+but is not yet connected to `CameraThread`. The C++20 skeleton and Python
+supervisor currently prove bounded, versioned IPC over inherited binary pipes:
+handshake, heartbeat ping, protocol errors, graceful shutdown, crash detection,
+and forced termination. Camera capture and MediaPipe remain in process until
+the worker reaches feature and recognition parity.
+
 `MainWindow` owns a `side_panel_frame` as the second pane of its horizontal
 workspace splitter. The frame supplies one shared title and close action above
 the scrollable `side_panel_host`. Setup, settings, calibration selection and

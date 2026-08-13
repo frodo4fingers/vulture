@@ -32,10 +32,21 @@ from .calibration import SetupDialog
 from .common import SemanticLabel, create_state_icon
 
 
+_WINDOW_CONTENT_MARGIN = 6
+_WINDOW_CONTENT_SPACING = 6
+
+
 class ShellMixin:
     def _build_ui(self) -> None:
         central = QWidget()
         layout = QVBoxLayout(central)
+        layout.setContentsMargins(
+            _WINDOW_CONTENT_MARGIN,
+            _WINDOW_CONTENT_MARGIN,
+            _WINDOW_CONTENT_MARGIN,
+            _WINDOW_CONTENT_MARGIN,
+        )
+        layout.setSpacing(_WINDOW_CONTENT_SPACING)
         self.setCentralWidget(central)
 
         self.command_bar = QToolBar()
@@ -118,6 +129,8 @@ class ShellMixin:
         self.workspace_splitter.setChildrenCollapsible(False)
         camera_workspace = QWidget()
         camera_layout = QVBoxLayout(camera_workspace)
+        camera_layout.setContentsMargins(0, 0, 0, 0)
+        camera_layout.setSpacing(_WINDOW_CONTENT_SPACING)
 
         self.status_group = QGroupBox(tr("Tracking status"))
         status_layout = QHBoxLayout(self.status_group)
@@ -217,7 +230,7 @@ class ShellMixin:
 
         side_panel_header = QWidget()
         side_panel_header_layout = QHBoxLayout(side_panel_header)
-        side_panel_header_layout.setContentsMargins(10, 6, 6, 6)
+        side_panel_header_layout.setContentsMargins(6, 4, 4, 4)
         self.side_panel_title = QLabel()
         side_panel_title_font = self.side_panel_title.font()
         side_panel_title_font.setBold(True)
@@ -547,6 +560,14 @@ class ShellMixin:
             orphaned.hide()
             orphaned.deleteLater()
         panel.setWindowFlags(Qt.WindowType.Widget)
+        panel_layout = panel.layout()
+        if panel_layout is not None:
+            panel_layout.setContentsMargins(
+                _WINDOW_CONTENT_MARGIN,
+                _WINDOW_CONTENT_MARGIN,
+                _WINDOW_CONTENT_MARGIN,
+                _WINDOW_CONTENT_MARGIN,
+            )
         self.side_panel_host.setWidget(panel)
         self._side_panel = panel
         title = panel.windowTitle()

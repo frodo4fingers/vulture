@@ -1290,6 +1290,35 @@ def test_side_panel_has_shared_title_and_close_action(
     _teardown_window(window, application)
 
 
+def test_main_and_side_panel_use_compact_outer_margins(
+    application: QApplication,
+    tmp_path: Path,
+) -> None:
+    window = _make_window(tmp_path)
+    central_margins = window.centralWidget().layout().contentsMargins()
+
+    assert (
+        central_margins.left(),
+        central_margins.top(),
+        central_margins.right(),
+        central_margins.bottom(),
+    ) == (6, 6, 6, 6)
+
+    window._show_notice("Saved data unavailable", "Disk is read-only.")
+    application.processEvents()
+    assert window._notice_dialog is not None
+    panel_margins = window._notice_dialog.layout().contentsMargins()
+
+    assert (
+        panel_margins.left(),
+        panel_margins.top(),
+        panel_margins.right(),
+        panel_margins.bottom(),
+    ) == (6, 6, 6, 6)
+
+    _teardown_window(window, application)
+
+
 def _install_test_setup(
     window: MainWindow,
     *,
