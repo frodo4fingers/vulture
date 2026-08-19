@@ -180,7 +180,10 @@ jobs:
         run: dist\Vulture\Vulture.exe --check-runtime
       - name: Check macOS bundle
         if: matrix.platform == 'macos'
-        run: dist/Vulture.app/Contents/MacOS/Vulture --check-runtime
+        # MediaPipe's macOS graph initializes Metal even with its CPU delegate,
+        # which aborts outside an interactive login session on hosted runners.
+        run: >-
+          dist/Vulture.app/Contents/MacOS/Vulture --check-runtime-assets-only
       - name: Archive Linux bundle
         if: matrix.platform == 'linux'
         run: tar -C dist -czf "${{ matrix.archive }}" Vulture

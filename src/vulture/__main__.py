@@ -89,7 +89,23 @@ def _check_exercise_video(title: str, path: Path) -> None:
         )
 
 
-def check_runtime() -> int:
+def _check_vision_assets() -> None:
+    try:
+        import mediapipe  # noqa: F401
+    except ImportError as error:
+        raise RuntimeError(
+            "Bundled MediaPipe dependency could not be imported."
+        ) from error
+
+    for filename in ("pose_landmarker_full.task", "face_landmarker.task"):
+        model_path = resource_path("models", filename)
+        if not model_path.is_file() or model_path.stat().st_size == 0:
+            raise RuntimeError(
+                f"Bundled vision model is missing or empty: {filename}"
+            )
+
+
+def check_runtime(*, check_vision_inference: bool = True) -> int:
     detector: MediaPipeDetector | None = None
     _runtime_application = QCoreApplication.instance()
     if _runtime_application is None:
@@ -146,8 +162,11 @@ def check_runtime() -> int:
                     "Bundled calibration image could not be decoded: "
                     f"{step.title}"
                 )
-        detector = MediaPipeDetector()
-        detector.process(np.zeros((480, 640, 3), dtype=np.uint8))
+        if check_vision_inference:
+            detector = MediaPipeDetector()
+            detector.process(np.zeros((480, 640, 3), dtype=np.uint8))
+        else:
+            _check_vision_assets()
     except (OSError, RuntimeError, ValueError) as error:
         _write_runtime_status(
             f"Vulture runtime check failed: {error}",
@@ -166,7 +185,10 @@ def _should_start_minimized(argv: Sequence[str]) -> bool:
 
 
 def main() -> int:
-    if "--check-runtime" in sys.argv[1:]:
+    runtime_arguments = sys.argv[1:]
+    if "--check-runtime-assets-only" in runtime_arguments:
+        return check_runtime(check_vision_inference=False)
+    if "--check-runtime" in runtime_arguments:
         return check_runtime()
 
     start_minimized = _should_start_minimized(sys.argv[1:])

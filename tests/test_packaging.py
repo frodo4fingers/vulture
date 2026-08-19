@@ -54,7 +54,7 @@ def test_release_workflow_builds_and_checks_every_platform() -> None:
     assert "dist/Vulture/Vulture --check-runtime" in workflow
     assert r"dist\Vulture\Vulture.exe --check-runtime" in workflow
     assert (
-        "dist/Vulture.app/Contents/MacOS/Vulture --check-runtime"
+        "dist/Vulture.app/Contents/MacOS/Vulture --check-runtime-assets-only"
         in workflow
     )
     assert "sha256sum Vulture-* > SHA256SUMS.txt" in workflow
