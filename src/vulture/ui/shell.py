@@ -725,14 +725,8 @@ class ShellMixin:
                 self.height()
                 - self.side_panel_host.viewport().height(),
             )
-            # Native styles can settle wrapped text and default buttons a few
-            # pixels taller than the pre-layout size hint (notably on
-            # Windows). Keep one spacing step in reserve so a panel that fits
-            # does not gain a scrollbar after it is shown.
             requested_window_height = (
-                requested_panel_size.height()
-                + panel_vertical_overhead
-                + SPACE_MD
+                requested_panel_size.height() + panel_vertical_overhead
             )
             if self.isMaximized() or self.isFullScreen():
                 target_width = self.width()
@@ -759,6 +753,28 @@ class ShellMixin:
             )
         self._show_window()
         panel.setFocus(Qt.FocusReason.OtherFocusReason)
+        QTimer.singleShot(0, lambda: self._fit_side_panel_height(panel))
+
+    def _fit_side_panel_height(self, panel: QDialog) -> None:
+        """Grow for overflow that appears only after native layout settles."""
+        if panel is not self._side_panel or not panel.isVisible():
+            return
+        overflow = self.side_panel_host.verticalScrollBar().maximum()
+        if overflow <= 0 or self.isMaximized() or self.isFullScreen():
+            return
+        screen = self.screen() or QGuiApplication.primaryScreen()
+        if screen is None:
+            return
+        target_height = min(
+            self.height() + overflow,
+            screen.availableGeometry().height(),
+        )
+        if target_height <= self.height():
+            return
+        self.resize(self.width(), target_height)
+        central_layout = self.centralWidget().layout()
+        if central_layout is not None:
+            central_layout.activate()
 
     def _show_calibration_window(
         self,
