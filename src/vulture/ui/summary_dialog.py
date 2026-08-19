@@ -35,6 +35,7 @@ from .common import (
     SemanticLabel,
     format_duration,
 )
+from .theme import TextRole, apply_text_role
 from .summary import (
     REMINDER_STAGE_TITLES,
     PostureAreaChart,
@@ -225,9 +226,7 @@ class WorkdaySummaryDialog(QDialog):
         week_layout.setContentsMargins(6, 6, 6, 6)
         week_layout.setSpacing(6)
         self.weekly_range_label = QLabel()
-        weekly_range_font = self.weekly_range_label.font()
-        weekly_range_font.setBold(True)
-        self.weekly_range_label.setFont(weekly_range_font)
+        apply_text_role(self.weekly_range_label, TextRole.TITLE)
         week_layout.addWidget(self.weekly_range_label)
 
         self.weekly_metrics_container = QWidget()
@@ -270,17 +269,13 @@ class WorkdaySummaryDialog(QDialog):
         week_layout.addWidget(self.weekly_metrics_container)
 
         self.weekly_chart_label = QLabel(tr("Posture across 7 days"))
-        weekly_chart_label_font = self.weekly_chart_label.font()
-        weekly_chart_label_font.setBold(True)
-        self.weekly_chart_label.setFont(weekly_chart_label_font)
+        apply_text_role(self.weekly_chart_label, TextRole.HEADING)
         week_layout.addWidget(self.weekly_chart_label)
         self.weekly_chart = RollingWeekChart()
         week_layout.addWidget(self.weekly_chart, 1)
 
         self.weekly_table_label = QLabel(tr("Daily totals"))
-        weekly_table_label_font = self.weekly_table_label.font()
-        weekly_table_label_font.setBold(True)
-        self.weekly_table_label.setFont(weekly_table_label_font)
+        apply_text_role(self.weekly_table_label, TextRole.HEADING)
         week_layout.addWidget(self.weekly_table_label)
         self.weekly_table = QTableWidget(0, 4)
         self.weekly_table.setHorizontalHeaderLabels(

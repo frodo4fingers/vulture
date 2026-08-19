@@ -3,6 +3,7 @@ from __future__ import annotations
 from PySide6.QtWidgets import QDialog, QVBoxLayout, QWidget
 
 from .common import SemanticLabel
+from .theme import SECTION_SPACING
 
 
 class NoticeDialog(QDialog):
@@ -19,6 +20,7 @@ class NoticeDialog(QDialog):
         self.setMinimumWidth(420)
 
         layout = QVBoxLayout(self)
+        layout.setSpacing(SECTION_SPACING)
         message_label = SemanticLabel(
             message,
             tone="safety" if critical else "info",

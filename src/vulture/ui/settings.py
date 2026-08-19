@@ -29,6 +29,7 @@ from vulture.models import (
 )
 
 from .common import SemanticLabel
+from .theme import NESTED_INDENT, TextRole, apply_text_role
 
 
 class SettingsDialog(QDialog):
@@ -173,9 +174,10 @@ class SettingsDialog(QDialog):
         self.movement_reminders_enabled = QCheckBox(
             tr("Movement and position changes")
         )
-        movement_heading_font = self.movement_reminders_enabled.font()
-        movement_heading_font.setBold(True)
-        self.movement_reminders_enabled.setFont(movement_heading_font)
+        apply_text_role(
+            self.movement_reminders_enabled,
+            TextRole.BODY_STRONG,
+        )
         self.movement_reminders_enabled.setChecked(
             break_preferences.movement_reminders_enabled
         )
@@ -183,7 +185,7 @@ class SettingsDialog(QDialog):
 
         self.movement_controls = QWidget()
         movement_layout = QVBoxLayout(self.movement_controls)
-        movement_layout.setContentsMargins(22, 0, 0, 0)
+        movement_layout.setContentsMargins(NESTED_INDENT, 0, 0, 0)
         movement_form = QFormLayout()
         movement_form.setRowWrapPolicy(
             QFormLayout.RowWrapPolicy.WrapLongRows
@@ -213,9 +215,7 @@ class SettingsDialog(QDialog):
         movement_layout.addLayout(movement_form)
 
         movement_options_label = QLabel(tr("Shuffle suggestions between"))
-        movement_options_font = movement_options_label.font()
-        movement_options_font.setBold(True)
-        movement_options_label.setFont(movement_options_font)
+        apply_text_role(movement_options_label, TextRole.BODY_STRONG)
         movement_layout.addWidget(movement_options_label)
         self.suggest_position_change = QCheckBox(
             tr("Change sitting position")
@@ -255,9 +255,10 @@ class SettingsDialog(QDialog):
         break_layout.addWidget(divider)
 
         self.eye_reminders_enabled = QCheckBox(tr("Eye comfort"))
-        eye_heading_font = self.eye_reminders_enabled.font()
-        eye_heading_font.setBold(True)
-        self.eye_reminders_enabled.setFont(eye_heading_font)
+        apply_text_role(
+            self.eye_reminders_enabled,
+            TextRole.BODY_STRONG,
+        )
         self.eye_reminders_enabled.setChecked(
             break_preferences.eye_reminders_enabled
         )
@@ -265,7 +266,7 @@ class SettingsDialog(QDialog):
 
         self.eye_controls = QWidget()
         eye_layout = QVBoxLayout(self.eye_controls)
-        eye_layout.setContentsMargins(22, 0, 0, 0)
+        eye_layout.setContentsMargins(NESTED_INDENT, 0, 0, 0)
         eye_form = QFormLayout()
         eye_form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
         self.eye_interval_minutes = QSpinBox()
@@ -322,9 +323,10 @@ class SettingsDialog(QDialog):
         break_layout.addWidget(hydration_divider)
 
         self.hydration_reminders_enabled = QCheckBox(tr("Water reminder"))
-        hydration_heading_font = self.hydration_reminders_enabled.font()
-        hydration_heading_font.setBold(True)
-        self.hydration_reminders_enabled.setFont(hydration_heading_font)
+        apply_text_role(
+            self.hydration_reminders_enabled,
+            TextRole.BODY_STRONG,
+        )
         self.hydration_reminders_enabled.setChecked(
             break_preferences.hydration_reminders_enabled
         )
@@ -332,7 +334,7 @@ class SettingsDialog(QDialog):
 
         self.hydration_controls = QWidget()
         hydration_layout = QFormLayout(self.hydration_controls)
-        hydration_layout.setContentsMargins(22, 0, 0, 0)
+        hydration_layout.setContentsMargins(NESTED_INDENT, 0, 0, 0)
         hydration_layout.setRowWrapPolicy(
             QFormLayout.RowWrapPolicy.WrapLongRows
         )
@@ -364,9 +366,10 @@ class SettingsDialog(QDialog):
         break_layout.addWidget(reset_divider)
 
         self.reset_reminders_enabled = QCheckBox(tr("Longer reset"))
-        reset_heading_font = self.reset_reminders_enabled.font()
-        reset_heading_font.setBold(True)
-        self.reset_reminders_enabled.setFont(reset_heading_font)
+        apply_text_role(
+            self.reset_reminders_enabled,
+            TextRole.BODY_STRONG,
+        )
         self.reset_reminders_enabled.setChecked(
             break_preferences.reset_reminders_enabled
         )
@@ -374,7 +377,7 @@ class SettingsDialog(QDialog):
 
         self.reset_controls = QWidget()
         reset_layout = QVBoxLayout(self.reset_controls)
-        reset_layout.setContentsMargins(22, 0, 0, 0)
+        reset_layout.setContentsMargins(NESTED_INDENT, 0, 0, 0)
         reset_form = QFormLayout()
         reset_form.setRowWrapPolicy(
             QFormLayout.RowWrapPolicy.WrapLongRows
@@ -398,9 +401,7 @@ class SettingsDialog(QDialog):
         )
         reset_layout.addLayout(reset_form)
         reset_options_label = QLabel(tr("Shuffle suggestions between"))
-        reset_options_font = reset_options_label.font()
-        reset_options_font.setBold(True)
-        reset_options_label.setFont(reset_options_font)
+        apply_text_role(reset_options_label, TextRole.BODY_STRONG)
         reset_layout.addWidget(reset_options_label)
         self.suggest_tea_or_coffee = QCheckBox(tr("Make tea or coffee"))
         self.suggest_tea_or_coffee.setChecked(

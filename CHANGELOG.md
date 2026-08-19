@@ -2,6 +2,27 @@
 
 Notable user-visible changes are recorded here.
 
+## Unreleased
+
+### Changed
+
+- The interface now draws its type sizes, spacing, and corner radii from a
+  single set of design tokens. Headings, values, captions, and countdowns use
+  one type scale instead of the per-widget font adjustments that had
+  accumulated across the workspace, calibration, settings, and summary
+  surfaces.
+- The workspace and the exercise, break, and notice side panels now line up:
+  their first line of text starts on a shared baseline, and the panel's action
+  buttons sit on the same footer baseline as the workspace buttons.
+- The break card reads as one block, with the next break, its countdown, and
+  the "until next break" caption aligned on a shared baseline instead of
+  drifting apart at different sizes.
+- The toolbar groups the setup selector on the left and the commands on the
+  right, separated so that Settings no longer crowds the tracking actions.
+- Exercise media keeps a 16:9 shape as the panel resizes rather than a fixed
+  height, and exercise steps, sources, and safety notes share the workspace's
+  reading rhythm.
+
 ## 0.5.0 - 2026-08-13
 
 ### Added

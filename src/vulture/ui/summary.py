@@ -39,6 +39,15 @@ from vulture.i18n import tr
 from vulture.models import PostureCategory, TrackerState
 
 from .common import SUMMARY_POSTURES
+from .theme import (
+    HAIRLINE,
+    RADIUS_MD,
+    SPACE_MD,
+    SPACE_SM,
+    CaptionLabel,
+    TextRole,
+    apply_text_role,
+)
 
 
 SUMMARY_OTHER_POSTURES = "other_tracked_postures"
@@ -284,15 +293,12 @@ class SummaryMetric(QFrame):
         self.setMinimumWidth(120)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(10, 5, 10, 5)
-        layout.setSpacing(1)
+        layout.setContentsMargins(SPACE_MD, SPACE_SM, SPACE_MD, SPACE_SM)
+        layout.setSpacing(0)
         self.value_label = QLabel()
-        value_font = self.value_label.font()
-        value_font.setBold(True)
-        value_font.setPointSize(max(13, value_font.pointSize() + 3))
-        self.value_label.setFont(value_font)
+        apply_text_role(self.value_label, TextRole.TITLE)
         layout.addWidget(self.value_label)
-        self.caption_label = QLabel(caption)
+        self.caption_label = CaptionLabel(caption)
         layout.addWidget(self.caption_label)
         self._apply_palette()
 
@@ -324,19 +330,13 @@ class SummaryMetric(QFrame):
         style = (
             "QFrame#summaryMetric {"
             f"background-color: {surface.name()};"
-            f"border: 1px solid {border.name()};"
-            "border-radius: 6px;"
+            f"border: {HAIRLINE}px solid {border.name()};"
+            f"border-radius: {RADIUS_MD}px;"
             "}"
-        )
-        caption_palette = QPalette(palette)
-        caption_palette.setColor(
-            QPalette.ColorRole.WindowText,
-            palette.color(QPalette.ColorRole.PlaceholderText),
         )
         self._applying_style = True
         try:
             self.setStyleSheet(style)
-            self.caption_label.setPalette(caption_palette)
         finally:
             self._applying_style = False
 
