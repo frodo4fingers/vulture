@@ -69,6 +69,8 @@ from vulture.ui import (
     create_state_icon,
 )
 from vulture.ui.common import ContentHeightTextBrowser, SemanticLabel
+from vulture.ui.shell import SIDE_PANEL_CONTENT_MARGINS
+from vulture.ui.theme import WINDOW_MARGIN
 from tests.test_calibration import make_frame
 
 
@@ -1291,7 +1293,7 @@ def test_side_panel_has_shared_title_and_close_action(
     _teardown_window(window, application)
 
 
-def test_main_and_side_panel_use_compact_outer_margins(
+def test_main_and_side_panel_share_the_workspace_grid(
     application: QApplication,
     tmp_path: Path,
 ) -> None:
@@ -1303,7 +1305,12 @@ def test_main_and_side_panel_use_compact_outer_margins(
         central_margins.top(),
         central_margins.right(),
         central_margins.bottom(),
-    ) == (6, 6, 6, 6)
+    ) == (
+        WINDOW_MARGIN,
+        WINDOW_MARGIN,
+        WINDOW_MARGIN,
+        WINDOW_MARGIN,
+    )
 
     window._show_notice("Saved data unavailable", "Disk is read-only.")
     application.processEvents()
@@ -1315,7 +1322,46 @@ def test_main_and_side_panel_use_compact_outer_margins(
         panel_margins.top(),
         panel_margins.right(),
         panel_margins.bottom(),
-    ) == (6, 6, 6, 6)
+    ) == SIDE_PANEL_CONTENT_MARGINS
+    assert panel_margins.bottom() == 0
+    assert panel_margins.left() == 0
+    assert panel_margins.right() == 0
+
+    _teardown_window(window, application)
+
+
+def test_workspace_columns_share_top_and_footer_datums(
+    application: QApplication,
+    tmp_path: Path,
+) -> None:
+    window = _make_window(tmp_path)
+    window.resize(1235, 841)
+    window.screen = lambda: SimpleNamespace(
+        availableGeometry=lambda: QRect(0, 0, 1920, 1080)
+    )
+    window.show()
+    application.processEvents()
+
+    window._offer_exercise()
+    application.processEvents()
+    panel = window._exercise_dialog
+    assert panel is not None
+
+    def top(widget) -> int:
+        return widget.mapTo(window, widget.rect().topLeft()).y()
+
+    def bottom(widget) -> int:
+        return widget.mapTo(window, widget.rect().bottomRight()).y()
+
+    assert top(window.break_timer_group.title_label) == top(
+        window.side_panel_title
+    )
+
+    panel_buttons = panel.findChildren(QPushButton)
+    assert panel_buttons
+    panel_footer = max(bottom(button) for button in panel_buttons)
+
+    assert panel_footer == bottom(window.summary_button)
 
     _teardown_window(window, application)
 

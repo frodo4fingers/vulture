@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QEvent, Qt, QTimer
-from PySide6.QtGui import QAction, QFont, QGuiApplication
+from PySide6.QtGui import QAction, QGuiApplication
 from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
     QDialog,
     QFrame,
-    QGroupBox,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QMenu,
@@ -30,10 +30,32 @@ from vulture.tracking import PostureEvaluator
 
 from .calibration import SetupDialog
 from .common import SemanticLabel, create_state_icon
+from .theme import (
+    CONTROL_SPACING,
+    HAIRLINE,
+    MEDIA_TEXT,
+    SECTION_SPACING,
+    SETUP_SELECTOR_WIDTH,
+    SPACE_MD,
+    SPACE_SM,
+    SPACE_XS,
+    STATUS_DOT_SIZE,
+    WINDOW_MARGIN,
+    Card,
+    CaptionLabel,
+    Separator,
+    TextRole,
+    align_first_baseline,
+    apply_text_role,
+    media_surface_style,
+)
 
 
-_WINDOW_CONTENT_MARGIN = 6
-_WINDOW_CONTENT_SPACING = 6
+_WINDOW_CONTENT_MARGIN = WINDOW_MARGIN
+_WINDOW_CONTENT_SPACING = SECTION_SPACING
+# The hosted side panel keeps the divider clear on its left and stays flush
+# with the workspace footer at the bottom so both columns share one baseline.
+SIDE_PANEL_CONTENT_MARGINS = (0, SPACE_MD, 0, 0)
 
 
 class ShellMixin:
@@ -59,22 +81,31 @@ class ShellMixin:
 
         setup_control = QWidget()
         setup_control.setSizePolicy(
-            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Preferred,
             QSizePolicy.Policy.Preferred,
         )
         setup_row = QHBoxLayout(setup_control)
-        setup_row.setContentsMargins(0, 0, 6, 0)
+        setup_row.setContentsMargins(0, 0, SPACE_SM, 0)
+        setup_row.setSpacing(SPACE_SM)
         setup_row.addWidget(QLabel(tr("Setup")))
         self.setup_combo = QComboBox()
         self.setup_combo.setMinimumWidth(180)
+        self.setup_combo.setMaximumWidth(SETUP_SELECTOR_WIDTH)
         self.setup_combo.setSizePolicy(
             QSizePolicy.Policy.Expanding,
             QSizePolicy.Policy.Fixed,
         )
         self.setup_combo.currentIndexChanged.connect(self._setup_changed)
         setup_row.addWidget(self.setup_combo, 1)
+        setup_row.addStretch(0)
         self.command_bar.addWidget(setup_control)
-        self.command_bar.addSeparator()
+
+        command_bar_spacer = QWidget()
+        command_bar_spacer.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Preferred,
+        )
+        self.command_bar.addWidget(command_bar_spacer)
 
         self.add_setup_command = QAction(tr("Add setup"), self)
         self.add_setup_command.triggered.connect(self._add_setup)
@@ -104,6 +135,7 @@ class ShellMixin:
             self._recalibrate_step
         )
         self.command_bar.addAction(self.recalibrate_step_command)
+        self.command_bar.addSeparator()
         self.settings_command = QAction(tr("Settings"), self)
         self.settings_command.triggered.connect(self._show_settings)
         self.command_bar.addAction(self.settings_command)
@@ -125,64 +157,76 @@ class ShellMixin:
         )
         layout.addWidget(self.command_bar)
 
-        self.break_timer_group = QGroupBox(tr("Next break"))
-        break_timer_layout = QHBoxLayout(self.break_timer_group)
-        break_timer_copy = QVBoxLayout()
-        self.next_break_label = QLabel()
-        next_break_font = self.next_break_label.font()
-        next_break_font.setBold(True)
-        next_break_font.setPointSize(next_break_font.pointSize() + 3)
-        self.next_break_label.setFont(next_break_font)
-        self.next_break_label.setWordWrap(True)
-        break_timer_copy.addWidget(self.next_break_label)
-        self.next_break_detail = QLabel(
-            tr("Break timing continues with or without the camera.")
-        )
-        self.next_break_detail.setWordWrap(True)
-        break_detail_row = QHBoxLayout()
-        break_detail_row.setContentsMargins(0, 0, 0, 0)
-        break_detail_row.addWidget(self.next_break_detail, 1)
+        self.break_timer_group = Card(tr("Next break"))
         self.move_now_button = QPushButton(tr("Move now"))
+        self.move_now_button.setAutoDefault(False)
         self.move_now_button.clicked.connect(
             lambda: self._offer_exercise()
         )
-        break_detail_row.addWidget(self.move_now_button)
-        break_timer_copy.addLayout(break_detail_row)
-        break_timer_layout.addLayout(break_timer_copy, 1)
+        self.break_timer_group.add_header_action(self.move_now_button)
 
-        break_countdown_layout = QVBoxLayout()
-        self.break_countdown = QLabel("--:--")
-        countdown_font = self.break_countdown.font()
-        countdown_font.setBold(True)
-        countdown_font.setPointSize(countdown_font.pointSize() + 12)
-        countdown_font.setStyleHint(QFont.StyleHint.Monospace)
-        self.break_countdown.setFont(countdown_font)
-        self.break_countdown.setAlignment(Qt.AlignmentFlag.AlignRight)
-        self.break_countdown.setAccessibleName(tr("Time until next break"))
-        break_countdown_layout.addWidget(self.break_countdown)
-        self.break_countdown_caption = QLabel(tr("until next break"))
-        self.break_countdown_caption.setAlignment(
-            Qt.AlignmentFlag.AlignRight
+        break_timer_layout = QGridLayout()
+        break_timer_layout.setContentsMargins(0, 0, 0, 0)
+        break_timer_layout.setHorizontalSpacing(SPACE_MD)
+        break_timer_layout.setVerticalSpacing(0)
+        self.next_break_label = QLabel()
+        apply_text_role(self.next_break_label, TextRole.TITLE)
+        self.next_break_label.setWordWrap(True)
+        self.next_break_detail = CaptionLabel(
+            tr("Break timing continues with or without the camera.")
         )
-        break_countdown_layout.addWidget(self.break_countdown_caption)
-        break_timer_layout.addLayout(break_countdown_layout)
+        self.break_countdown = QLabel("--:--")
+        apply_text_role(self.break_countdown, TextRole.DISPLAY)
+        self.break_countdown.setAlignment(
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop
+        )
+        self.break_countdown.setAccessibleName(tr("Time until next break"))
+        self.break_countdown_caption = CaptionLabel(tr("until next break"))
+        self.break_countdown_caption.setWordWrap(False)
+        self.break_countdown_caption.setAlignment(
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop
+        )
+        align_first_baseline(self.next_break_label, self.break_countdown)
+
+        # The cells are filled rather than aligned so wrapping copy uses the
+        # full column width; each label carries its own text alignment.
+        break_timer_layout.addWidget(self.next_break_label, 0, 0)
+        break_timer_layout.addWidget(self.break_countdown, 0, 1)
+        break_timer_layout.addWidget(self.next_break_detail, 1, 0)
+        break_timer_layout.addWidget(self.break_countdown_caption, 1, 1)
+        break_timer_layout.setColumnStretch(0, 1)
+        break_timer_layout.setRowStretch(2, 1)
+        self.break_timer_group.body.addLayout(break_timer_layout)
 
         self.workspace_splitter = QSplitter(Qt.Orientation.Horizontal)
         self.workspace_splitter.setChildrenCollapsible(False)
+        self.workspace_splitter.setHandleWidth(SPACE_MD)
         camera_workspace = QWidget()
         camera_layout = QVBoxLayout(camera_workspace)
         camera_layout.setContentsMargins(0, 0, 0, 0)
         camera_layout.setSpacing(_WINDOW_CONTENT_SPACING)
 
-        self.status_group = QGroupBox(tr("Tracking status"))
-        status_layout = QHBoxLayout(self.status_group)
+        self.status_group = Card(tr("Tracking status"))
+        status_layout = QHBoxLayout()
+        status_layout.setContentsMargins(0, 0, 0, 0)
+        status_layout.setSpacing(SPACE_MD)
         self.status_dot = QLabel("V")
         self.status_dot.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.status_dot.setFixedSize(46, 46)
+        self.status_dot.setFixedSize(STATUS_DOT_SIZE, STATUS_DOT_SIZE)
+        apply_text_role(self.status_dot, TextRole.TITLE)
         self.status_label = QLabel()
         self.status_label.setWordWrap(True)
-        status_layout.addWidget(self.status_dot)
+        self.status_label.setAlignment(
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+        )
+        status_layout.addWidget(
+            self.status_dot,
+            0,
+            Qt.AlignmentFlag.AlignTop,
+        )
         status_layout.addWidget(self.status_label, 1)
+        self.status_group.body.addLayout(status_layout)
+        self.status_group.body.addStretch(1)
         signal_row = QHBoxLayout()
         signal_row.setContentsMargins(0, 0, 0, 0)
         signal_row.setSpacing(_WINDOW_CONTENT_SPACING)
@@ -195,20 +239,26 @@ class ShellMixin:
 
         self.first_run_panel = QFrame()
         self.first_run_panel.setStyleSheet(
-            "QFrame { background: #1a202c; border-radius: 6px; }"
+            f"QFrame {{ {media_surface_style()} }}"
         )
         first_run_outer = QVBoxLayout(self.first_run_panel)
+        first_run_outer.setContentsMargins(
+            SPACE_MD,
+            SPACE_MD,
+            SPACE_MD,
+            SPACE_MD,
+        )
         first_run_outer.addStretch(1)
         first_run_content = QWidget()
         first_run_content.setMinimumWidth(380)
         first_run_content.setMaximumWidth(500)
         first_run_layout = QVBoxLayout(first_run_content)
-        first_run_layout.setSpacing(12)
+        first_run_layout.setContentsMargins(0, 0, 0, 0)
+        first_run_layout.setSpacing(SPACE_MD)
         self.first_run_heading = QLabel(tr("Camera tracking is optional"))
         self.first_run_heading.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.first_run_heading.setStyleSheet(
-            "color: #f7fafc; font-size: 20px; font-weight: 700"
-        )
+        apply_text_role(self.first_run_heading, TextRole.TITLE)
+        self.first_run_heading.setStyleSheet("color: #f2f6fb")
         first_run_layout.addWidget(self.first_run_heading)
         first_run_copy = QLabel(
             tr(
@@ -219,12 +269,13 @@ class ShellMixin:
         first_run_copy.setAlignment(Qt.AlignmentFlag.AlignCenter)
         first_run_copy.setWordWrap(True)
         first_run_copy.setMinimumHeight(40)
-        first_run_copy.setStyleSheet("color: #cbd5e0")
+        first_run_copy.setStyleSheet(f"color: {MEDIA_TEXT}")
         first_run_layout.addWidget(first_run_copy)
         self.first_run_add_button = QPushButton(tr("Add camera setup"))
         self.first_run_add_button.setDefault(True)
         self.first_run_add_button.clicked.connect(self._add_setup)
         first_run_actions = QHBoxLayout()
+        first_run_actions.setContentsMargins(0, SPACE_XS, 0, 0)
         first_run_actions.addStretch(1)
         first_run_actions.addWidget(self.first_run_add_button)
         first_run_actions.addStretch(1)
@@ -239,9 +290,7 @@ class ShellMixin:
 
         self.preview = QLabel(tr("Camera preview"))
         self.preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.preview.setStyleSheet(
-            "background: #1a202c; color: #cbd5e0; border-radius: 6px"
-        )
+        self.preview.setStyleSheet(media_surface_style())
         self.preview_stack.addWidget(self.preview)
         camera_layout.addWidget(self.preview_stack, 1)
 
@@ -253,20 +302,31 @@ class ShellMixin:
                 "and durations."
             ),
             tone="info",
+            role=TextRole.CAPTION,
         )
         camera_layout.addWidget(privacy)
 
         footer = QHBoxLayout()
+        footer.setContentsMargins(0, 0, 0, 0)
+        footer.setSpacing(CONTROL_SPACING)
         self.summary_button = QPushButton(tr("Workday summary"))
+        self.summary_button.setAutoDefault(False)
         self.summary_button.clicked.connect(self._show_workday_summary)
         self.summary_button.setEnabled(self.history_store is not None)
         footer.addWidget(self.summary_button)
         self.evidence_button = QPushButton(tr("Evidence and safety"))
+        self.evidence_button.setAutoDefault(False)
         self.evidence_button.clicked.connect(self._show_evidence)
         footer.addWidget(self.evidence_button)
         footer.addStretch()
+        self.footer_disclaimer = CaptionLabel(
+            tr("Personalized reminder — not a medical device")
+        )
+        self.footer_disclaimer.setWordWrap(False)
         footer.addWidget(
-            QLabel(tr("Personalized reminder — not a medical device"))
+            self.footer_disclaimer,
+            0,
+            Qt.AlignmentFlag.AlignVCenter,
         )
         camera_layout.addLayout(footer)
 
@@ -277,14 +337,17 @@ class ShellMixin:
 
         side_panel_header = QWidget()
         side_panel_header_layout = QHBoxLayout(side_panel_header)
-        side_panel_header_layout.setContentsMargins(6, 4, 4, 4)
-        self.side_panel_title = QLabel()
-        side_panel_title_font = self.side_panel_title.font()
-        side_panel_title_font.setBold(True)
-        side_panel_title_font.setPointSize(
-            side_panel_title_font.pointSize() + 2
+        # The header's top inset matches a card's, so the panel title and the
+        # workspace card titles start on the same line.
+        side_panel_header_layout.setContentsMargins(
+            0,
+            SPACE_MD + HAIRLINE,
+            0,
+            SPACE_MD,
         )
-        self.side_panel_title.setFont(side_panel_title_font)
+        side_panel_header_layout.setSpacing(CONTROL_SPACING)
+        self.side_panel_title = QLabel()
+        apply_text_role(self.side_panel_title, TextRole.TITLE)
         self.side_panel_title.setWordWrap(True)
         side_panel_header_layout.addWidget(self.side_panel_title, 1)
         self.side_panel_close_button = QToolButton()
@@ -296,18 +359,13 @@ class ShellMixin:
         side_panel_header_layout.addWidget(self.side_panel_close_button)
         side_panel_layout.addWidget(side_panel_header)
 
-        separator = QFrame()
-        separator.setFixedHeight(1)
-        separator.setStyleSheet(
-            "background-color: palette(mid); border: none"
-        )
-        side_panel_layout.addWidget(separator)
+        side_panel_layout.addWidget(Separator())
 
         self.side_panel_host = QScrollArea()
         self.side_panel_host.setWidgetResizable(True)
         self.side_panel_host.setFrameShape(QFrame.Shape.NoFrame)
         self.side_panel_host.setHorizontalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
         )
         side_panel_layout.addWidget(self.side_panel_host, 1)
         self.side_panel_frame.setMinimumWidth(380)
@@ -587,6 +645,24 @@ class ShellMixin:
         self._refresh_setup_combo()
         return True
 
+    @staticmethod
+    def _adopt_panel_width(panel: QDialog) -> None:
+        """Hand the panel's width budget over to the side-panel host.
+
+        Dialogs carry a minimum width that suits them as free-floating
+        windows. Hosted in the scroll area that minimum becomes a floor the
+        viewport cannot go below, so the last pixels are clipped as soon as a
+        vertical scrollbar appears. The dialog's preference is preserved as
+        the requested panel width instead.
+        """
+        requested = max(
+            panel.minimumWidth(),
+            panel.property("preferredSidePanelWidth") or 0,
+        )
+        if requested > 0:
+            panel.setProperty("preferredSidePanelWidth", requested)
+        panel.setMinimumWidth(0)
+
     def _show_side_panel(self, panel: QDialog) -> None:
         previous = self._side_panel
         if previous is not None and previous is not panel:
@@ -609,12 +685,8 @@ class ShellMixin:
         panel.setWindowFlags(Qt.WindowType.Widget)
         panel_layout = panel.layout()
         if panel_layout is not None:
-            panel_layout.setContentsMargins(
-                _WINDOW_CONTENT_MARGIN,
-                _WINDOW_CONTENT_MARGIN,
-                _WINDOW_CONTENT_MARGIN,
-                _WINDOW_CONTENT_MARGIN,
-            )
+            panel_layout.setContentsMargins(*SIDE_PANEL_CONTENT_MARGINS)
+        self._adopt_panel_width(panel)
         self.side_panel_host.setWidget(panel)
         self._side_panel = panel
         title = panel.windowTitle()

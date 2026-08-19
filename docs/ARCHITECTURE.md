@@ -87,13 +87,25 @@ reload without briefly reopening the camera.
 ## UI module boundaries
 
 `vulture.ui` is a compatibility facade over a package of focused modules.
-`common` owns shared visual primitives; `calibration`, `settings`, `exercises`,
-`notices`, `summary`, and `summary_dialog` own bounded dialog and reporting
-surfaces. `shell`, `calibration_flow`, `tracking_flow`, and `application_flow`
+`theme` owns the design tokens — the spacing scale, the type roles, the
+palette-derived colours, and the `Card`, `Separator`, and `CaptionLabel`
+primitives — so that every surface reads its sizes from one place instead of
+nudging fonts and margins locally. `common` owns shared visual primitives
+built on those tokens; `calibration`, `settings`, `exercises`, `notices`,
+`summary`, and `summary_dialog` own bounded dialog and reporting surfaces.
+`shell`, `calibration_flow`, `tracking_flow`, and `application_flow`
 provide behavior-preserving `MainWindow` mixins, while `main_window` contains
 the runtime snapshot and concrete composition root. Dialog modules do not
 depend on `MainWindow`; the facade alone adapts the former camera injection
 points to their new owning modules.
+
+The workspace is a two-column grid whose columns share two datums: the break
+card and the side panel start their first line of text on the same baseline,
+and the side panel's action row sits on the same footer baseline as the
+workspace buttons. `shell.SIDE_PANEL_CONTENT_MARGINS` keeps the hosted panel
+flush with that footer, and `theme.align_first_baseline` aligns mixed type
+sizes that share a row. Both datums are covered by tests, because they are
+invisible to unit assertions about individual widgets.
 
 ## Platform integration
 

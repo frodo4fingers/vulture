@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from math import ceil
+
 from PySide6.QtCore import QEvent, Qt
 from PySide6.QtGui import (
     QColor,
@@ -7,6 +9,7 @@ from PySide6.QtGui import (
     QPainter,
     QPalette,
     QPixmap,
+    QTextOption,
 )
 from PySide6.QtWidgets import (
     QApplication,
@@ -19,6 +22,15 @@ from PySide6.QtWidgets import (
 from vulture.history import BASELINE_POSTURE
 from vulture.i18n import tr
 from vulture.models import PostureCategory, TrackerState
+
+from .theme import (
+    CARD_PADDING,
+    LIST_INDENT,
+    RADIUS_MD,
+    SPACE_XS,
+    TextRole,
+    apply_text_role,
+)
 
 
 SUMMARY_POSTURES = (
@@ -82,7 +94,8 @@ def semantic_panel_style(
     weight = "; font-weight: 700" if strong else ""
     return (
         f"background-color: {background}; color: {foreground}; "
-        f"border: 1px solid {border}; border-radius: 5px; padding: 9px"
+        f"border: 1px solid {border}; border-radius: {RADIUS_MD}px; "
+        f"padding: {CARD_PADDING}px"
         f"{weight}"
     )
 
@@ -94,6 +107,7 @@ class SemanticLabel(QLabel):
         *,
         tone: str = "info",
         strong: bool = False,
+        role: TextRole = TextRole.BODY,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(text, parent)
@@ -101,6 +115,7 @@ class SemanticLabel(QLabel):
         self._semantic_strong = strong
         self._applying_semantic_style = False
         self.setWordWrap(True)
+        apply_text_role(self, role)
         self._apply_semantic_style()
 
     def set_semantic_tone(
@@ -158,6 +173,13 @@ class ContentHeightTextBrowser(QTextBrowser):
             QSizePolicy.Policy.Preferred,
             QSizePolicy.Policy.Fixed,
         )
+        self.viewport().setAutoFillBackground(False)
+        self.setStyleSheet("QTextBrowser { background: transparent }")
+        self.setWordWrapMode(
+            QTextOption.WrapMode.WrapAtWordBoundaryOrAnywhere
+        )
+        self.document().setDocumentMargin(0)
+        self.document().setIndentWidth(LIST_INDENT)
         self.document().documentLayout().documentSizeChanged.connect(
             lambda *_: self._fit_to_contents()
         )
@@ -165,7 +187,7 @@ class ContentHeightTextBrowser(QTextBrowser):
     def _fit_to_contents(self) -> None:
         document = self.document()
         document.setTextWidth(self.viewport().width())
-        height = int(document.size().height())
+        height = ceil(document.size().height())
         height += 2 * self.frameWidth() + self.contentsMargins().top()
         height += self.contentsMargins().bottom()
         self.setFixedHeight(height)
@@ -177,6 +199,26 @@ class ContentHeightTextBrowser(QTextBrowser):
     def resizeEvent(self, event: QEvent) -> None:
         super().resizeEvent(event)
         self._fit_to_contents()
+
+
+def rich_text_document_style(link: QColor | None = None) -> str:
+    """Shared typography for the read-only rich-text surfaces.
+
+    Qt indents ordered and unordered lists far past the surrounding copy by
+    default, which breaks the left edge every other block sits on.
+    """
+    rules = [
+        "p, li { line-height: 138%; }",
+        "ol, ul { -qt-list-indent: 1; margin-left: 0px; "
+        "margin-top: 0px; margin-bottom: 0px; }",
+        "li { margin-bottom: " + str(SPACE_XS) + "px; }",
+        "h2 { margin-top: 0px; }",
+    ]
+    if link is not None:
+        rules.append(
+            f"a {{ color: {link.name()}; text-decoration: underline; }}"
+        )
+    return " ".join(rules)
 
 
 def set_accessible_link_palette(browser: QTextBrowser) -> None:
@@ -192,7 +234,7 @@ def set_accessible_link_palette(browser: QTextBrowser) -> None:
     palette.setColor(QPalette.ColorRole.LinkVisited, visited_link)
     browser.setPalette(palette)
     browser.document().setDefaultStyleSheet(
-        f"a {{ color: {link.name()}; text-decoration: underline; }}"
+        rich_text_document_style(link)
     )
 
 

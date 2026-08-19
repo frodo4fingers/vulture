@@ -26,6 +26,7 @@ from .exercises import EvidenceDialog
 from .notices import NoticeDialog
 from .settings import SettingsDialog
 from .summary_dialog import WorkdaySummaryDialog
+from .theme import STATUS_DOT_SIZE
 
 
 class ApplicationFlowMixin:
@@ -405,8 +406,8 @@ class ApplicationFlowMixin:
         color = STATE_COLORS[state]
         foreground = STATE_FOREGROUND_COLORS[state]
         self.status_dot.setStyleSheet(
-            f"background: {color}; color: {foreground}; border-radius: 23px; "
-            "font-weight: bold; font-size: 22px"
+            f"background: {color}; color: {foreground}; "
+            f"border-radius: {STATUS_DOT_SIZE // 2}px; font-weight: 600"
         )
         self.status_label.setText(message)
         self._apply_icon()

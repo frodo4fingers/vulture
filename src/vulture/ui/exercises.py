@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, QUrl
+from PySide6.QtCore import QSize, Qt, QUrl
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtMultimedia import QMediaPlayer
 from PySide6.QtMultimediaWidgets import QVideoWidget
@@ -30,9 +30,50 @@ from .common import (
     set_accessible_link_palette,
 )
 from .break_options import AlternativeBreakPicker
+from .theme import (
+    CONTROL_SPACING,
+    MEDIA_ASPECT_RATIO,
+    MEDIA_MIN_HEIGHT,
+    RADIUS_MD,
+    SECTION_SPACING,
+    SPACE_MD,
+    SPACE_SM,
+    Separator,
+    TextRole,
+    apply_text_role,
+)
 
 
 EXERCISE_POSTPONE_MINUTES = 10
+
+
+class ExerciseMedia(QVideoWidget):
+    """Keeps demonstration footage at its native widescreen proportion."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setStyleSheet(f"border-radius: {RADIUS_MD}px")
+        policy = QSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Preferred,
+        )
+        policy.setHeightForWidth(True)
+        self.setSizePolicy(policy)
+
+    def hasHeightForWidth(self) -> bool:
+        return True
+
+    def heightForWidth(self, width: int) -> int:
+        return max(MEDIA_MIN_HEIGHT, round(width / MEDIA_ASPECT_RATIO))
+
+    def sizeHint(self) -> QSize:
+        return QSize(480, round(480 / MEDIA_ASPECT_RATIO))
+
+    def minimumSizeHint(self) -> QSize:
+        return QSize(
+            round(MEDIA_MIN_HEIGHT * MEDIA_ASPECT_RATIO),
+            MEDIA_MIN_HEIGHT,
+        )
 
 
 class ExerciseOutcome:
@@ -62,6 +103,7 @@ class ExerciseDialog(QDialog):
         self.setMinimumSize(500, 600)
 
         layout = QVBoxLayout(self)
+        layout.setSpacing(SECTION_SPACING)
         dose = QLabel(
             tr("<b>Dose:</b> {dose}", dose=exercise.dose)
         )
@@ -70,12 +112,7 @@ class ExerciseDialog(QDialog):
 
         media = exercise_media_path(exercise)
         if media is not None:
-            video = QVideoWidget()
-            video.setMinimumHeight(280)
-            video.setSizePolicy(
-                QSizePolicy.Policy.Expanding,
-                QSizePolicy.Policy.Fixed,
-            )
+            video = ExerciseMedia()
             layout.addWidget(video)
             self.player = QMediaPlayer(self)
             self.player.setVideoOutput(video)
@@ -85,6 +122,7 @@ class ExerciseDialog(QDialog):
 
         steps = ContentHeightTextBrowser()
         steps.setOpenExternalLinks(True)
+        set_accessible_link_palette(steps)
         step_html = "".join(
             f"<li>{step}</li>" for step in exercise.steps
         )
@@ -98,12 +136,14 @@ class ExerciseDialog(QDialog):
                 global_safety=catalog.global_safety,
             ),
             tone="safety",
+            role=TextRole.CAPTION,
         )
         layout.addWidget(safety)
 
         self.details_toggle = QToolButton()
         self.details_toggle.setText(tr("Sources and medical context"))
         self.details_toggle.setCheckable(True)
+        self.details_toggle.setAutoRaise(True)
         self.details_toggle.setToolButtonStyle(
             Qt.ToolButtonStyle.ToolButtonTextBesideIcon
         )
@@ -111,16 +151,21 @@ class ExerciseDialog(QDialog):
         self.details_toggle.toggled.connect(
             self._set_details_expanded
         )
-        layout.addWidget(self.details_toggle)
+        layout.addWidget(
+            self.details_toggle,
+            0,
+            Qt.AlignmentFlag.AlignLeft,
+        )
 
         self.details_panel = QWidget()
         details_layout = QVBoxLayout(self.details_panel)
         details_layout.setContentsMargins(0, 0, 0, 0)
+        details_layout.setSpacing(CONTROL_SPACING)
         source_map = catalog.source_map()
-        self.sources = QTextBrowser()
+        self.sources = ContentHeightTextBrowser()
         self.sources.setOpenExternalLinks(True)
         set_accessible_link_palette(self.sources)
-        self.sources.setMaximumHeight(90)
+        apply_text_role(self.sources, TextRole.CAPTION)
         source_lines = []
         for source_id in exercise.source_ids:
             source = source_map[source_id]
@@ -138,12 +183,14 @@ class ExerciseDialog(QDialog):
 
         self.disclaimer = QLabel(catalog.medical_disclaimer)
         self.disclaimer.setWordWrap(True)
+        apply_text_role(self.disclaimer, TextRole.CAPTION)
         details_layout.addWidget(self.disclaimer)
         self.details_panel.hide()
         layout.addWidget(self.details_panel)
 
         layout.addStretch(1)
 
+        layout.addWidget(Separator())
         self.alternative_picker = AlternativeBreakPicker(
             alternative_choices
         )
@@ -155,6 +202,8 @@ class ExerciseDialog(QDialog):
         self.outcome = ExerciseOutcome.POSTPONED
         self.selected_choice: ManualBreakChoice | None = None
         button_row = QHBoxLayout()
+        button_row.setContentsMargins(0, 0, 0, 0)
+        button_row.setSpacing(SPACE_SM)
         done_button = QPushButton(tr("Done"))
         done_button.setDefault(True)
         done_button.clicked.connect(self._complete)
@@ -230,6 +279,7 @@ class EvidenceDialog(QDialog):
         self.setMinimumSize(440, 420)
         self.resize(640, 600)
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(SPACE_MD, SPACE_MD, SPACE_MD, SPACE_MD)
         browser = QTextBrowser()
         browser.setOpenExternalLinks(True)
         set_accessible_link_palette(browser)

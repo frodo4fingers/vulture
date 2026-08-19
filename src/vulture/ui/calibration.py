@@ -42,6 +42,11 @@ from vulture.models import (
 from vulture.resources import resource_path
 
 from .common import POSTURE_TITLES, SemanticLabel
+from .theme import (
+    TextRole,
+    apply_text_role,
+    media_surface_style,
+)
 
 
 class CalibrationStep(StrictModel):
@@ -125,10 +130,7 @@ class CalibrationStageImage(QLabel):
             QSizePolicy.Policy.Expanding,
             QSizePolicy.Policy.Preferred,
         )
-        self.setStyleSheet(
-            "background: #1a202c; border: 1px solid #cbd5e0; "
-            "border-radius: 6px"
-        )
+        self.setStyleSheet(media_surface_style())
 
     def hasHeightForWidth(self) -> bool:
         return True
@@ -211,7 +213,7 @@ class SetupDialog(QDialog):
                 )
             )
             warning.setWordWrap(True)
-            warning.setStyleSheet("font-weight: 600")
+            apply_text_role(warning, TextRole.BODY_STRONG)
             layout.addWidget(warning)
 
         self.feedback_label = SemanticLabel(tone="safety")
@@ -471,19 +473,13 @@ class CalibrationDialog(QDialog):
         self.role_label = SemanticLabel(strong=True)
         self.role_label.setWordWrap(True)
         self.title_label = QLabel()
-        title_font = self.title_label.font()
-        title_font.setPointSize(title_font.pointSize() + 4)
-        title_font.setBold(True)
-        self.title_label.setFont(title_font)
+        apply_text_role(self.title_label, TextRole.TITLE)
         self.reference_image = CalibrationStageImage()
         self.instructions_label = QLabel()
         self.instructions_label.setWordWrap(True)
         self.instructions_label.setMinimumHeight(70)
         self.phase_label = QLabel()
-        phase_font = self.phase_label.font()
-        phase_font.setBold(True)
-        phase_font.setPointSize(phase_font.pointSize() + 2)
-        self.phase_label.setFont(phase_font)
+        apply_text_role(self.phase_label, TextRole.HEADING)
         self.quality_label = QLabel(tr("Waiting for clear landmarks..."))
         self.progress = QProgressBar()
         self.progress.setRange(0, 100)

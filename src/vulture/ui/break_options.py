@@ -3,7 +3,6 @@ from __future__ import annotations
 import time
 
 from PySide6.QtCore import Qt, QTimer, Signal
-from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -23,6 +22,16 @@ from vulture.breaks import (
 from vulture.i18n import tr
 
 from .common import SemanticLabel, format_duration
+from .theme import (
+    CONTROL_SPACING,
+    SECTION_SPACING,
+    SPACE_SM,
+    SPACE_XS,
+    CaptionLabel,
+    Separator,
+    TextRole,
+    apply_text_role,
+)
 
 
 class AlternativeBreakPicker(QWidget):
@@ -36,9 +45,8 @@ class AlternativeBreakPicker(QWidget):
         super().__init__(parent)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(4)
-        prompt = QLabel(tr("Would another kind of break fit better?"))
-        prompt.setWordWrap(True)
+        layout.setSpacing(SPACE_XS)
+        prompt = CaptionLabel(tr("Would another kind of break fit better?"))
         self.combo = QComboBox()
         self.combo.setAccessibleName(tr("Choose a different break..."))
         self.combo.addItem(tr("Choose a different break..."), None)
@@ -80,6 +88,7 @@ class RestBreakDialog(QDialog):
         self.setMinimumSize(440, 360)
 
         layout = QVBoxLayout(self)
+        layout.setSpacing(SECTION_SPACING)
         duration = QLabel(
             tr(
                 "<b>Suggested time:</b> {duration}",
@@ -91,27 +100,29 @@ class RestBreakDialog(QDialog):
         message = SemanticLabel(prompt.message, tone="info")
         layout.addWidget(message)
 
+        countdown_block = QVBoxLayout()
+        countdown_block.setContentsMargins(0, SPACE_SM, 0, 0)
+        countdown_block.setSpacing(0)
         self.countdown = QLabel(
             self._format_countdown(prompt.duration_seconds)
         )
-        countdown_font = self.countdown.font()
-        countdown_font.setBold(True)
-        countdown_font.setPointSize(countdown_font.pointSize() + 16)
-        countdown_font.setStyleHint(QFont.StyleHint.Monospace)
-        self.countdown.setFont(countdown_font)
+        apply_text_role(self.countdown, TextRole.DISPLAY)
         self.countdown.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(self.countdown)
-        self.countdown_caption = QLabel(tr("suggested"))
+        countdown_block.addWidget(self.countdown)
+        self.countdown_caption = CaptionLabel(tr("suggested"))
         self.countdown_caption.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(self.countdown_caption)
+        countdown_block.addWidget(self.countdown_caption)
+        layout.addLayout(countdown_block)
         self.progress = QProgressBar()
         self.progress.setRange(0, prompt.duration_seconds)
         self.progress.setValue(0)
         self.progress.setTextVisible(False)
+        self.progress.setFixedHeight(SPACE_SM)
         self.progress.setAccessibleName(tr("Break progress"))
         layout.addWidget(self.progress)
         layout.addStretch(1)
 
+        layout.addWidget(Separator())
         self.alternative_picker = AlternativeBreakPicker(
             alternative_choices
         )
@@ -121,6 +132,8 @@ class RestBreakDialog(QDialog):
         layout.addWidget(self.alternative_picker)
 
         actions = QHBoxLayout()
+        actions.setContentsMargins(0, 0, 0, 0)
+        actions.setSpacing(CONTROL_SPACING)
         self.start_button = QPushButton(tr("Start timer"))
         self.start_button.setDefault(True)
         self.start_button.clicked.connect(self._start_timer)
