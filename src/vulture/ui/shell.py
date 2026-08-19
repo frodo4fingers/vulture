@@ -725,8 +725,14 @@ class ShellMixin:
                 self.height()
                 - self.side_panel_host.viewport().height(),
             )
+            # Native styles can settle wrapped text and default buttons a few
+            # pixels taller than the pre-layout size hint (notably on
+            # Windows). Keep one spacing step in reserve so a panel that fits
+            # does not gain a scrollbar after it is shown.
             requested_window_height = (
-                requested_panel_size.height() + panel_vertical_overhead
+                requested_panel_size.height()
+                + panel_vertical_overhead
+                + SPACE_MD
             )
             if self.isMaximized() or self.isFullScreen():
                 target_width = self.width()
