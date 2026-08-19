@@ -367,6 +367,9 @@ class ShellMixin:
         self.side_panel_host.setHorizontalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff
         )
+        self.side_panel_host.verticalScrollBar().rangeChanged.connect(
+            self._side_panel_scroll_range_changed
+        )
         side_panel_layout.addWidget(self.side_panel_host, 1)
         self.side_panel_frame.setMinimumWidth(380)
         self.side_panel_frame.setMaximumWidth(760)
@@ -757,7 +760,11 @@ class ShellMixin:
 
     def _fit_side_panel_height(self, panel: QDialog) -> None:
         """Grow for overflow that appears only after native layout settles."""
-        if panel is not self._side_panel or not panel.isVisible():
+        if (
+            panel is not self._side_panel
+            or not panel.isVisible()
+            or getattr(self, "_side_panel_height_fit_active", False)
+        ):
             return
         overflow = self.side_panel_host.verticalScrollBar().maximum()
         if overflow <= 0 or self.isMaximized() or self.isFullScreen():
@@ -771,10 +778,22 @@ class ShellMixin:
         )
         if target_height <= self.height():
             return
-        self.resize(self.width(), target_height)
-        central_layout = self.centralWidget().layout()
-        if central_layout is not None:
-            central_layout.activate()
+        self._side_panel_height_fit_active = True
+        try:
+            self.resize(self.width(), target_height)
+            central_layout = self.centralWidget().layout()
+            if central_layout is not None:
+                central_layout.activate()
+        finally:
+            self._side_panel_height_fit_active = False
+
+    def _side_panel_scroll_range_changed(
+        self,
+        _minimum: int,
+        maximum: int,
+    ) -> None:
+        if maximum > 0 and self._side_panel is not None:
+            self._fit_side_panel_height(self._side_panel)
 
     def _show_calibration_window(
         self,
