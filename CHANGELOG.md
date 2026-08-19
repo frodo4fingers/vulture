@@ -4,6 +4,20 @@ Notable user-visible changes are recorded here.
 
 ## Unreleased
 
+## 0.6.0 - 2026-08-19
+
+### Added
+
+- Break reminders now run independently of camera tracking. Vulture can start
+  without a camera setup, keeps all four schedules running during calibration
+  or while the camera is released, and gives scheduled breaks priority when a
+  posture alert is due at the same time.
+- Added **Move now** for taking an early break, plus in-panel alternatives for
+  switching between guided movement, eye rest, standing, walking, water,
+  coffee, breathing, and off-screen reset activities.
+- Non-exercise breaks now offer an optional live countdown and progress
+  indicator while leaving the user in control of when to finish.
+
 ### Changed
 
 - The interface now draws its type sizes, spacing, and corner radii from a
