@@ -225,6 +225,24 @@ def test_selector_uses_every_eligible_exercise_before_repeating() -> None:
     assert next_exercise.id != last_id
 
 
+def test_selector_reports_when_another_exercise_is_available() -> None:
+    catalog = load_exercise_catalog()
+    selector = ExerciseSelector(catalog)
+    preferences = ExercisePreferences()
+    eligible = selector.eligible_exercises(preferences)
+
+    assert selector.has_alternative(preferences, eligible[0].id)
+
+    only_one = ExercisePreferences(
+        excluded_exercise_ids=[
+            exercise.id
+            for exercise in catalog.exercises
+            if exercise.id != eligible[0].id
+        ]
+    )
+    assert not selector.has_alternative(only_one, eligible[0].id)
+
+
 def test_fifth_reminder_in_window_offers_break() -> None:
     setup = SetupProfile(
         name="Test",

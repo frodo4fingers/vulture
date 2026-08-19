@@ -94,7 +94,6 @@ class CalibrationFlowMixin:
             ),
         )
         self._suspend_history()
-        self._reset_break_tracking()
         dialog = CalibrationDialog(self)
         self._calibration_dialog = dialog
         self._show_calibration_window(
@@ -334,7 +333,6 @@ class CalibrationFlowMixin:
         cancel_message: str,
     ) -> None:
         self._suspend_history()
-        self._reset_break_tracking()
         self._set_state(TrackerState.CALIBRATING, tracking_message)
         dialog = CalibrationDialog(
             self,

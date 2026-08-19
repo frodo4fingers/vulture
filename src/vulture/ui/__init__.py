@@ -27,6 +27,11 @@ from .common import (
     semantic_panel_style,
     set_accessible_link_palette,
 )
+from .break_options import (
+    AlternativeBreakPicker,
+    RestBreakDialog,
+    RestBreakOutcome,
+)
 from .exercises import (
     EXERCISE_POSTPONE_MINUTES,
     EvidenceDialog,
@@ -70,6 +75,7 @@ __all__ = [
     "CalibrationStep",
     "CalibrationStepSelectionDialog",
     "EvidenceDialog",
+    "AlternativeBreakPicker",
     "ExerciseDialog",
     "ExerciseOutcome",
     "MainWindow",
@@ -80,6 +86,8 @@ __all__ = [
     "PostureProgressBar",
     "RollingWeekChart",
     "RollingWeekData",
+    "RestBreakDialog",
+    "RestBreakOutcome",
     "SemanticLabel",
     "SettingsDialog",
     "SetupDialog",

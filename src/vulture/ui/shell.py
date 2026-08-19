@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QEvent, Qt, QTimer
-from PySide6.QtGui import QAction, QGuiApplication
+from PySide6.QtGui import QAction, QFont, QGuiApplication
 from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
@@ -125,6 +125,48 @@ class ShellMixin:
         )
         layout.addWidget(self.command_bar)
 
+        self.break_timer_group = QGroupBox(tr("Next break"))
+        break_timer_layout = QHBoxLayout(self.break_timer_group)
+        break_timer_copy = QVBoxLayout()
+        self.next_break_label = QLabel()
+        next_break_font = self.next_break_label.font()
+        next_break_font.setBold(True)
+        next_break_font.setPointSize(next_break_font.pointSize() + 3)
+        self.next_break_label.setFont(next_break_font)
+        self.next_break_label.setWordWrap(True)
+        break_timer_copy.addWidget(self.next_break_label)
+        self.next_break_detail = QLabel(
+            tr("Break timing continues with or without the camera.")
+        )
+        self.next_break_detail.setWordWrap(True)
+        break_detail_row = QHBoxLayout()
+        break_detail_row.setContentsMargins(0, 0, 0, 0)
+        break_detail_row.addWidget(self.next_break_detail, 1)
+        self.move_now_button = QPushButton(tr("Move now"))
+        self.move_now_button.clicked.connect(
+            lambda: self._offer_exercise()
+        )
+        break_detail_row.addWidget(self.move_now_button)
+        break_timer_copy.addLayout(break_detail_row)
+        break_timer_layout.addLayout(break_timer_copy, 1)
+
+        break_countdown_layout = QVBoxLayout()
+        self.break_countdown = QLabel("--:--")
+        countdown_font = self.break_countdown.font()
+        countdown_font.setBold(True)
+        countdown_font.setPointSize(countdown_font.pointSize() + 12)
+        countdown_font.setStyleHint(QFont.StyleHint.Monospace)
+        self.break_countdown.setFont(countdown_font)
+        self.break_countdown.setAlignment(Qt.AlignmentFlag.AlignRight)
+        self.break_countdown.setAccessibleName(tr("Time until next break"))
+        break_countdown_layout.addWidget(self.break_countdown)
+        self.break_countdown_caption = QLabel(tr("until next break"))
+        self.break_countdown_caption.setAlignment(
+            Qt.AlignmentFlag.AlignRight
+        )
+        break_countdown_layout.addWidget(self.break_countdown_caption)
+        break_timer_layout.addLayout(break_countdown_layout)
+
         self.workspace_splitter = QSplitter(Qt.Orientation.Horizontal)
         self.workspace_splitter.setChildrenCollapsible(False)
         camera_workspace = QWidget()
@@ -141,7 +183,12 @@ class ShellMixin:
         self.status_label.setWordWrap(True)
         status_layout.addWidget(self.status_dot)
         status_layout.addWidget(self.status_label, 1)
-        camera_layout.addWidget(self.status_group)
+        signal_row = QHBoxLayout()
+        signal_row.setContentsMargins(0, 0, 0, 0)
+        signal_row.setSpacing(_WINDOW_CONTENT_SPACING)
+        signal_row.addWidget(self.break_timer_group, 2)
+        signal_row.addWidget(self.status_group, 1)
+        camera_layout.addLayout(signal_row)
 
         self.preview_stack = QStackedWidget()
         self.preview_stack.setMinimumSize(640, 360)
@@ -157,16 +204,16 @@ class ShellMixin:
         first_run_content.setMaximumWidth(500)
         first_run_layout = QVBoxLayout(first_run_content)
         first_run_layout.setSpacing(12)
-        first_run_heading = QLabel(tr("Start with one camera setup"))
-        first_run_heading.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        first_run_heading.setStyleSheet(
+        self.first_run_heading = QLabel(tr("Camera tracking is optional"))
+        self.first_run_heading.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.first_run_heading.setStyleSheet(
             "color: #f7fafc; font-size: 20px; font-weight: 700"
         )
-        first_run_layout.addWidget(first_run_heading)
+        first_run_layout.addWidget(self.first_run_heading)
         first_run_copy = QLabel(
             tr(
-                "Choose the camera and name this physical position. Frames "
-                "stay on this device and are discarded after analysis."
+                "Break reminders are already running. Add a camera setup only "
+                "if you also want private posture feedback."
             )
         )
         first_run_copy.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -365,6 +412,7 @@ class ShellMixin:
             controls_enabled and self.history_store is not None
         )
         self.evidence_button.setEnabled(controls_enabled)
+        self.move_now_button.setEnabled(controls_enabled)
 
     def _add_setup(self) -> None:
         if self._language_reload_preparing:
@@ -470,7 +518,6 @@ class ShellMixin:
         self.camera_thread.camera_error.connect(self._on_camera_error)
         self.camera_thread.start()
         self._reset_camera_liveness()
-        self._reset_break_tracking()
         if setup.calibration is None:
             self._set_state(
                 TrackerState.UNCALIBRATED,
@@ -737,7 +784,6 @@ class ShellMixin:
             return
         if (
             allow_exercise
-            and self._tracking_enabled
             and self._pending_exercise is not None
             and self._exercise_dialog is None
             and not self._exercise_postpone_timer.isActive()

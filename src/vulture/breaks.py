@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import random
+from dataclasses import dataclass
 from enum import StrEnum
 from typing import TypeVar
 
@@ -41,6 +42,29 @@ class ResetBreakActivity(StrEnum):
     BREATHE = "breathe"
     OFFSCREEN = "offscreen"
     GUIDED_EXERCISE = "guided_exercise"
+
+
+class ManualBreakChoice(StrEnum):
+    GUIDED_MOVEMENT = "guided_movement"
+    EYE_REST = "eye_rest"
+    STAND = "stand"
+    WALK = "walk"
+    WATER = "water"
+    COFFEE = "coffee"
+    BREATHE = "breathe"
+    OFFSCREEN = "offscreen"
+
+
+@dataclass(frozen=True)
+class ManualBreakPrompt:
+    choice: ManualBreakChoice
+    channel: BreakChannel
+    title: str
+    message: str
+    duration_seconds: int
+
+
+MANUAL_BREAK_CHOICES = tuple(ManualBreakChoice)
 
 
 BreakActivityT = TypeVar(
@@ -253,3 +277,115 @@ def break_channel_title(channel: BreakChannel) -> str:
     if channel is BreakChannel.HYDRATION:
         return tr("Water break")
     return tr("Time for a longer reset")
+
+
+def break_channel_name(channel: BreakChannel) -> str:
+    if channel is BreakChannel.EYE:
+        return tr("Eye comfort")
+    if channel is BreakChannel.MOVEMENT:
+        return tr("Movement and position changes")
+    if channel is BreakChannel.HYDRATION:
+        return tr("Water")
+    return tr("Longer reset")
+
+
+def manual_break_choice_label(choice: ManualBreakChoice) -> str:
+    if choice is ManualBreakChoice.GUIDED_MOVEMENT:
+        return tr("Another guided movement")
+    if choice is ManualBreakChoice.EYE_REST:
+        return tr("Eye comfort")
+    if choice is ManualBreakChoice.STAND:
+        return tr("Stand up")
+    if choice is ManualBreakChoice.WALK:
+        return tr("Take an easy walk")
+    if choice is ManualBreakChoice.WATER:
+        return tr("Water")
+    if choice is ManualBreakChoice.COFFEE:
+        return tr("Make tea or coffee")
+    if choice is ManualBreakChoice.BREATHE:
+        return tr("Take a slower breathing reset")
+    return tr("Take a full off-screen reset")
+
+
+def manual_break_prompt(
+    choice: ManualBreakChoice,
+    preferences: BreakPreferences,
+) -> ManualBreakPrompt:
+    title = manual_break_choice_label(choice)
+    if choice is ManualBreakChoice.EYE_REST:
+        return ManualBreakPrompt(
+            choice=choice,
+            channel=BreakChannel.EYE,
+            title=title,
+            message=eye_break_message(
+                EyeBreakActivity.DISTANCE,
+                preferences.eye_duration_seconds,
+            ),
+            duration_seconds=preferences.eye_duration_seconds,
+        )
+    if choice is ManualBreakChoice.STAND:
+        return ManualBreakPrompt(
+            choice=choice,
+            channel=BreakChannel.MOVEMENT,
+            title=title,
+            message=movement_break_message(
+                MovementBreakActivity.STAND,
+                preferences.movement_duration_minutes,
+            ),
+            duration_seconds=preferences.movement_duration_minutes * 60,
+        )
+    if choice is ManualBreakChoice.WALK:
+        return ManualBreakPrompt(
+            choice=choice,
+            channel=BreakChannel.MOVEMENT,
+            title=title,
+            message=movement_break_message(
+                MovementBreakActivity.WALK,
+                preferences.movement_duration_minutes,
+            ),
+            duration_seconds=preferences.movement_duration_minutes * 60,
+        )
+    if choice is ManualBreakChoice.WATER:
+        return ManualBreakPrompt(
+            choice=choice,
+            channel=BreakChannel.HYDRATION,
+            title=title,
+            message=hydration_break_message(
+                preferences.hydration_duration_seconds
+            ),
+            duration_seconds=preferences.hydration_duration_seconds,
+        )
+    if choice is ManualBreakChoice.COFFEE:
+        return ManualBreakPrompt(
+            choice=choice,
+            channel=BreakChannel.RESET,
+            title=title,
+            message=reset_break_message(
+                ResetBreakActivity.TEA_OR_COFFEE,
+                preferences.reset_duration_minutes,
+            ),
+            duration_seconds=preferences.reset_duration_minutes * 60,
+        )
+    if choice is ManualBreakChoice.BREATHE:
+        return ManualBreakPrompt(
+            choice=choice,
+            channel=BreakChannel.RESET,
+            title=title,
+            message=reset_break_message(
+                ResetBreakActivity.BREATHE,
+                preferences.reset_duration_minutes,
+            ),
+            duration_seconds=preferences.reset_duration_minutes * 60,
+        )
+    if choice is ManualBreakChoice.OFFSCREEN:
+        return ManualBreakPrompt(
+            choice=choice,
+            channel=BreakChannel.RESET,
+            title=title,
+            message=reset_break_message(
+                ResetBreakActivity.OFFSCREEN,
+                preferences.reset_duration_minutes,
+            ),
+            duration_seconds=preferences.reset_duration_minutes * 60,
+        )
+    raise ValueError("guided movement uses the exercise dialog")
