@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from vulture.breaks import ManualBreakChoice
 from vulture.exercises import (
     Exercise,
     ExerciseCatalog,
@@ -28,6 +29,7 @@ from .common import (
     SemanticLabel,
     set_accessible_link_palette,
 )
+from .break_options import AlternativeBreakPicker
 
 
 EXERCISE_POSTPONE_MINUTES = 10
@@ -37,6 +39,8 @@ class ExerciseOutcome:
     COMPLETED = "completed"
     POSTPONED = "postponed"
     DISMISSED = "dismissed"
+    SWAPPED = "swapped"
+    ALTERNATIVE = "alternative"
 
 
 class ExerciseDialog(QDialog):
@@ -45,6 +49,8 @@ class ExerciseDialog(QDialog):
         exercise: Exercise,
         catalog: ExerciseCatalog,
         parent: QWidget | None = None,
+        *,
+        alternative_choices: tuple[ManualBreakChoice, ...] = (),
     ) -> None:
         super().__init__(parent)
         self.exercise = exercise
@@ -138,7 +144,16 @@ class ExerciseDialog(QDialog):
 
         layout.addStretch(1)
 
+        self.alternative_picker = AlternativeBreakPicker(
+            alternative_choices
+        )
+        self.alternative_picker.choice_selected.connect(
+            self._choose_alternative
+        )
+        layout.addWidget(self.alternative_picker)
+
         self.outcome = ExerciseOutcome.POSTPONED
+        self.selected_choice: ManualBreakChoice | None = None
         button_row = QHBoxLayout()
         done_button = QPushButton(tr("Done"))
         done_button.setDefault(True)
@@ -174,6 +189,15 @@ class ExerciseDialog(QDialog):
 
     def _skip(self) -> None:
         self.outcome = ExerciseOutcome.DISMISSED
+        self.reject()
+
+    def _choose_alternative(self, choice_value: str) -> None:
+        self.selected_choice = ManualBreakChoice(choice_value)
+        self.outcome = (
+            ExerciseOutcome.SWAPPED
+            if self.selected_choice is ManualBreakChoice.GUIDED_MOVEMENT
+            else ExerciseOutcome.ALTERNATIVE
+        )
         self.reject()
 
     def _loop_video(self, status: QMediaPlayer.MediaStatus) -> None:

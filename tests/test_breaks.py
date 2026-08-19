@@ -9,12 +9,14 @@ from vulture.breaks import (
     BreakActivitySelector,
     EyeBreakActivity,
     HydrationBreakActivity,
+    ManualBreakChoice,
     MovementBreakActivity,
     ResetBreakActivity,
     eye_break_activities,
     eye_break_message,
     hydration_break_activities,
     hydration_break_message,
+    manual_break_prompt,
     movement_break_activities,
     movement_break_message,
     reset_break_activities,
@@ -198,3 +200,22 @@ def test_break_messages_match_every_imported_pause_type() -> None:
         MovementBreakActivity.WALK_OR_DRINK,
         3,
     )
+
+
+def test_manual_break_choices_use_configured_rest_prompts() -> None:
+    preferences = BreakPreferences(
+        eye_duration_seconds=40,
+        movement_duration_minutes=3,
+        reset_duration_minutes=6,
+    )
+
+    eye = manual_break_prompt(ManualBreakChoice.EYE_REST, preferences)
+    stand = manual_break_prompt(ManualBreakChoice.STAND, preferences)
+    coffee = manual_break_prompt(ManualBreakChoice.COFFEE, preferences)
+
+    assert eye.duration_seconds == 40
+    assert "6 m (20 ft) away" in eye.message
+    assert stand.duration_seconds == 180
+    assert "Stand for about 3 minutes" in stand.message
+    assert coffee.duration_seconds == 360
+    assert "make tea, coffee" in coffee.message

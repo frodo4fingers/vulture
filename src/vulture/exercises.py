@@ -96,11 +96,7 @@ class ExerciseSelector:
         preferences: ExercisePreferences,
         recent_ids: list[str] | None = None,
     ) -> Exercise | None:
-        eligible = [
-            exercise
-            for exercise in self.catalog.exercises
-            if self._is_eligible(exercise, preferences)
-        ]
+        eligible = self.eligible_exercises(preferences)
         if not eligible:
             return None
         recent = set((recent_ids or [])[-3:])
@@ -113,11 +109,7 @@ class ExerciseSelector:
         remaining_ids: list[str],
         last_id: str | None,
     ) -> tuple[Exercise | None, list[str]]:
-        eligible = [
-            exercise
-            for exercise in self.catalog.exercises
-            if self._is_eligible(exercise, preferences)
-        ]
+        eligible = self.eligible_exercises(preferences)
         if not eligible:
             return None, []
         return choose_from_shuffle_bag(
@@ -126,6 +118,26 @@ class ExerciseSelector:
             remaining_ids=remaining_ids,
             last_id=last_id,
             random_source=self.random,
+        )
+
+    def eligible_exercises(
+        self,
+        preferences: ExercisePreferences,
+    ) -> tuple[Exercise, ...]:
+        return tuple(
+            exercise
+            for exercise in self.catalog.exercises
+            if self._is_eligible(exercise, preferences)
+        )
+
+    def has_alternative(
+        self,
+        preferences: ExercisePreferences,
+        current_id: str,
+    ) -> bool:
+        return any(
+            exercise.id != current_id
+            for exercise in self.eligible_exercises(preferences)
         )
 
     @staticmethod

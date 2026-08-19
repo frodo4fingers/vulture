@@ -8,7 +8,10 @@ from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import QSystemTrayIcon
 
 from vulture.breaks import (
+    MANUAL_BREAK_CHOICES,
     BreakChannel,
+    ManualBreakChoice,
+    break_channel_name,
     break_channel_title,
     eye_break_activities,
     eye_break_message,
@@ -16,6 +19,7 @@ from vulture.breaks import (
     hydration_break_message,
     movement_break_activities,
     movement_break_message,
+    manual_break_prompt,
     reset_break_activities,
     reset_break_message,
 )
@@ -33,6 +37,7 @@ from .exercises import (
     ExerciseDialog,
     ExerciseOutcome,
 )
+from .break_options import RestBreakDialog, RestBreakOutcome
 
 
 class TrackingFlowMixin:
@@ -50,14 +55,12 @@ class TrackingFlowMixin:
             if self.evaluator is not None:
                 self.evaluator.reset()
             self._suspend_history()
-            self._reset_break_tracking()
             self._set_tracking_controls()
             self._show_camera_released_state()
             return
 
         self._tracking_enabled = True
         self._set_tracking_controls()
-        self._reset_break_tracking()
         self._activate_setup()
 
     def _set_tracking_controls(self) -> None:
@@ -280,6 +283,14 @@ class TrackingFlowMixin:
         self._set_state(assessment.state, message)
         if not assessment.newly_alerted or assessment.category is None:
             return
+        due_channels = self._due_break_channels()
+        if due_channels:
+            if (
+                not self._exercise_dialog_open
+                and self._rest_break_dialog is None
+            ):
+                self._show_due_break_reminder(due_channels)
+            return
 
         self._show_tray_message(
             tr("Vulture posture reminder"),
@@ -307,46 +318,133 @@ class TrackingFlowMixin:
     def _check_break_reminders(self) -> None:
         if (
             self._language_reload_preparing
-            or not self._tracking_enabled
-            or self.data.active_setup() is None
             or self._exercise_dialog_open
+            or self._rest_break_dialog is not None
         ):
             return
         preferences = self.data.break_preferences
         if not preferences.enabled:
             return
-        due_channels = tuple(
+        due_channels = self._due_break_channels()
+        if due_channels:
+            self._show_due_break_reminder(due_channels)
+
+    def _tick_break_clock(self) -> None:
+        now = time.monotonic()
+        elapsed = max(0.0, now - self._last_break_tick_at)
+        self._last_break_tick_at = now
+        preferences = self.data.break_preferences
+        if preferences.enabled:
+            if preferences.movement_reminders_enabled:
+                self._tracked_seconds_since_break += elapsed
+            if preferences.eye_reminders_enabled:
+                self._tracked_seconds_since_eye_break += elapsed
+            if preferences.hydration_reminders_enabled:
+                self._tracked_seconds_since_hydration_break += elapsed
+            if preferences.reset_reminders_enabled:
+                self._tracked_seconds_since_reset_break += elapsed
+        self._update_break_countdown()
+        self._check_break_reminders()
+
+    def _due_break_channels(self) -> tuple[BreakChannel, ...]:
+        preferences = self.data.break_preferences
+        if not preferences.enabled:
+            return ()
+        return tuple(
             channel
-            for channel, due in (
+            for channel, enabled, elapsed, interval_minutes in (
                 (
                     BreakChannel.MOVEMENT,
-                    preferences.movement_reminders_enabled
-                    and self._tracked_seconds_since_break
-                    >= preferences.movement_interval_minutes * 60,
+                    preferences.movement_reminders_enabled,
+                    self._tracked_seconds_since_break,
+                    preferences.movement_interval_minutes,
                 ),
                 (
                     BreakChannel.EYE,
-                    preferences.eye_reminders_enabled
-                    and self._tracked_seconds_since_eye_break
-                    >= preferences.eye_interval_minutes * 60,
+                    preferences.eye_reminders_enabled,
+                    self._tracked_seconds_since_eye_break,
+                    preferences.eye_interval_minutes,
                 ),
                 (
                     BreakChannel.HYDRATION,
-                    preferences.hydration_reminders_enabled
-                    and self._tracked_seconds_since_hydration_break
-                    >= preferences.hydration_interval_minutes * 60,
+                    preferences.hydration_reminders_enabled,
+                    self._tracked_seconds_since_hydration_break,
+                    preferences.hydration_interval_minutes,
                 ),
                 (
                     BreakChannel.RESET,
-                    preferences.reset_reminders_enabled
-                    and self._tracked_seconds_since_reset_break
-                    >= preferences.reset_interval_minutes * 60,
+                    preferences.reset_reminders_enabled,
+                    self._tracked_seconds_since_reset_break,
+                    preferences.reset_interval_minutes,
                 ),
             )
-            if due
+            if enabled and elapsed >= interval_minutes * 60
         )
-        if due_channels:
-            self._show_due_break_reminder(due_channels)
+
+    def _next_break(self) -> tuple[BreakChannel, float] | None:
+        preferences = self.data.break_preferences
+        if not preferences.enabled:
+            return None
+        candidates = [
+            (
+                channel,
+                max(0.0, interval_minutes * 60 - elapsed),
+            )
+            for channel, enabled, elapsed, interval_minutes in (
+                (
+                    BreakChannel.MOVEMENT,
+                    preferences.movement_reminders_enabled,
+                    self._tracked_seconds_since_break,
+                    preferences.movement_interval_minutes,
+                ),
+                (
+                    BreakChannel.EYE,
+                    preferences.eye_reminders_enabled,
+                    self._tracked_seconds_since_eye_break,
+                    preferences.eye_interval_minutes,
+                ),
+                (
+                    BreakChannel.HYDRATION,
+                    preferences.hydration_reminders_enabled,
+                    self._tracked_seconds_since_hydration_break,
+                    preferences.hydration_interval_minutes,
+                ),
+                (
+                    BreakChannel.RESET,
+                    preferences.reset_reminders_enabled,
+                    self._tracked_seconds_since_reset_break,
+                    preferences.reset_interval_minutes,
+                ),
+            )
+            if enabled
+        ]
+        return min(candidates, key=lambda item: item[1]) if candidates else None
+
+    def _update_break_countdown(self) -> None:
+        next_break = self._next_break()
+        if next_break is None:
+            self.next_break_label.setText(tr("Break reminders are off"))
+            self.break_countdown.setText("--:--")
+            self.break_countdown_caption.setText(
+                tr("Enable them in Settings")
+            )
+            return
+        channel, remaining_seconds = next_break
+        self.next_break_label.setText(break_channel_name(channel))
+        total_seconds = max(0, int(remaining_seconds + 0.999))
+        hours, remainder = divmod(total_seconds, 3_600)
+        minutes, seconds = divmod(remainder, 60)
+        countdown = (
+            f"{hours}:{minutes:02d}:{seconds:02d}"
+            if hours
+            else f"{minutes}:{seconds:02d}"
+        )
+        self.break_countdown.setText(countdown)
+        self.break_countdown_caption.setText(
+            tr("due now")
+            if total_seconds == 0
+            else tr("until next break")
+        )
 
     def _check_sedentary_break(self) -> None:
         self._check_break_reminders()
@@ -427,6 +525,7 @@ class TrackingFlowMixin:
             self._offer_exercise(
                 reset_channels=tuple(exercise_channels)
             )
+        self._update_break_countdown()
 
     def _choose_break_activity(self, channel: BreakChannel):
         preferences = self.data.break_preferences
@@ -514,7 +613,14 @@ class TrackingFlowMixin:
             return
         self._cancel_exercise_postpone()
         self._exercise_dialog_open = True
-        dialog = ExerciseDialog(exercise, self.catalog)
+        self.move_now_button.setEnabled(False)
+        dialog = ExerciseDialog(
+            exercise,
+            self.catalog,
+            alternative_choices=self._alternative_break_choices(
+                current_exercise_id=exercise.id,
+            ),
+        )
         dialog.finished.connect(self._exercise_dialog_finished)
         self._exercise_dialog = dialog
         self._capture_window_state_before_exercise()
@@ -560,10 +666,6 @@ class TrackingFlowMixin:
     def _present_postponed_exercise(self) -> None:
         if self._language_reload_preparing:
             return
-        if not self._tracking_enabled:
-            if self._pending_exercise is not None:
-                self._schedule_exercise_postpone()
-            return
         if (
             self._pending_exercise is None
             or self._exercise_dialog is not None
@@ -578,6 +680,7 @@ class TrackingFlowMixin:
         dialog = self._exercise_dialog
         self._exercise_dialog = None
         self._exercise_dialog_open = False
+        self.move_now_button.setEnabled(True)
         outcome = (
             dialog.outcome
             if dialog is not None
@@ -588,17 +691,111 @@ class TrackingFlowMixin:
                 dialog,
                 allow_deferred_exercise=False,
             )
+        if self._language_reload_preparing or self._quitting:
+            return
+        if outcome == ExerciseOutcome.SWAPPED:
+            window_state = self._window_state_before_exercise
+            reset_channels = self._pending_exercise_reset_channels
+            self._clear_pending_exercise()
+            self._offer_exercise(reset_channels=reset_channels)
+            self._window_state_before_exercise = window_state
+            return
+        if outcome == ExerciseOutcome.ALTERNATIVE:
+            window_state = self._window_state_before_exercise
+            selected_choice = (
+                dialog.selected_choice if dialog is not None else None
+            )
+            self._clear_pending_exercise()
+            if selected_choice is not None:
+                self._present_manual_break(selected_choice)
+                self._window_state_before_exercise = window_state
+            return
+        if dialog is not None:
             QTimer.singleShot(
                 0, self._restore_window_state_after_exercise
             )
-        if self._language_reload_preparing or self._quitting:
-            return
         if outcome == ExerciseOutcome.POSTPONED:
             self._schedule_exercise_postpone()
         else:
             reset_channels = self._pending_exercise_reset_channels
             self._clear_pending_exercise()
             self._reset_requested_break_tracking(reset_channels)
+
+    def _alternative_break_choices(
+        self,
+        *,
+        current_exercise_id: str | None = None,
+        current_choice: ManualBreakChoice | None = None,
+    ) -> tuple[ManualBreakChoice, ...]:
+        choices = [
+            choice
+            for choice in MANUAL_BREAK_CHOICES
+            if choice is not current_choice
+        ]
+        has_guided_choice = bool(
+            self.selector.eligible_exercises(
+                self.data.exercise_preferences
+            )
+        )
+        if current_exercise_id is not None:
+            has_guided_choice = self.selector.has_alternative(
+                self.data.exercise_preferences,
+                current_exercise_id,
+            )
+        if (
+            not has_guided_choice
+            and ManualBreakChoice.GUIDED_MOVEMENT in choices
+        ):
+            choices.remove(ManualBreakChoice.GUIDED_MOVEMENT)
+        return tuple(choices)
+
+    def _present_manual_break(
+        self,
+        choice: ManualBreakChoice,
+    ) -> None:
+        if self._language_reload_preparing:
+            return
+        prompt = manual_break_prompt(
+            choice,
+            self.data.break_preferences,
+        )
+        self._reset_break_channels((prompt.channel,))
+        dialog = RestBreakDialog(
+            prompt,
+            self._alternative_break_choices(current_choice=choice),
+        )
+        dialog.finished.connect(self._rest_break_dialog_finished)
+        self._rest_break_dialog = dialog
+        self.move_now_button.setEnabled(False)
+        self._show_side_panel(dialog)
+
+    def _rest_break_dialog_finished(self, _result: int) -> None:
+        dialog = self._rest_break_dialog
+        self._rest_break_dialog = None
+        self.move_now_button.setEnabled(True)
+        if dialog is not None:
+            self._hide_side_panel(
+                dialog,
+                allow_deferred_exercise=False,
+            )
+        if self._language_reload_preparing or self._quitting:
+            return
+        if (
+            dialog is not None
+            and dialog.outcome == RestBreakOutcome.SWITCHED
+            and dialog.selected_choice is not None
+        ):
+            window_state = self._window_state_before_exercise
+            if (
+                dialog.selected_choice
+                is ManualBreakChoice.GUIDED_MOVEMENT
+            ):
+                self._offer_exercise()
+            else:
+                self._present_manual_break(dialog.selected_choice)
+            self._window_state_before_exercise = window_state
+            return
+        QTimer.singleShot(0, self._restore_window_state_after_exercise)
 
     def _clear_pending_exercise(self) -> None:
         self._cancel_exercise_postpone()
@@ -622,23 +819,7 @@ class TrackingFlowMixin:
 
     def _record_valid_tracking(self) -> None:
         now = time.monotonic()
-        away_reset_seconds = (
-            self.data.break_preferences.away_reset_minutes * 60
-        )
-        if self._tracking_gap_started_at is not None:
-            gap = now - self._tracking_gap_started_at
-            if gap >= away_reset_seconds:
-                self._reset_break_counters()
-            self._tracking_gap_started_at = None
-        elif self._last_valid_tracking_at is not None:
-            elapsed = now - self._last_valid_tracking_at
-            if elapsed <= 2.0:
-                self._tracked_seconds_since_break += elapsed
-                self._tracked_seconds_since_eye_break += elapsed
-                self._tracked_seconds_since_hydration_break += elapsed
-                self._tracked_seconds_since_reset_break += elapsed
-            elif elapsed >= away_reset_seconds:
-                self._reset_break_counters()
+        self._tracking_gap_started_at = None
         self._last_valid_tracking_at = now
 
     def _mark_tracking_interrupted(self) -> None:
@@ -651,6 +832,7 @@ class TrackingFlowMixin:
         self._tracked_seconds_since_eye_break = 0.0
         self._tracked_seconds_since_hydration_break = 0.0
         self._tracked_seconds_since_reset_break = 0.0
+        self._update_break_countdown()
 
     def _reset_movement_break_tracking(self) -> None:
         self._tracked_seconds_since_break = 0.0
@@ -671,11 +853,7 @@ class TrackingFlowMixin:
                 self._tracked_seconds_since_hydration_break = 0.0
             else:
                 self._tracked_seconds_since_reset_break = 0.0
-
-    def _reset_break_tracking(self) -> None:
-        self._reset_break_counters()
-        self._last_valid_tracking_at = None
-        self._tracking_gap_started_at = None
+        self._update_break_countdown()
 
     def _record_history_assessment(
         self,

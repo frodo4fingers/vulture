@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from datetime import datetime
 
 from pydantic import Field
@@ -27,6 +28,7 @@ from vulture.storage import AppDataStore
 from vulture.tracking import PostureEvaluator, PostureEvaluatorState
 
 from .application_flow import ApplicationFlowMixin
+from .break_options import RestBreakDialog
 from .calibration import CalibrationDialog, SetupDialog
 from .calibration_flow import CalibrationFlowMixin
 from .exercises import EvidenceDialog, ExerciseDialog
@@ -92,6 +94,7 @@ class MainWindow(
         self._setup_dialog: SetupDialog | None = None
         self._settings_dialog: SettingsDialog | None = None
         self._exercise_dialog: ExerciseDialog | None = None
+        self._rest_break_dialog: RestBreakDialog | None = None
         self._window_state_before_exercise: str | None = None
         self._evidence_dialog: EvidenceDialog | None = None
         self._summary_dialog: WorkdaySummaryDialog | None = None
@@ -117,6 +120,7 @@ class MainWindow(
         self._tracked_seconds_since_eye_break = 0.0
         self._tracked_seconds_since_hydration_break = 0.0
         self._tracked_seconds_since_reset_break = 0.0
+        self._last_break_tick_at = time.monotonic()
         self._last_valid_tracking_at: float | None = None
         self._tracking_gap_started_at: float | None = None
         self._state = TrackerState.STOPPED
@@ -161,8 +165,9 @@ class MainWindow(
         self._refresh_setup_combo()
 
         self.break_timer = QTimer(self)
-        self.break_timer.setInterval(60_000)
-        self.break_timer.timeout.connect(self._check_break_reminders)
+        self.break_timer.setInterval(1_000)
+        self.break_timer.timeout.connect(self._tick_break_clock)
+        self._update_break_countdown()
         self.break_timer.start()
         self._exercise_postpone_timer = QTimer(self)
         self._exercise_postpone_timer.setSingleShot(True)
@@ -188,7 +193,10 @@ class MainWindow(
         else:
             self._set_state(
                 TrackerState.UNCALIBRATED,
-                tr("Add a camera setup to begin."),
+                tr(
+                    "Break reminders are running. Add a camera setup if you "
+                    "also want posture feedback."
+                ),
             )
         if runtime_state is not None:
             self._restore_runtime_state(runtime_state)
@@ -270,10 +278,10 @@ class MainWindow(
                     self._exercise_postpone_timer.start(
                         state.exercise_postpone_remaining_ms
                     )
-                elif self._tracking_enabled:
-                    QTimer.singleShot(0, self._present_exercise)
                 else:
-                    self._schedule_exercise_postpone()
+                    QTimer.singleShot(0, self._present_exercise)
+        self._last_break_tick_at = time.monotonic()
+        self._update_break_countdown()
         self._last_valid_tracking_at = None
         self._tracking_gap_started_at = state.tracking_gap_started_at
         if self.evaluator is not None and state.evaluator_state is not None:

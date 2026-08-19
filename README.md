@@ -34,8 +34,9 @@ from the baseline demonstrated for that camera setup.
   with one consistent close action while the live camera preview remains
   visible. Panels size to their content and scroll only when the screen cannot
   accommodate them.
-- **Release camera** stops tracking and relinquishes the webcam for meeting
-  applications. **Resume tracking** reacquires the selected camera afterward.
+- **Release camera** stops posture tracking and relinquishes the webcam for
+  meeting applications while the independent break timer keeps running.
+  **Resume tracking** reacquires the selected camera afterward.
 - English, German, and Spanish interfaces, selected under **Settings** and
   saved locally. Changing language rebuilds the desktop window immediately
   without restarting the process.
@@ -99,10 +100,11 @@ tar -xzf Vulture-Linux-x86_64.tar.gz
 ./Vulture/Vulture
 ```
 
-Vulture needs a graphical desktop, a webcam, and permission to read the
-selected `/dev/video*` device. It prefers stable `/dev/v4l/by-id` or
-`/dev/v4l/by-path` identities when they are available. Some desktops hide
-legacy tray icons by default or require a tray extension.
+Vulture needs a graphical desktop. A webcam and permission to read the selected
+`/dev/video*` device are optional and only required for posture feedback.
+It prefers stable `/dev/v4l/by-id` or `/dev/v4l/by-path` identities when they
+are available. Some desktops hide legacy tray icons by default or require a
+tray extension.
 
 ### Windows
 
@@ -141,8 +143,9 @@ Exit code `0` and `Vulture runtime check passed.` indicate a healthy bundle.
 
 ## Install from source
 
-Source installation requires Python 3.11 or newer, a webcam exposed by Qt
-Multimedia, and a desktop environment with system-tray support.
+Source installation requires Python 3.11 or newer and a desktop environment
+with system-tray support. A webcam exposed by Qt Multimedia is optional and is
+only needed for posture feedback.
 
 ```bash
 python3 -m venv .venv
@@ -246,13 +249,24 @@ every enabled option appears before the bag refills, and a new cycle avoids
 repeating the previous item. The activity and exercise bags are stored locally,
 so restarting the app or changing language does not reset the sequence.
 
+Use **Move now** beside the countdown whenever time is available before the
+next scheduled break. Inside a guided movement, **Choose a different break**
+can switch directly to eye rest, standing, walking, water, tea or coffee,
+breathing, a full off-screen reset, or another guided movement. Choosing
+another guided movement advances the same shuffled sequence without repeating
+the current exercise. Rest options open with their configured suggested time;
+choose **Start timer** for a live countdown and remain in control when it
+reaches zero.
+
 Saved 0.2.0 profiles keep their previous distance-eye and combined
 walk/water/tea/coffee activity mix. The new water, longer-reset, and greenery
 options remain off for those profiles until they are enabled in Settings.
 
-Only time with valid posture tracking advances all four timers. A sufficiently
-long period away from the camera counts as a break, and reminders can always be
-dismissed; Vulture never blocks the desktop.
+All four break timers use elapsed app time and keep running without a camera,
+during calibration, and while the camera is released. The main window always
+shows the next scheduled break and its countdown. When a scheduled break and a
+camera-based posture alert become due together, the scheduled break is shown
+first. Reminders can always be dismissed; Vulture never blocks the desktop.
 
 Break reminders use native system notifications. Vulture requests a timeout
 matching the configured suggested length; when several channels become due

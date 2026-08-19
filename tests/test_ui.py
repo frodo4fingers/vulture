@@ -11,7 +11,7 @@ import pytest
 
 import vulture.ui as ui_module
 from vulture.autostart import AutostartError, AutostartSnapshot
-from vulture.breaks import BreakChannel
+from vulture.breaks import BreakChannel, ManualBreakChoice
 from vulture.exercises import load_exercise_catalog
 from vulture.history import (
     BASELINE_POSTURE,
@@ -59,6 +59,7 @@ from vulture.ui import (
     NoticeDialog,
     PostureAreaChart,
     RollingWeekChart,
+    RestBreakDialog,
     SUMMARY_POSTURE_PALETTES,
     SettingsDialog,
     SetupDialog,
@@ -1446,6 +1447,106 @@ def test_combined_break_due_uses_one_native_notification(
     _teardown_window(window, application)
 
 
+def test_break_clock_runs_without_camera_or_setup(
+    application: QApplication,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    window = _make_window(tmp_path)
+    window._tracking_enabled = False
+    window._last_break_tick_at = 100.0
+    monkeypatch.setattr(
+        "vulture.ui.tracking_flow.time.monotonic",
+        lambda: 161.0,
+    )
+
+    window._tick_break_clock()
+
+    assert window._tracked_seconds_since_break == 61
+    assert window._tracked_seconds_since_eye_break == 61
+    assert window._tracked_seconds_since_hydration_break == 61
+    assert window._tracked_seconds_since_reset_break == 61
+    assert window.next_break_label.text() == "Eye comfort"
+    assert window.break_countdown.text() == "18:59"
+    _teardown_window(window, application)
+
+
+def test_due_break_is_shown_without_camera_or_setup(
+    application: QApplication,
+    tmp_path: Path,
+) -> None:
+    window = _make_window(tmp_path)
+    window._tracking_enabled = False
+    window.data.break_preferences = BreakPreferences(
+        movement_reminders_enabled=False,
+        eye_interval_minutes=10,
+        eye_duration_seconds=30,
+        suggest_nature_view=False,
+        suggest_blinking=False,
+        suggest_closed_eye_rest=False,
+        hydration_reminders_enabled=False,
+        reset_reminders_enabled=False,
+    )
+    messages: list[tuple[str, str, int]] = []
+    window._show_tray_message = (
+        lambda title, message, _icon, timeout: messages.append(
+            (title, message, timeout)
+        )
+    )
+    window._tracked_seconds_since_eye_break = 10 * 60
+
+    window._check_break_reminders()
+
+    assert messages == [
+        (
+            "Eye comfort break",
+            (
+                "Look at something about 6 m (20 ft) away for 30 seconds "
+                "and let your focus relax."
+            ),
+            30_000,
+        )
+    ]
+    assert window._tracked_seconds_since_eye_break == 0
+    _teardown_window(window, application)
+
+
+def test_scheduled_break_preempts_camera_posture_alert(
+    application: QApplication,
+    tmp_path: Path,
+) -> None:
+    window = _make_window(tmp_path)
+    window.data.break_preferences = BreakPreferences(
+        movement_reminders_enabled=False,
+        eye_interval_minutes=10,
+        hydration_reminders_enabled=False,
+        reset_reminders_enabled=False,
+    )
+    window._tracked_seconds_since_eye_break = 10 * 60
+    due_breaks: list[tuple[BreakChannel, ...]] = []
+    posture_messages: list[str] = []
+    window._show_due_break_reminder = due_breaks.append
+    window._show_tray_message = (
+        lambda _title, message, _icon, _timeout: posture_messages.append(
+            message
+        )
+    )
+    assessment = SimpleNamespace(
+        state=TrackerState.ALERT,
+        message="Move toward baseline.",
+        bad_duration_seconds=60,
+        newly_alerted=True,
+        category=PostureCategory.SLOUCH,
+        assessed_at=datetime.now(timezone.utc),
+    )
+
+    window._apply_assessment(assessment)
+
+    assert due_breaks == [(BreakChannel.EYE,)]
+    assert posture_messages == []
+    _teardown_window(window, application)
+
+
 def test_eye_only_break_uses_configured_distance_prompt(
     application: QApplication,
     tmp_path: Path,
@@ -1703,7 +1804,7 @@ def test_break_settings_reset_only_the_changed_channel(
     _teardown_window(window, application)
 
 
-def test_away_time_resets_break_counters(
+def test_camera_gap_does_not_reset_wall_clock_break_counters(
     application: QApplication,
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -1724,15 +1825,15 @@ def test_away_time_resets_break_counters(
 
     window._record_valid_tracking()
 
-    assert window._tracked_seconds_since_break == 0
-    assert window._tracked_seconds_since_eye_break == 0
-    assert window._tracked_seconds_since_hydration_break == 0
-    assert window._tracked_seconds_since_reset_break == 0
+    assert window._tracked_seconds_since_break == 700
+    assert window._tracked_seconds_since_eye_break == 500
+    assert window._tracked_seconds_since_hydration_break == 400
+    assert window._tracked_seconds_since_reset_break == 300
     assert window._tracking_gap_started_at is None
     _teardown_window(window, application)
 
 
-def test_first_run_state_leads_to_camera_setup(
+def test_first_run_state_keeps_break_timer_primary_and_camera_optional(
     application: QApplication,
     tmp_path: Path,
 ) -> None:
@@ -1741,6 +1842,10 @@ def test_first_run_state_leads_to_camera_setup(
     assert window.preview_stack.currentWidget() is window.first_run_panel
     assert not window.first_run_add_button.isHidden()
     assert window.status_group.isHidden()
+    assert not window.break_timer_group.isHidden()
+    assert window.next_break_label.text() == "Eye comfort"
+    assert window.break_countdown.text() == "20:00"
+    assert "optional" in window.first_run_heading.text().lower()
 
     _install_test_setup(window, calibration=None)
 
@@ -2132,7 +2237,9 @@ def test_full_calibration_is_exclusive_window_beside_live_preview(
     assert window.side_panel_frame.isHidden()
     assert window.setup_combo.isEnabled()
     assert window.geometry() == original_geometry
-    assert window.preview_stack.size() == original_preview_size
+    # Completion changes the status copy, which can reflow by a few pixels
+    # across Qt patch versions without resizing the window or camera workspace.
+    assert window.preview_stack.isVisible()
     assert window.preview_stack.minimumSize() == original_preview_minimum
     assert window.workspace_splitter.sizes() == original_splitter_sizes
 
@@ -2353,6 +2460,164 @@ def test_offer_exercise_opens_dialog_directly(
     _teardown_window(window, application)
 
 
+def test_move_now_opens_a_shuffled_exercise(
+    application: QApplication,
+    tmp_path: Path,
+) -> None:
+    window = _make_window(tmp_path)
+
+    window.move_now_button.click()
+    application.processEvents()
+
+    assert isinstance(window._exercise_dialog, ExerciseDialog)
+    assert window._pending_exercise is not None
+    assert window._tracked_seconds_since_break == 0
+    assert not window.move_now_button.isEnabled()
+    window._exercise_dialog._complete()
+    application.processEvents()
+    assert window.move_now_button.isEnabled()
+    _teardown_window(window, application)
+
+
+def test_different_break_chooser_includes_rest_and_movement_options(
+    application: QApplication,
+    tmp_path: Path,
+) -> None:
+    window = _make_window(tmp_path)
+    window._offer_exercise()
+    application.processEvents()
+    dialog = window._exercise_dialog
+    assert dialog is not None
+
+    combo = dialog.alternative_picker.combo
+    assert combo.findData(ManualBreakChoice.EYE_REST.value) >= 0
+    assert combo.findData(ManualBreakChoice.STAND.value) >= 0
+    assert combo.findData(ManualBreakChoice.COFFEE.value) >= 0
+    assert combo.findData(ManualBreakChoice.GUIDED_MOVEMENT.value) >= 0
+    assert not hasattr(dialog, "swap_button")
+    _teardown_window(window, application)
+
+
+def test_another_guided_movement_advances_shuffle_bag(
+    application: QApplication,
+    tmp_path: Path,
+) -> None:
+    window = _make_window(tmp_path)
+    window._offer_exercise()
+    application.processEvents()
+    first_dialog = window._exercise_dialog
+    first_exercise = window._pending_exercise
+    assert first_dialog is not None
+    assert first_exercise is not None
+
+    combo = first_dialog.alternative_picker.combo
+    guided_index = combo.findData(
+        ManualBreakChoice.GUIDED_MOVEMENT.value
+    )
+    combo.activated.emit(guided_index)
+    application.processEvents()
+
+    assert first_dialog.outcome == ExerciseOutcome.SWAPPED
+    assert window._exercise_dialog is not None
+    assert window._pending_exercise is not None
+    assert window._pending_exercise.id != first_exercise.id
+    _teardown_window(window, application)
+
+
+def test_different_break_choice_opens_focused_rest_panel(
+    application: QApplication,
+    tmp_path: Path,
+) -> None:
+    window = _make_window(tmp_path)
+    window._offer_exercise()
+    application.processEvents()
+    exercise_dialog = window._exercise_dialog
+    assert exercise_dialog is not None
+
+    combo = exercise_dialog.alternative_picker.combo
+    stand_index = combo.findData(ManualBreakChoice.STAND.value)
+    combo.activated.emit(stand_index)
+    application.processEvents()
+
+    rest_dialog = window._rest_break_dialog
+    assert isinstance(rest_dialog, RestBreakDialog)
+    assert rest_dialog.prompt.choice is ManualBreakChoice.STAND
+    assert rest_dialog.windowTitle() == "Stand up"
+    assert "Stand for about" in rest_dialog.prompt.message
+    assert window._exercise_dialog is None
+    assert window._pending_exercise is None
+    _teardown_window(window, application)
+
+
+def test_rest_break_timer_counts_down_to_completion(
+    application: QApplication,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    window = _make_window(tmp_path)
+    window._offer_exercise()
+    application.processEvents()
+    exercise_dialog = window._exercise_dialog
+    assert exercise_dialog is not None
+    combo = exercise_dialog.alternative_picker.combo
+    coffee_index = combo.findData(ManualBreakChoice.COFFEE.value)
+    combo.activated.emit(coffee_index)
+    application.processEvents()
+    rest_dialog = window._rest_break_dialog
+    assert isinstance(rest_dialog, RestBreakDialog)
+    assert not window.move_now_button.isEnabled()
+    assert rest_dialog.countdown.text() == "5:00"
+    assert not rest_dialog._timer.isActive()
+
+    now = [100.0]
+    monkeypatch.setattr(
+        "vulture.ui.break_options.time.monotonic",
+        lambda: now[0],
+    )
+    rest_dialog.start_button.click()
+
+    assert rest_dialog._timer.isActive()
+    assert rest_dialog.countdown_caption.text() == "remaining"
+    now[0] = 160.0
+    rest_dialog._update_countdown()
+    assert rest_dialog.countdown.text() == "4:00"
+    assert rest_dialog.progress.value() == 60
+
+    now[0] = 400.0
+    rest_dialog._update_countdown()
+    assert rest_dialog.countdown.text() == "0:00"
+    assert rest_dialog.countdown_caption.text() == (
+        "Suggested time complete"
+    )
+    assert not rest_dialog._timer.isActive()
+    rest_dialog._complete()
+    application.processEvents()
+    assert window.move_now_button.isEnabled()
+    _teardown_window(window, application)
+
+
+def test_switching_rest_break_stops_its_timer(
+    application: QApplication,
+    tmp_path: Path,
+) -> None:
+    window = _make_window(tmp_path)
+    window._present_manual_break(ManualBreakChoice.COFFEE)
+    rest_dialog = window._rest_break_dialog
+    assert isinstance(rest_dialog, RestBreakDialog)
+    rest_dialog.start_button.click()
+    assert rest_dialog._timer.isActive()
+
+    combo = rest_dialog.alternative_picker.combo
+    stand_index = combo.findData(ManualBreakChoice.STAND.value)
+    combo.activated.emit(stand_index)
+    application.processEvents()
+
+    assert not rest_dialog._timer.isActive()
+    assert window._rest_break_dialog is not rest_dialog
+    assert window._rest_break_dialog.prompt.choice is ManualBreakChoice.STAND
+    _teardown_window(window, application)
+
+
 def test_background_exercise_coexists_with_settings_window(
     application: QApplication,
     tmp_path: Path,
@@ -2554,6 +2819,10 @@ def test_releasing_camera_stops_capture_until_resume(
 ) -> None:
     window = _make_window(tmp_path)
     _install_test_setup(window, calibration=make_profile())
+    window._tracked_seconds_since_break = 101
+    window._tracked_seconds_since_eye_break = 202
+    window._tracked_seconds_since_hydration_break = 303
+    window._tracked_seconds_since_reset_break = 404
     stopped: list[bool] = []
     restarted: list[bool] = []
     monkeypatch.setattr(
@@ -2574,6 +2843,10 @@ def test_releasing_camera_stops_capture_until_resume(
     assert window.pause_button.text() == "Resume tracking"
     assert "meeting apps" in window.preview.text()
     assert not window.calibrate_button.isEnabled()
+    assert window._tracked_seconds_since_break == 101
+    assert window._tracked_seconds_since_eye_break == 202
+    assert window._tracked_seconds_since_hydration_break == 303
+    assert window._tracked_seconds_since_reset_break == 404
 
     window._toggle_tracking()
 
@@ -2581,6 +2854,10 @@ def test_releasing_camera_stops_capture_until_resume(
     assert restarted == [True]
     assert window.pause_button.text() == "Release camera"
     assert window.calibrate_button.isEnabled()
+    assert window._tracked_seconds_since_break == 101
+    assert window._tracked_seconds_since_eye_break == 202
+    assert window._tracked_seconds_since_hydration_break == 303
+    assert window._tracked_seconds_since_reset_break == 404
 
     _teardown_window(window, application)
 
@@ -2725,7 +3002,7 @@ def test_exercise_remind_me_later_reschedules(
     _teardown_window(window, application)
 
 
-def test_postponed_exercise_rearms_while_tracking_is_paused(
+def test_postponed_exercise_opens_while_camera_tracking_is_paused(
     application: QApplication,
     tmp_path: Path,
 ) -> None:
@@ -2740,8 +3017,8 @@ def test_postponed_exercise_rearms_while_tracking_is_paused(
     window._tracking_enabled = False
     window._present_postponed_exercise()
 
-    assert window._exercise_postpone_timer.isActive()
-    assert window._exercise_dialog is None
+    assert not window._exercise_postpone_timer.isActive()
+    assert window._exercise_dialog is not None
 
     _teardown_window(window, application)
 

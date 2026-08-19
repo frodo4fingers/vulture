@@ -194,9 +194,6 @@ class SettingsDialog(QDialog):
             break_preferences.movement_interval_minutes
         )
         self.movement_interval_minutes.setSuffix(tr(" minutes"))
-        self.movement_interval_minutes.setToolTip(
-            tr("Vulture counts only time with valid posture tracking.")
-        )
         self.movement_duration_minutes = QSpinBox()
         self.movement_duration_minutes.setRange(1, 10)
         self.movement_duration_minutes.setValue(
@@ -208,21 +205,10 @@ class SettingsDialog(QDialog):
         self.away_reset_minutes.setValue(
             break_preferences.away_reset_minutes
         )
-        self.away_reset_minutes.setSuffix(tr(" minutes"))
-        self.away_reset_minutes.setToolTip(
-            tr(
-                "After this much time away from the camera, Vulture starts "
-                "a fresh break interval."
-            )
-        )
         movement_form.addRow(tr("Every"), self.movement_interval_minutes)
         movement_form.addRow(
             tr("Suggested length"),
             self.movement_duration_minutes,
-        )
-        movement_form.addRow(
-            tr("Away time that resets the timer"),
-            self.away_reset_minutes,
         )
         movement_layout.addLayout(movement_form)
 
