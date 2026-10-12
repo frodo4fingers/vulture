@@ -165,21 +165,21 @@ class SettingsDialog(QDialog):
         )
         _row(
             alert_form,
-            tr("&Warn me after"),
+            tr("&Nudge me after"),
             _hinted(
                 self.warning_seconds,
-                tr("A quiet on-screen warning once your posture has been off "
-                   "this long."),
+                tr("A gentle nudge on screen once your posture has been "
+                   "drifting this long."),
             ),
             self.warning_seconds,
         )
         _row(
             alert_form,
-            tr("Send a &notification after"),
+            tr("Send a no&tification after"),
             _hinted(
                 self.alert_seconds,
-                tr("A desktop notification if it is still off. Must be "
-                   "longer than the warning."),
+                tr("A desktop notification if you are still drifting. Must "
+                   "be longer than the nudge delay."),
             ),
             self.alert_seconds,
         )
@@ -188,8 +188,8 @@ class SettingsDialog(QDialog):
             tr("&Ignore quick changes for"),
             _hinted(
                 self.transition_buffer_seconds,
-                tr("Shifting or stretching briefly will not count as bad "
-                   "posture."),
+                tr("Shifting or stretching briefly will not count as "
+                   "drifting."),
             ),
             self.transition_buffer_seconds,
         )
@@ -692,7 +692,7 @@ class SettingsDialog(QDialog):
         except ValidationError:
             self._show_error(
                 tr(
-                    "The notification delay must be longer than the warning "
+                    "The notification delay must be longer than the nudge "
                     "delay."
                 ),
                 0,

@@ -4,9 +4,11 @@ import os
 import sqlite3
 from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
+from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
+from vulture.breaks import BreakChannel
 from vulture.i18n import tr
 from vulture.models import (
     ReminderEvent,
@@ -46,12 +48,29 @@ class StoredPostureEpisode(StrictModel):
     sample_count: int = Field(ge=1)
 
 
+class BreakEvent(StrictModel):
+    kind: Literal["movement", "rest"]
+    channel: BreakChannel
+    exercise_id: str | None = None
+    completed_at: datetime
+    local_date: date
+    duration_seconds: float = Field(ge=0)
+
+    @field_validator("completed_at")
+    @classmethod
+    def require_aware(cls, value: datetime) -> datetime:
+        if value.tzinfo is None:
+            raise ValueError("History timestamps must be timezone-aware.")
+        return value
+
+
 class DailyPostureSummary(StrictModel):
     local_date: date
     totals: dict[str, float]
     tracked_seconds: float = Field(ge=0)
     reminder_count: int = Field(ge=0)
     episodes: list[StoredPostureEpisode]
+    breaks: list[BreakEvent] = Field(default_factory=list)
 
 
 class ActivePostureEpisode(StrictModel):
@@ -143,6 +162,18 @@ class PostureHistoryStore:
             );
             CREATE INDEX IF NOT EXISTS idx_reminder_events_date
                 ON reminder_events(local_date, occurred_at);
+
+            CREATE TABLE IF NOT EXISTS break_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                local_date TEXT NOT NULL,
+                completed_at TEXT NOT NULL,
+                kind TEXT NOT NULL,
+                channel TEXT NOT NULL,
+                exercise_id TEXT,
+                duration_seconds REAL NOT NULL CHECK (duration_seconds >= 0)
+            );
+            CREATE INDEX IF NOT EXISTS idx_break_events_date
+                ON break_events(local_date, completed_at);
             """
         )
         if version == 0:
@@ -262,6 +293,57 @@ class PostureHistoryStore:
                 )
             ) from error
 
+    def record_break(self, event: BreakEvent) -> None:
+        try:
+            self._connection.execute(
+                """
+                INSERT INTO break_events (
+                    local_date,
+                    completed_at,
+                    kind,
+                    channel,
+                    exercise_id,
+                    duration_seconds
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    event.local_date.isoformat(),
+                    _as_utc(event.completed_at).isoformat(),
+                    event.kind,
+                    event.channel.value,
+                    event.exercise_id,
+                    event.duration_seconds,
+                ),
+            )
+            self._connection.commit()
+        except sqlite3.Error as error:
+            raise HistoryStorageError(
+                tr(
+                    "Could not save a break event: {error}",
+                    error=error,
+                )
+            ) from error
+
+    def has_any_history(self) -> bool:
+        try:
+            return any(
+                self._connection.execute(
+                    f"SELECT 1 FROM {table} LIMIT 1"
+                ).fetchone()
+                for table in (
+                    "posture_episodes",
+                    "reminder_events",
+                    "break_events",
+                )
+            )
+        except sqlite3.Error as error:
+            raise HistoryStorageError(
+                tr(
+                    "Could not read the workday summary: {error}",
+                    error=error,
+                )
+            ) from error
+
     def daily_summary(self, local_date: date) -> DailyPostureSummary:
         try:
             total_rows = self._connection.execute(
@@ -306,6 +388,21 @@ class PostureHistoryStore:
                     (local_date.isoformat(),),
                 ).fetchone()[0]
             )
+            break_rows = self._connection.execute(
+                """
+                SELECT local_date,
+                       completed_at,
+                       kind,
+                       channel,
+                       exercise_id,
+                       duration_seconds
+                FROM break_events
+                WHERE local_date = ?
+                ORDER BY completed_at ASC
+                LIMIT 1000
+                """,
+                (local_date.isoformat(),),
+            ).fetchall()
         except sqlite3.Error as error:
             raise HistoryStorageError(
                 tr(
@@ -314,6 +411,19 @@ class PostureHistoryStore:
                 )
             ) from error
 
+        breaks = [
+            BreakEvent(
+                kind=str(row["kind"]),
+                channel=BreakChannel(str(row["channel"])),
+                exercise_id=row["exercise_id"],
+                completed_at=datetime.fromisoformat(
+                    str(row["completed_at"])
+                ),
+                local_date=date.fromisoformat(str(row["local_date"])),
+                duration_seconds=float(row["duration_seconds"]),
+            )
+            for row in break_rows
+        ]
         episodes = [
             StoredPostureEpisode(
                 id=int(row["id"]),
@@ -335,6 +445,7 @@ class PostureHistoryStore:
             tracked_seconds=sum(totals.values()),
             reminder_count=reminder_count,
             episodes=episodes,
+            breaks=breaks,
         )
 
     def delete_day(self, local_date: date) -> None:
@@ -346,6 +457,10 @@ class PostureHistoryStore:
                 )
                 self._connection.execute(
                     "DELETE FROM reminder_events WHERE local_date = ?",
+                    (local_date.isoformat(),),
+                )
+                self._connection.execute(
+                    "DELETE FROM break_events WHERE local_date = ?",
                     (local_date.isoformat(),),
                 )
         except sqlite3.Error as error:
@@ -361,6 +476,7 @@ class PostureHistoryStore:
             with self._connection:
                 self._connection.execute("DELETE FROM posture_episodes")
                 self._connection.execute("DELETE FROM reminder_events")
+                self._connection.execute("DELETE FROM break_events")
             self._connection.execute("VACUUM")
         except sqlite3.Error as error:
             raise HistoryStorageError(
@@ -382,6 +498,10 @@ class PostureHistoryStore:
                 )
                 self._connection.execute(
                     "DELETE FROM reminder_events WHERE local_date < ?",
+                    (cutoff.isoformat(),),
+                )
+                self._connection.execute(
+                    "DELETE FROM break_events WHERE local_date < ?",
                     (cutoff.isoformat(),),
                 )
         except sqlite3.Error as error:
@@ -481,6 +601,10 @@ class WorkdayRecorder:
     def record_reminder(self, event: ReminderEvent) -> None:
         if self.enabled:
             self.store.record_reminder(event)
+
+    def record_break(self, event: BreakEvent) -> None:
+        if self.enabled:
+            self.store.record_break(event)
 
     def checkpoint(self) -> None:
         if self._active is not None:

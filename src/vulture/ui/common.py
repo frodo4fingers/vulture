@@ -51,7 +51,7 @@ SUMMARY_POSTURES = (
     (PostureCategory.SLOUCH.value, "Slouch / crouch"),
     (PostureCategory.SHOULDERS_SUNK.value, "Shoulders sunk"),
     (PostureCategory.LATERAL_LEAN.value, "Lateral lean"),
-    (PostureCategory.GENERAL_DEVIATION.value, "Other baseline deviation"),
+    (PostureCategory.GENERAL_DEVIATION.value, "Other drift"),
 )
 POSTURE_TITLES = dict(SUMMARY_POSTURES)
 
@@ -75,12 +75,28 @@ def announce(widget: QWidget, message: str) -> None:
     QAccessible.updateAccessibility(event)
 
 
-def shortcut_hint(text: str, shortcut: QKeySequence) -> str:
-    """``text`` followed by its shortcut, for tooltips."""
-    if shortcut.isEmpty():
+def shortcut_hint(
+    text: str, shortcut: QKeySequence | QKeySequence.StandardKey | str
+) -> str:
+    """``text`` followed by its platform-native shortcut, for tooltips."""
+    sequence = (
+        shortcut
+        if isinstance(shortcut, QKeySequence)
+        else QKeySequence(shortcut)
+    )
+    if sequence.isEmpty():
         return text
-    native = shortcut.toString(QKeySequence.SequenceFormat.NativeText)
+    native = sequence.toString(QKeySequence.SequenceFormat.NativeText)
     return f"{text} ({native})"
+
+
+def set_tooltip_with_shortcut(
+    widget: QWidget,
+    text: str,
+    shortcut: QKeySequence | QKeySequence.StandardKey | str,
+) -> None:
+    """Tooltip ``text (Ctrl+S)`` with the shortcut in platform-native form."""
+    widget.setToolTip(shortcut_hint(text, shortcut))
 
 
 def semantic_panel_style(

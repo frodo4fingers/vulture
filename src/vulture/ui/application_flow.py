@@ -105,6 +105,7 @@ class ApplicationFlowMixin:
             setup_names,
             self.data.history_preferences.enabled,
             self,
+            has_any_history=self.history_store.has_any_history,
         )
         self._summary_dialog = dialog
         self._secondary_window_presenter.present("summary", dialog)

@@ -1,13 +1,10 @@
 from __future__ import annotations
 
+import math
 import time
 
 from PySide6.QtCore import Qt, QTimer, Signal
-from PySide6.QtGui import (
-    QAccessible,
-    QAccessibleAnnouncementEvent,
-    QAction,
-)
+from PySide6.QtGui import QAccessible, QAction
 from PySide6.QtWidgets import (
     QAbstractButton,
     QDialog,
@@ -16,7 +13,6 @@ from PySide6.QtWidgets import (
     QMenu,
     QProgressBar,
     QPushButton,
-    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -28,54 +24,39 @@ from vulture.breaks import (
 )
 from vulture.i18n import tr
 
+from . import theme
 from .common import SemanticLabel, format_duration
+from .common import announce as speak
 from .theme import (
-    CONTROL_MIN_HEIGHT,
-    CONTROL_SPACING,
-    HAIRLINE,
-    RADIUS_SM,
     REST_PANEL_MIN_SIZE,
     SECTION_SPACING,
-    SPACE_LG,
     SPACE_SM,
     CaptionLabel,
+    Separator,
     TextRole,
-    apply_text_role,
+    role_font,
 )
 
 
-# Qt has no "primary button" without a default button, and a default button
-# lets a stray Enter complete a break. Mark the main action by colour instead,
-# using the platform palette so both colour schemes stay legible.
-_PRIMARY_BUTTON_STYLE = (
-    "QPushButton {"
-    " background-color: palette(highlight);"
-    " color: palette(highlighted-text);"
-    " font-weight: 600;"
-    f" border: {HAIRLINE}px solid palette(highlight);"
-    f" border-radius: {RADIUS_SM}px;"
-    f" padding: 0 {SPACE_LG}px;"
-    f" min-height: {CONTROL_MIN_HEIGHT}px;"
-    " }"
-    "QPushButton:focus {"
-    f" border: {2 * HAIRLINE}px solid palette(text);"
-    " }"
-    "QPushButton:disabled {"
-    " background-color: palette(mid);"
-    " border-color: palette(mid);"
-    " }"
-)
-
+COMPLETION_ACK_MS = 1500
+# The countdown must be readable from across the room.
+COUNTDOWN_SCALE = 2.5
+# One spoken reminder before the end, never a per-second readout.
+ANNOUNCE_REMAINING_SECONDS = 60
 
 def set_primary(button: QPushButton, primary: bool) -> None:
-    """Visually emphasise ``button`` without making it a default button."""
+    """Visually emphasise ``button`` without making it a default button.
+
+    Qt has no "primary button" without a default button, and a default
+    button lets a stray Enter complete a break, so colour marks it instead.
+    """
     button.setAutoDefault(False)
     button.setDefault(False)
-    button.setStyleSheet(_PRIMARY_BUTTON_STYLE if primary else "")
+    button.setStyleSheet(theme.primary_button_style() if primary else "")
 
 
-def assign_mnemonics(*buttons: QAbstractButton) -> None:
-    """Give each button an ``&`` mnemonic no sibling uses.
+def assign_mnemonics(*buttons: QAbstractButton | QAction) -> None:
+    """Give each button or menu action an ``&`` mnemonic no sibling uses.
 
     Picks the first letter not taken yet, so translated labels get unique
     keys without every language needing its own hand-placed ``&``.
@@ -91,12 +72,14 @@ def assign_mnemonics(*buttons: QAbstractButton) -> None:
 
 
 def announce(widget: QWidget, message: str) -> None:
-    """Tell assistive technology about a state the user may not see."""
+    """Tell assistive technology about a state the user may not see.
+
+    The description keeps the latest state readable on demand; the spoken
+    announcement stays polite like every other one in the app.
+    """
     widget.setAccessibleDescription(message)
     if QAccessible.isActive():
-        event = QAccessibleAnnouncementEvent(widget, message)
-        event.setPoliteness(QAccessible.AnnouncementPoliteness.Assertive)
-        QAccessible.updateAccessibility(event)
+        speak(widget, message)
 
 
 def format_countdown(seconds: float) -> str:
@@ -105,8 +88,14 @@ def format_countdown(seconds: float) -> str:
     return f"{minutes}:{remaining_seconds:02d}"
 
 
-class AlternativeBreakPicker(QToolButton):
-    """A small "Swap..." menu for choosing a different kind of break."""
+def completion_message(breaks_today: int | None) -> str:
+    if breaks_today is None:
+        return tr("Nice work — break done.")
+    return tr("Nice work — that's {count} breaks today.", count=breaks_today)
+
+
+class AlternativeBreakPicker(QMenu):
+    """The "Swap…" submenu for choosing a different kind of break."""
 
     choice_selected = Signal(str)
 
@@ -115,19 +104,17 @@ class AlternativeBreakPicker(QToolButton):
         choices: tuple[ManualBreakChoice, ...],
         parent: QWidget | None = None,
     ) -> None:
-        super().__init__(parent)
-        self.setText(tr("Swap…"))
-        self.setToolTip(tr("Would another kind of break fit better?"))
-        self.setAccessibleName(tr("Choose a different break..."))
-        self.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
-        self.menu = QMenu(self)
+        super().__init__(tr("Swap…"), parent)
+        self.setToolTipsVisible(True)
+        self.menuAction().setToolTip(
+            tr("Would another kind of break fit better?")
+        )
         for choice in choices:
-            action = self.menu.addAction(manual_break_choice_label(choice))
+            action = self.addAction(manual_break_choice_label(choice))
             action.setData(choice.value)
-        self.menu.triggered.connect(self._choice_triggered)
-        self.setMenu(self.menu)
-        if not choices:
-            self.hide()
+        self.menuAction().setVisible(bool(choices))
+        assign_mnemonics(*self.actions())
+        self.triggered.connect(self._choice_triggered)
 
     def _choice_triggered(self, action: QAction) -> None:
         value = action.data()
@@ -141,14 +128,262 @@ class RestBreakOutcome:
     SWITCHED = "switched"
 
 
-class RestBreakDialog(QDialog):
+class BreakPanel(QDialog):
+    """The frame both break types share.
+
+    Before Start there is one primary action and a "Not now" menu. While the
+    timer runs only "Stop early" remains; at zero "Done" takes over. Done
+    shows a calm completion card for ``COMPLETION_ACK_MS``, then accepts.
+
+    Contract for the shell: ``completed_seconds``, ``active_break_title`` and
+    ``remaining_seconds()``. Subclasses provide ``_skip`` and
+    ``_choose_alternative`` (and ``_postpone`` when they offer Later).
+    """
+
+    # The shell collapses the camera workspace while a panel with this flag
+    # sits in the side panel.
+    wants_break_mode = True
+
+    def __init__(
+        self,
+        title: str,
+        duration_seconds: int | None,
+        parent: QWidget | None = None,
+        *,
+        breaks_today: int | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self.active_break_title = title
+        self.completed_seconds = 0.0
+        self._duration = duration_seconds or None
+        self._started_at: float | None = None
+        self._minute_announced = False
+
+        self.countdown_block = QWidget()
+        self.countdown = QLabel()
+        self.countdown_caption = CaptionLabel(tr("suggested"))
+        self.progress = QProgressBar()
+        if self._duration:
+            self._build_countdown_block(self._duration)
+
+        self.completion_note = SemanticLabel(
+            completion_message(breaks_today),
+            tone="good",
+            role=TextRole.HEADING,
+        )
+        self.completion_note.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.completion_note.hide()
+
+        self._timer = QTimer(self)
+        self._timer.setInterval(250)
+        self._timer.timeout.connect(self._update_countdown)
+        self._ack_timer = QTimer(self)
+        self._ack_timer.setSingleShot(True)
+        self._ack_timer.setInterval(COMPLETION_ACK_MS)
+        self._ack_timer.timeout.connect(self.accept)
+
+    def _build_countdown_block(self, seconds: int) -> None:
+        block = QVBoxLayout(self.countdown_block)
+        block.setContentsMargins(0, SPACE_SM, 0, 0)
+        block.setSpacing(0)
+        self.countdown.setText(format_countdown(seconds))
+        font = role_font(TextRole.DISPLAY)
+        if font.pointSizeF() > 0:
+            font.setPointSizeF(font.pointSizeF() * COUNTDOWN_SCALE)
+        self.countdown.setFont(font)
+        self.countdown.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # A fixed name: the ticking text must not be read out every second.
+        self.countdown.setAccessibleName(tr("Time remaining"))
+        block.addWidget(self.countdown)
+        self.countdown_caption.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        block.addWidget(self.countdown_caption)
+        self.progress.setRange(0, seconds)
+        self.progress.setValue(0)
+        self.progress.setTextVisible(False)
+        self.progress.setFixedHeight(SPACE_SM)
+        self.progress.setAccessibleName(tr("Break progress"))
+        # An empty bar before Start reads as a stalled task.
+        self.progress.hide()
+        block.addWidget(self.progress)
+
+    def _add_footer(
+        self,
+        layout: QVBoxLayout,
+        alternative_choices: tuple[ManualBreakChoice, ...],
+        *,
+        offer_later: bool,
+    ) -> None:
+        layout.addWidget(self.completion_note)
+        layout.addWidget(Separator())
+        self.actions = QWidget()
+        row = QHBoxLayout(self.actions)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(SPACE_SM)
+        self.start_button = QPushButton(tr("Start"))
+        self.start_button.clicked.connect(self._start)
+        self.done_button = QPushButton(tr("Done"))
+        self.done_button.clicked.connect(self._finish)
+        self.stop_button = QPushButton(tr("Stop early"))
+        self.stop_button.setToolTip(tr("Counts the time you took"))
+        self.stop_button.clicked.connect(self._finish)
+        self.not_now_button = QPushButton(tr("Not now"))
+        self.not_now_menu = QMenu(self.not_now_button)
+        menu_actions = []
+        if offer_later:
+            later = self.not_now_menu.addAction(tr("Later"))
+            later.triggered.connect(self._postpone)
+            menu_actions.append(later)
+        skip = self.not_now_menu.addAction(tr("Skip"))
+        skip.triggered.connect(self._skip)
+        menu_actions.append(skip)
+        self.alternative_picker = AlternativeBreakPicker(
+            alternative_choices, self.not_now_menu
+        )
+        self.alternative_picker.choice_selected.connect(
+            self._choose_alternative
+        )
+        self.not_now_menu.addMenu(self.alternative_picker)
+        menu_actions.append(self.alternative_picker.menuAction())
+        self.not_now_button.setMenu(self.not_now_menu)
+        for button in (self.start_button, self.done_button, self.stop_button):
+            row.addWidget(button)
+        row.addStretch(1)
+        row.addWidget(self.not_now_button)
+        layout.addWidget(self.actions)
+
+        set_primary(self.start_button, True)
+        set_primary(self.done_button, True)
+        set_primary(self.stop_button, False)
+        set_primary(self.not_now_button, False)
+        self.done_button.hide()
+        self.stop_button.hide()
+        assign_mnemonics(
+            self.start_button,
+            self.done_button,
+            self.stop_button,
+            self.not_now_button,
+        )
+        assign_mnemonics(*menu_actions)
+
+    # The contract the shell reads for its "On a break" card.
+    def remaining_seconds(self) -> int | None:
+        """Whole seconds left on a running timer, or None before Start."""
+        if self._duration is None or self._started_at is None:
+            return None
+        return math.ceil(self._remaining())
+
+    def _remaining(self) -> float:
+        assert self._duration is not None and self._started_at is not None
+        return max(0.0, self._started_at + self._duration - time.monotonic())
+
+    def _start(self) -> None:
+        if self._started_at is not None:
+            return
+        self._started_at = time.monotonic()
+        self.start_button.hide()
+        self.not_now_button.hide()
+        if self._duration:
+            self._minute_announced = self._duration <= ANNOUNCE_REMAINING_SECONDS
+            self.countdown_caption.setText(tr("remaining"))
+            self.countdown_block.show()
+            self.progress.show()
+            self.stop_button.show()
+            self.stop_button.setFocus()
+            self._timer.start()
+            announce(
+                self.countdown,
+                tr(
+                    "Timer started, {duration} to go.",
+                    duration=format_duration(self._duration),
+                ),
+            )
+        else:
+            self.done_button.show()
+            self.done_button.setFocus()
+        self._started()
+        self._update_countdown()
+
+    def _started(self) -> None:
+        """Hook for subclasses once Start was pressed."""
+
+    def _time_up(self) -> None:
+        """Hook for subclasses when the countdown reaches zero."""
+
+    def _update_countdown(self) -> None:
+        if self._duration is None or self._started_at is None:
+            return
+        remaining = self._remaining()
+        self.countdown.setText(format_countdown(remaining))
+        self.progress.setValue(round(self._duration - remaining))
+        if (
+            not self._minute_announced
+            and remaining <= ANNOUNCE_REMAINING_SECONDS
+        ):
+            self._minute_announced = True
+            if remaining > 0:
+                announce(self.countdown, tr("One minute left."))
+        if remaining > 0 or not self._timer.isActive():
+            return
+        self._timer.stop()
+        self.countdown_caption.setText(tr("Suggested time complete"))
+        self.done_button.show()
+        if self.stop_button.hasFocus():
+            self.done_button.setFocus()
+        self.stop_button.hide()
+        announce(self.countdown, tr("Suggested time complete"))
+        self._time_up()
+
+    def _record_completion(self) -> None:
+        self._timer.stop()
+        self.outcome = RestBreakOutcome.COMPLETED  # same value for movements
+        if self._started_at is None:
+            self.completed_seconds = float(self._duration or 0)
+            return
+        elapsed = time.monotonic() - self._started_at
+        self.completed_seconds = (
+            min(elapsed, float(self._duration)) if self._duration else elapsed
+        )
+
+    def _finish(self) -> None:
+        """Acknowledge the finished break calmly, then close.
+
+        The outcome is recorded immediately so closing the panel during the
+        acknowledgement still logs the break as done. A static message keeps
+        this free of animation, so there is nothing to reduce.
+        """
+        if self._ack_timer.isActive():
+            return
+        self._record_completion()
+        self.actions.setEnabled(False)
+        self.completion_note.show()
+        announce(self.completion_note, self.completion_note.text())
+        self._ack_timer.start()
+
+    def _complete(self) -> None:
+        self._record_completion()
+        self.accept()
+
+    def done(self, result: int) -> None:
+        self._timer.stop()
+        self._ack_timer.stop()
+        super().done(result)
+
+
+class RestBreakDialog(BreakPanel):
     def __init__(
         self,
         prompt: ManualBreakPrompt,
         alternative_choices: tuple[ManualBreakChoice, ...],
         parent: QWidget | None = None,
+        *,
+        breaks_today: int | None = None,
     ) -> None:
-        super().__init__(parent)
+        super().__init__(
+            prompt.title,
+            prompt.duration_seconds,
+            parent,
+            breaks_today=breaks_today,
+        )
         self.prompt = prompt
         self.outcome = RestBreakOutcome.DISMISSED
         self.selected_choice: ManualBreakChoice | None = None
@@ -157,116 +392,17 @@ class RestBreakDialog(QDialog):
 
         layout = QVBoxLayout(self)
         layout.setSpacing(SECTION_SPACING)
-        duration = QLabel(
-            tr(
-                "<b>Suggested time:</b> {duration}",
-                duration=format_duration(prompt.duration_seconds),
-            )
-        )
-        duration.setWordWrap(True)
-        layout.addWidget(duration)
-        message = SemanticLabel(prompt.message, tone="info")
-        layout.addWidget(message)
-
-        countdown_block = QVBoxLayout()
-        countdown_block.setContentsMargins(0, SPACE_SM, 0, 0)
-        countdown_block.setSpacing(0)
-        self.countdown = QLabel(
-            self._format_countdown(prompt.duration_seconds)
-        )
-        apply_text_role(self.countdown, TextRole.DISPLAY)
-        self.countdown.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.countdown.setAccessibleName(tr("Time remaining"))
-        countdown_block.addWidget(self.countdown)
-        self.countdown_caption = CaptionLabel(tr("suggested"))
-        self.countdown_caption.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        countdown_block.addWidget(self.countdown_caption)
-        layout.addLayout(countdown_block)
-        self.progress = QProgressBar()
-        self.progress.setRange(0, prompt.duration_seconds)
-        self.progress.setValue(0)
-        self.progress.setTextVisible(False)
-        self.progress.setFixedHeight(SPACE_SM)
-        self.progress.setAccessibleName(tr("Break progress"))
-        layout.addWidget(self.progress)
+        # The countdown states the suggested time, so it is printed once.
+        layout.addWidget(SemanticLabel(prompt.message, tone="info"))
+        layout.addWidget(self.countdown_block)
         layout.addStretch(1)
+        self._add_footer(layout, alternative_choices, offer_later=False)
 
-        actions = QHBoxLayout()
-        actions.setContentsMargins(0, 0, 0, 0)
-        actions.setSpacing(CONTROL_SPACING)
-        self.start_button = QPushButton(tr("Start timer"))
-        set_primary(self.start_button, True)
-        self.start_button.clicked.connect(self._start_timer)
-        actions.addWidget(self.start_button)
-        self.done_button = QPushButton(tr("Done"))
-        set_primary(self.done_button, False)
-        self.done_button.clicked.connect(self._complete)
-        actions.addWidget(self.done_button)
-        actions.addStretch(1)
-        self.alternative_picker = AlternativeBreakPicker(
-            alternative_choices
-        )
-        self.alternative_picker.choice_selected.connect(
-            self._switch_break
-        )
-        actions.addWidget(self.alternative_picker)
-        skip_button = QPushButton(tr("Skip"))
-        skip_button.setAutoDefault(False)
-        skip_button.clicked.connect(self.reject)
-        actions.addWidget(skip_button)
-        layout.addLayout(actions)
-        assign_mnemonics(
-            self.start_button,
-            self.done_button,
-            self.alternative_picker,
-            skip_button,
-        )
-        QWidget.setTabOrder(self.start_button, self.done_button)
-        QWidget.setTabOrder(self.done_button, self.alternative_picker)
-        QWidget.setTabOrder(self.alternative_picker, skip_button)
+    def _skip(self) -> None:
+        self.outcome = RestBreakOutcome.DISMISSED
+        self.reject()
 
-        self._deadline: float | None = None
-        self._timer = QTimer(self)
-        self._timer.setInterval(250)
-        self._timer.timeout.connect(self._update_countdown)
-
-    @staticmethod
-    def _format_countdown(seconds: float) -> str:
-        return format_countdown(seconds)
-
-    def _start_timer(self) -> None:
-        self._deadline = time.monotonic() + self.prompt.duration_seconds
-        self.start_button.setEnabled(False)
-        self.start_button.setText(tr("Timer running"))
-        self.countdown_caption.setText(tr("remaining"))
-        self._timer.start()
-        self._update_countdown()
-
-    def _update_countdown(self) -> None:
-        if self._deadline is None:
-            return
-        remaining = max(0.0, self._deadline - time.monotonic())
-        elapsed = self.prompt.duration_seconds - remaining
-        self.countdown.setText(self._format_countdown(remaining))
-        self.progress.setValue(round(elapsed))
-        if remaining > 0:
-            return
-        self._timer.stop()
-        self.countdown_caption.setText(tr("Suggested time complete"))
-        self.start_button.setText(tr("Timer complete"))
-        set_primary(self.start_button, False)
-        set_primary(self.done_button, True)
-        announce(self.countdown, tr("Suggested time complete"))
-
-    def _complete(self) -> None:
-        self.outcome = RestBreakOutcome.COMPLETED
-        self.accept()
-
-    def _switch_break(self, choice_value: str) -> None:
+    def _choose_alternative(self, choice_value: str) -> None:
         self.selected_choice = ManualBreakChoice(choice_value)
         self.outcome = RestBreakOutcome.SWITCHED
         self.reject()
-
-    def done(self, result: int) -> None:
-        self._timer.stop()
-        super().done(result)

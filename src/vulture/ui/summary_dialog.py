@@ -49,11 +49,9 @@ from .summary import (
     RollingWeekData,
     SummaryMetric,
     build_rolling_week_data,
+    daily_break_stats,
     ui_locale,
 )
-
-# Days probed (newest first) to learn whether any history exists at all.
-HISTORY_PROBE_DAYS = 365
 
 
 class WorkdaySummaryDialog(QDialog):
@@ -65,10 +63,13 @@ class WorkdaySummaryDialog(QDialog):
         setup_names: dict[str, str],
         recording_enabled: bool,
         parent: QWidget | None = None,
+        *,
+        has_any_history: Callable[[], bool] | None = None,
     ) -> None:
         super().__init__(parent, Qt.WindowType.Window)
         self._applying_summary_palette = False
         self._summary_provider = summary_provider
+        self._has_any_history = has_any_history
         self._delete_day_callback = delete_day
         self._delete_all_callback = delete_all
         self._setup_names = setup_names
@@ -121,20 +122,31 @@ class WorkdaySummaryDialog(QDialog):
         daily_metrics_layout.setContentsMargins(0, 0, 0, 0)
         daily_metrics_layout.setHorizontalSpacing(SPACE_SM)
         daily_metrics_layout.setVerticalSpacing(SPACE_SM)
+        # Breaks lead; nudges and tracked time are the quieter second row.
+        self.daily_breaks_metric = SummaryMetric(tr("Breaks"))
+        self.daily_moved_metric = SummaryMetric(tr("Minutes moved"))
+        self.daily_eye_metric = SummaryMetric(tr("Eye breaks"))
+        self.no_breaks_label = QLabel()
+        self.no_breaks_label.setWordWrap(True)
+        self.daily_nudges_metric = SummaryMetric(
+            tr("Nudges"), secondary=True
+        )
         self.daily_tracked_metric = SummaryMetric(
-            tr("Tracked posture time")
+            tr("Tracked posture time"), secondary=True
         )
-        self.daily_notifications_metric = SummaryMetric(
-            tr("Notifications")
-        )
-        daily_metrics_layout.addWidget(self.daily_tracked_metric, 0, 0)
-        daily_metrics_layout.addWidget(
-            self.daily_notifications_metric,
-            0,
-            1,
-        )
-        daily_metrics_layout.setColumnStretch(0, 1)
-        daily_metrics_layout.setColumnStretch(1, 1)
+        for column, metric in enumerate(
+            (
+                self.daily_breaks_metric,
+                self.daily_moved_metric,
+                self.daily_eye_metric,
+            )
+        ):
+            daily_metrics_layout.addWidget(metric, 0, column)
+        daily_metrics_layout.addWidget(self.no_breaks_label, 0, 0, 1, 3)
+        daily_metrics_layout.addWidget(self.daily_nudges_metric, 1, 0)
+        daily_metrics_layout.addWidget(self.daily_tracked_metric, 1, 1)
+        for column in range(3):
+            daily_metrics_layout.setColumnStretch(column, 1)
         day_layout.addWidget(self.daily_metrics_container)
 
         self.empty_state_container = QWidget()
@@ -211,7 +223,7 @@ class WorkdaySummaryDialog(QDialog):
                 tr("Started"),
                 tr("Duration"),
                 tr("Posture"),
-                tr("Highest reminder stage"),
+                tr("Strongest nudge"),
                 tr("Setup"),
             ]
         )
@@ -250,17 +262,17 @@ class WorkdaySummaryDialog(QDialog):
         )
         weekly_metrics_layout.setContentsMargins(0, 0, 0, 0)
         weekly_metrics_layout.setHorizontalSpacing(SPACE_SM)
+        self.weekly_breaks_metric = SummaryMetric(tr("Breaks"))
         self.weekly_tracked_metric = SummaryMetric(
             tr("Tracked posture time")
         )
-        self.weekly_notifications_metric = SummaryMetric(
-            tr("Notifications")
-        )
+        self.weekly_nudges_metric = SummaryMetric(tr("Nudges"))
         self.weekly_days_metric = SummaryMetric(tr("Days with data"))
         for column, metric in enumerate(
             (
+                self.weekly_breaks_metric,
                 self.weekly_tracked_metric,
-                self.weekly_notifications_metric,
+                self.weekly_nudges_metric,
                 self.weekly_days_metric,
             )
         ):
@@ -277,12 +289,13 @@ class WorkdaySummaryDialog(QDialog):
         self.weekly_table_label = QLabel(tr("Daily totals"))
         apply_text_role(self.weekly_table_label, TextRole.HEADING)
         week_layout.addWidget(self.weekly_table_label)
-        self.weekly_table = QTableWidget(0, 3)
+        self.weekly_table = QTableWidget(0, 4)
         self.weekly_table.setHorizontalHeaderLabels(
             [
                 tr("Date"),
+                tr("Breaks"),
                 tr("Tracked posture time"),
-                tr("Notifications"),
+                tr("Nudges"),
             ]
         )
         self.weekly_table.setEditTriggers(
@@ -301,7 +314,7 @@ class WorkdaySummaryDialog(QDialog):
             0,
             QHeaderView.ResizeMode.Stretch,
         )
-        for column in range(1, 3):
+        for column in range(1, 4):
             weekly_header.setSectionResizeMode(
                 column,
                 QHeaderView.ResizeMode.ResizeToContents,
@@ -320,9 +333,10 @@ class WorkdaySummaryDialog(QDialog):
         self.delete_day_button.clicked.connect(self._delete_selected_day)
         self.delete_all_button = QPushButton(tr("Delete all history"))
         self.delete_all_button.clicked.connect(self._delete_all_history)
+        # The irreversible action sits apart, at the far edge.
         controls.addWidget(self.delete_day_button)
-        controls.addWidget(self.delete_all_button)
         controls.addStretch()
+        controls.addWidget(self.delete_all_button)
         layout.addLayout(controls)
 
         self.delete_confirmation = SemanticLabel(tone="safety")
@@ -349,31 +363,17 @@ class WorkdaySummaryDialog(QDialog):
         self.refresh_timer.timeout.connect(self._refresh_today)
         self.refresh_timer.start()
         self._selected_day_has_data = False
-        self._any_history = self._probe_history()
+        self._any_history = False
         self.refresh()
         # Start on the tabs, not in the date field with a segment selected.
         self.period_tabs.setFocus()
 
-    def _probe_history(self) -> bool:
-        """Whether any day in the retention window holds history.
-
-        ponytail: history.py has no "is empty" query, so this walks the days
-        back until one has data. Add a store-level count if it gets slow.
-        """
-        today = datetime.now().astimezone().date()
-        try:
-            return any(
-                (summary := self._summary_provider(
-                    today - timedelta(days=offset)
-                )).tracked_seconds
-                or summary.episodes
-                or summary.reminder_count
-                for offset in range(HISTORY_PROBE_DAYS + 1)
-            )
-        except HistoryStorageError:
-            return True  # unknown: leave deletion available
-
     def _sync_delete_all_button(self) -> None:
+        if self._has_any_history is not None:
+            try:
+                self._any_history = self._has_any_history()
+            except HistoryStorageError:
+                self._any_history = True  # unknown: leave deletion available
         if self._pending_delete is None:
             self.delete_all_button.setEnabled(self._any_history)
 
@@ -465,31 +465,49 @@ class WorkdaySummaryDialog(QDialog):
         self.posture_chart.set_summary(summary)
         self.empty_state.set_semantic_tone("info")
         self.empty_state.setText(self._empty_state_text)
-        self._selected_day_has_data = tracked > 0 or bool(summary.episodes)
+        has_posture = tracked > 0 or bool(summary.episodes)
+        self._selected_day_has_data = has_posture or bool(summary.breaks)
         self.empty_state_container.setVisible(
             not self._selected_day_has_data
         )
         self.daily_metrics_container.setVisible(
             self._selected_day_has_data
         )
-        self.totals_group.setVisible(self._selected_day_has_data)
-        self.chart_group.setVisible(self._selected_day_has_data)
-        self.timeline_group.setVisible(self._selected_day_has_data)
-        self.period_tabs.setTabEnabled(
-            self.timeline_tab_index,
-            self._selected_day_has_data,
-        )
+        self.totals_group.setVisible(has_posture)
+        self.chart_group.setVisible(has_posture)
+        self.timeline_group.setVisible(has_posture)
+        self.period_tabs.setTabEnabled(self.timeline_tab_index, has_posture)
         if (
-            not self._selected_day_has_data
+            not has_posture
             and self.period_tabs.currentIndex() == self.timeline_tab_index
         ):
             self.period_tabs.setCurrentIndex(self.day_tab_index)
         if self._pending_delete is None:
             self.delete_day_button.setEnabled(self._selected_day_has_data)
-        self.daily_tracked_metric.set_value(format_duration(tracked))
-        self.daily_notifications_metric.set_value(
-            ui_locale().toString(summary.reminder_count)
+
+        stats = daily_break_stats(summary)
+        locale = ui_locale()
+        for metric in (
+            self.daily_breaks_metric,
+            self.daily_moved_metric,
+            self.daily_eye_metric,
+        ):
+            metric.setVisible(stats.count > 0)
+        self.no_breaks_label.setVisible(stats.count == 0)
+        self.no_breaks_label.setText(
+            tr("No breaks logged yet today")
+            if summary.local_date == datetime.now().astimezone().date()
+            else tr("No breaks logged this day")
         )
+        self.daily_breaks_metric.set_value(locale.toString(stats.count))
+        self.daily_moved_metric.set_value(
+            locale.toString(stats.minutes_moved)
+        )
+        self.daily_eye_metric.set_value(locale.toString(stats.eye_breaks))
+        self.daily_nudges_metric.set_value(
+            locale.toString(summary.reminder_count)
+        )
+        self.daily_tracked_metric.set_value(format_duration(tracked))
         self._any_history = self._any_history or self._selected_day_has_data
         self._sync_delete_all_button()
         for posture, _title in SUMMARY_POSTURES:
@@ -554,10 +572,13 @@ class WorkdaySummaryDialog(QDialog):
                 ),
             )
         )
+        self.weekly_breaks_metric.set_value(
+            ui_locale().toString(summary.break_count)
+        )
         self.weekly_tracked_metric.set_value(
             format_duration(summary.tracked_seconds)
         )
-        self.weekly_notifications_metric.set_value(
+        self.weekly_nudges_metric.set_value(
             ui_locale().toString(summary.reminder_count)
         )
         self.weekly_days_metric.set_value(
@@ -568,16 +589,18 @@ class WorkdaySummaryDialog(QDialog):
         self.weekly_chart.set_summary(summary)
 
         self.weekly_table.setRowCount(7)
-        for row, (day, totals, reminders) in enumerate(
+        for row, (day, totals, reminders, breaks) in enumerate(
             zip(
                 summary.dates,
                 summary.daily_totals,
                 summary.daily_reminders,
+                summary.daily_breaks,
                 strict=True,
             )
         ):
             values = (
                 self._localized_date(day, "ddd, d MMM"),
+                ui_locale().toString(breaks),
                 format_duration(sum(totals.values())),
                 ui_locale().toString(reminders),
             )
@@ -655,7 +678,8 @@ class WorkdaySummaryDialog(QDialog):
                 self._delete_day_callback(selected_date)
             elif action == "all":
                 self._delete_all_callback()
-            self._any_history = self._probe_history()
+            # Without a store query the next refresh re-derives this.
+            self._any_history = False
             self.refresh()
             self._cancel_history_delete()
         except HistoryStorageError as error:

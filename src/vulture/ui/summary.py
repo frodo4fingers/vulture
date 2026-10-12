@@ -17,11 +17,13 @@ from PySide6.QtCore import (
     QEvent,
     QLocale,
     Qt,
+    Slot,
 )
 from PySide6.QtGui import (
     QBrush,
     QColor,
     QCursor,
+    QFontMetrics,
     QPainter,
     QPalette,
     QPen,
@@ -36,6 +38,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from vulture.breaks import BreakChannel
 from vulture.history import (
     BASELINE_POSTURE,
     DailyPostureSummary,
@@ -72,8 +75,8 @@ _UI_LOCALE_NAMES = {
     InterfaceLanguage.SPANISH: "es_ES",
 }
 REMINDER_STAGE_TITLES = {
-    TrackerState.GOOD: "No reminder",
-    TrackerState.WARNING: "Warning",
+    TrackerState.GOOD: "No nudge",
+    TrackerState.WARNING: "Gentle nudge",
     TrackerState.ALERT: "Notification",
 }
 
@@ -97,6 +100,30 @@ class RollingWeekData:
     tracked_seconds: float
     reminder_count: int
     days_with_data: int
+    daily_breaks: tuple[int, ...] = ()
+    break_count: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class DailyBreakStats:
+    count: int
+    minutes_moved: int
+    eye_breaks: int
+
+
+def daily_break_stats(summary: DailyPostureSummary) -> DailyBreakStats:
+    moved_seconds = sum(
+        event.duration_seconds
+        for event in summary.breaks
+        if event.kind == "movement"
+    )
+    return DailyBreakStats(
+        count=len(summary.breaks),
+        minutes_moved=int(moved_seconds / 60 + 0.5),
+        eye_breaks=sum(
+            event.channel == BreakChannel.EYE for event in summary.breaks
+        ),
+    )
 
 
 def ui_locale() -> QLocale:
@@ -141,6 +168,15 @@ def _normalized_posture_totals(
     return totals
 
 
+def break_summary_text(stats: DailyBreakStats) -> str:
+    return tr(
+        "Breaks: {count}; minutes moved: {minutes}; eye breaks: {eye}.",
+        count=stats.count,
+        minutes=stats.minutes_moved,
+        eye=stats.eye_breaks,
+    )
+
+
 def build_rolling_week_data(
     end_date: date,
     summaries: tuple[DailyPostureSummary, ...],
@@ -160,6 +196,7 @@ def build_rolling_week_data(
         posture: sum(day[posture] for day in daily_totals)
         for posture, _title in SUMMARY_POSTURES
     }
+    daily_breaks = tuple(len(summary.breaks) for summary in summaries)
     return RollingWeekData(
         start_date=dates[0],
         end_date=end_date,
@@ -180,9 +217,12 @@ def build_rolling_week_data(
                 summary.tracked_seconds
                 or summary.episodes
                 or summary.reminder_count
+                or summary.breaks
             )
             for summary in summaries
         ),
+        daily_breaks=daily_breaks,
+        break_count=sum(daily_breaks),
     )
 
 
@@ -302,6 +342,8 @@ class SummaryMetric(QFrame):
         self,
         caption: str,
         parent: QWidget | None = None,
+        *,
+        secondary: bool = False,
     ) -> None:
         super().__init__(parent)
         self._caption = caption
@@ -313,7 +355,10 @@ class SummaryMetric(QFrame):
         layout.setContentsMargins(SPACE_MD, SPACE_XS, SPACE_MD, SPACE_XS)
         layout.setSpacing(0)
         self.value_label = QLabel()
-        apply_text_role(self.value_label, TextRole.HEADING)
+        apply_text_role(
+            self.value_label,
+            TextRole.BODY_STRONG if secondary else TextRole.HEADING,
+        )
         layout.addWidget(self.value_label)
         self.caption_label = CaptionLabel(caption)
         layout.addWidget(self.caption_label)
@@ -415,6 +460,9 @@ class _StackedColumnChart(QChartView):
         super().__init__(QChart(), parent)
         self._bar_sets: list[tuple[str, QBarSet]] = []
         self._tooltip_for = None
+        self._label_axis: QBarCategoryAxis | None = None
+        self._label_sample = ""
+        self._label_count = 0
         self.setRenderHint(QPainter.RenderHint.Antialiasing)
         self.setMinimumHeight(min_height)
         self.chart().setBackgroundVisible(False)
@@ -448,12 +496,51 @@ class _StackedColumnChart(QChartView):
             axis.setLinePenColor(axis_line)
             axis.setGridLineColor(grid)
 
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        self._fit_labels()
+
+    def _fit_labels(self) -> None:
+        """Horizontal category labels when they fit a column, else upright."""
+        axis = self._label_axis
+        if axis is None or not self._label_count:
+            return
+        # ponytail: plot width approximated as the view minus axis margins.
+        column = (self.width() - 80) / self._label_count
+        needed = QFontMetrics(axis.labelsFont()).horizontalAdvance(
+            self._label_sample
+        )
+        # Qt elides a label that fills its whole column, so keep some air.
+        axis.setLabelsAngle(0 if column >= needed * 1.4 + SPACE_SM else -90)
+
+    def _set_label_axis(
+        self, axis: QBarCategoryAxis, sample: str, count: int
+    ) -> None:
+        self._label_axis = axis
+        self._label_sample = sample
+        self._label_count = count
+        self._fit_labels()
+
+    @Slot(bool)
+    def _on_marker_hover(self, status: bool) -> None:
+        # Legend entries elide when crowded; the marker keeps the full text.
+        marker = self.sender()
+        if status and marker is not None:
+            QToolTip.showText(QCursor.pos(), marker.label(), self)
+        else:
+            QToolTip.hideText()
+
+    def _watch_legend(self) -> None:
+        for marker in self.chart().legend().markers():
+            marker.hovered.connect(self._on_marker_hover)
+
     def clear(self) -> None:
         chart = self.chart()
         chart.removeAllSeries()
         for axis in chart.axes():
             chart.removeAxis(axis)
             axis.deleteLater()
+        self._label_axis = None
         self._bar_sets.clear()
         chart.setTitle("")
         chart.legend().setVisible(False)
@@ -553,9 +640,9 @@ class PostureAreaChart(_StackedColumnChart):
         x_axis = QBarCategoryAxis()
         x_axis.setTitleText(tr("Time of day"))
         x_axis.append(categories)
-        if not every_bucket:
-            # Labels are clipped to one column's width unless turned upright.
-            x_axis.setLabelsAngle(-90)
+        # Labels are clipped to one column's width, so they only turn
+        # upright once the columns are too narrow for "00:00".
+        self._set_label_axis(x_axis, "00:00", bucket_count)
         y_axis = QValueAxis()
         y_axis.setTitleText(tr("Tracked minutes"))
         y_axis.setRange(0, SUMMARY_CHART_BUCKET_SECONDS / 60)
@@ -568,17 +655,19 @@ class PostureAreaChart(_StackedColumnChart):
         series.attachAxis(y_axis)
         chart.legend().setVisible(True)
         chart.legend().setAlignment(Qt.AlignmentFlag.AlignBottom)
-        self.setAccessibleDescription(
-            tr(
-                "Tracked from {start} to {end}. {details}",
-                start=_clock_label(area_data.start_hour),
-                end=_clock_label(area_data.end_hour),
-                details="; ".join(
-                    f"{title} {format_duration(seconds)}"
-                    for title, seconds in totals
-                ),
-            )
+        self._watch_legend()
+        description = tr(
+            "Tracked from {start} to {end}. {details}",
+            start=_clock_label(area_data.start_hour),
+            end=_clock_label(area_data.end_hour),
+            details="; ".join(
+                f"{title} {format_duration(seconds)}"
+                for title, seconds in totals
+            ),
         )
+        if summary.breaks:
+            description += " " + break_summary_text(daily_break_stats(summary))
+        self.setAccessibleDescription(description)
         self._apply_palette()
 
 
@@ -674,21 +763,36 @@ class RollingWeekChart(_StackedColumnChart):
         series.attachAxis(minutes_axis)
         chart.legend().setVisible(True)
         chart.legend().setAlignment(Qt.AlignmentFlag.AlignTop)
-        self.setAccessibleDescription(
-            tr(
-                "Last 7 days. {details}",
+        self._watch_legend()
+        self._set_label_axis(
+            date_axis,
+            max(day_labels, key=len),
+            len(day_labels),
+        )
+        description = tr(
+            "Last 7 days. {details}",
+            details="; ".join(
+                tr(
+                    "{day}: {tracked} tracked, {baseline} within baseline",
+                    day=label,
+                    tracked=format_duration(sum(totals.values())),
+                    baseline=format_duration(totals[BASELINE_POSTURE]),
+                )
+                for label, totals in zip(
+                    day_labels, summary.daily_totals, strict=True
+                )
+                if sum(totals.values()) > 0
+            ),
+        )
+        if summary.break_count:
+            description += " " + tr(
+                "Breaks per day: {details}.",
                 details="; ".join(
-                    tr(
-                        "{day}: {tracked} tracked, {baseline} within baseline",
-                        day=label,
-                        tracked=format_duration(sum(totals.values())),
-                        baseline=format_duration(totals[BASELINE_POSTURE]),
+                    f"{label} {count}"
+                    for label, count in zip(
+                        day_labels, summary.daily_breaks, strict=True
                     )
-                    for label, totals in zip(
-                        day_labels, summary.daily_totals, strict=True
-                    )
-                    if sum(totals.values()) > 0
                 ),
             )
-        )
+        self.setAccessibleDescription(description)
         self._apply_palette()

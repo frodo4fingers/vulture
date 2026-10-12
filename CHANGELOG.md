@@ -13,6 +13,15 @@ Notable user-visible changes are recorded here.
   then go" heading and large countdown for standing walk-away movements.
 - A calibration option to play sound cues, under **Settings → General**.
 - Screen-reader announcements during calibration recording.
+- Completed movement and rest breaks are stored in the local workday history
+  when posture history is enabled. Deleting a day or all history, and
+  retention pruning, remove them too. The history schema version is unchanged.
+- The workday summary's day overview leads with **Breaks**, **Minutes moved**,
+  and **Eye breaks**, followed by **Nudges** and **Tracked posture time**. The
+  seven-day report shows the breaks for each day.
+- Completed breaks show "Nice work — that's N breaks today." when history is
+  enabled.
+- The evidence and safety window has an **On this page** list of its sections.
 
 ### Changed
 
@@ -33,6 +42,24 @@ Notable user-visible changes are recorded here.
   safety line.
 - **Done** shows a short acknowledgement. No button is the default, so Enter
   cannot complete a break.
+- Movement and rest breaks both use break mode. Before **Start**, a break
+  offers **Start** and a **Not now** menu (**Later** for movements, **Skip**,
+  and **Swap…**). While a timer runs, only **Stop early** is shown, and
+  **Done** appears when the time is up. **Later** and Esc do nothing while a
+  timer runs.
+- Walk-away movements show the countdown large, with the demonstration video
+  as a small thumbnail.
+- Settings uses "Nudge me after" and "Send a notification after" for the two
+  alert delays. The alert state is deep ochre instead of red, and the workday
+  summary labels the warning state "Gentle nudge".
+- Calibration copy uses neutral "posture examples".
+- Countdown digits use the UI font with tabular figures, so they do not shift
+  as they change.
+- The workday summary's posture chart uses stacked 15-minute columns in the
+  calm palette.
+- The first-run screen uses a light card instead of the black camera well, and
+  initial keyboard focus goes to **Add camera setup**. The footer disclaimer
+  is hidden while a side panel is open.
 
 ## 0.6.0 - 2026-08-19
 

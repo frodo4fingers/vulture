@@ -126,6 +126,7 @@ class MainWindow(
         self._state = TrackerState.STOPPED
         self._status_message = ""
         self._break_due_announced = False
+        self._break_minute_announced = False
         self._history_error: str | None = None
         self._history_disabled_for_session = bool(
             runtime_state

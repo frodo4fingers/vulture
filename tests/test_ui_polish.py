@@ -119,7 +119,9 @@ def test_break_panels_have_unique_mnemonics_and_tab_order(
     )
     exercise_dialog.show()
     keys = _mnemonics(exercise_dialog)
-    assert len(keys) == len(set(keys)) >= 4
+    # Before Start only Start and "Not now" show; the menu actions carry
+    # their own mnemonics (covered in test_ui_r2_break.py).
+    assert len(keys) == len(set(keys)) >= 2
 
     rest = RestBreakDialog(
         manual_break_prompt(ManualBreakChoice.STAND, BreakPreferences()),
@@ -127,7 +129,7 @@ def test_break_panels_have_unique_mnemonics_and_tab_order(
     )
     rest.show()
     keys = _mnemonics(rest)
-    assert len(keys) == len(set(keys)) >= 3
+    assert len(keys) == len(set(keys)) >= 2
     assert rest.start_button.nextInFocusChain() is not None
     exercise_dialog.close()
     rest.close()

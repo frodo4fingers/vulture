@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import re
-import time
 
 from PySide6.QtCore import QSize, Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import (
@@ -22,8 +21,6 @@ from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
-    QProgressBar,
-    QPushButton,
     QSizePolicy,
     QTextBrowser,
     QToolButton,
@@ -44,13 +41,7 @@ from .common import (
     SemanticLabel,
     set_accessible_link_palette,
 )
-from .break_options import (
-    AlternativeBreakPicker,
-    announce,
-    assign_mnemonics,
-    format_countdown,
-    set_primary,
-)
+from .break_options import BreakPanel
 from .theme import (
     CONTROL_SPACING,
     EVIDENCE_MIN_SIZE,
@@ -62,10 +53,7 @@ from .theme import (
     RADIUS_MD,
     SECTION_SPACING,
     SPACE_MD,
-    SPACE_SM,
     SPACE_XS,
-    CaptionLabel,
-    Separator,
     TextRole,
     apply_text_role,
     role_font,
@@ -73,10 +61,9 @@ from .theme import (
 
 
 EXERCISE_POSTPONE_MINUTES = 10
-COMPLETION_ACK_MS = 1500
-# The walk-away countdown must be readable from across the room.
-COUNTDOWN_SCALE = 2.5
 MEDIA_HINT_WIDTH = 480
+# A walk-away break leads with its timer; the clip is a small reminder loop.
+THUMBNAIL_SHARE = 0.3
 
 _DURATION_AT_END = re.compile(
     r"(\d+)(?:\s*[-–]\s*(\d+))?\s*(min|sek|sec|seg)\w*\s*$",
@@ -203,11 +190,7 @@ class ExerciseOutcome:
     ALTERNATIVE = "alternative"
 
 
-class ExerciseDialog(QDialog):
-    # The shell collapses the camera workspace while a dialog with this flag
-    # sits in the side panel.
-    wants_break_mode = True
-
+class ExerciseDialog(BreakPanel):
     def __init__(
         self,
         exercise: Exercise,
@@ -216,23 +199,21 @@ class ExerciseDialog(QDialog):
         *,
         alternative_choices: tuple[ManualBreakChoice, ...] = (),
         show_full_safety: bool = False,
+        breaks_today: int | None = None,
     ) -> None:
-        super().__init__(parent)
+        duration = dose_duration_seconds(exercise.dose)
+        super().__init__(
+            exercise.title, duration, parent, breaks_today=breaks_today
+        )
         self.exercise = exercise
         self.catalog = catalog
         self.show_full_safety = show_full_safety
         self.player: QMediaPlayer | None = None
         self.outcome = ExerciseOutcome.POSTPONED
         self.selected_choice: ManualBreakChoice | None = None
-        self._duration = dose_duration_seconds(exercise.dose)
-        self._set_count = None if self._duration else dose_set_count(
-            exercise.dose
-        )
+        self._set_count = None if duration else dose_set_count(exercise.dose)
         # A timed standing movement takes you away from the desk.
-        self.walk_away = (
-            self._duration is not None and "standing" in exercise.tags
-        )
-        self._deadline: float | None = None
+        self.walk_away = duration is not None and "standing" in exercise.tags
         self.setWindowTitle(
             tr("Movement break: {exercise}", exercise=exercise.title)
         )
@@ -241,6 +222,16 @@ class ExerciseDialog(QDialog):
         layout = QVBoxLayout(self)
         # Break mode is height-constrained, so the gaps use the tighter step.
         layout.setSpacing(CONTROL_SPACING)
+
+        self.running_note = SemanticLabel(
+            tr("Off you go. Come back when the timer ends."),
+            tone="info",
+        )
+        self.running_note.hide()
+        layout.addWidget(self.running_note)
+        if self.walk_away:
+            # Timer hero: the countdown leads, the clip is a reminder.
+            layout.addWidget(self.countdown_block)
 
         # Everything that is shown before you start; hidden while you walk.
         self.preview = QWidget()
@@ -254,6 +245,8 @@ class ExerciseDialog(QDialog):
 
         media = exercise_media_path(exercise)
         self.video: ExerciseMedia | None = None
+        self._thumbnail: MediaFrame | None = None
+        frame: MediaFrame | None = None
         self.playback_button = QToolButton()
         self.playback_button.setAutoRaise(True)
         self.playback_button.clicked.connect(self._toggle_playback)
@@ -266,7 +259,7 @@ class ExerciseDialog(QDialog):
                 )
             )
             self.video.toggle_requested.connect(self._toggle_playback)
-            preview_layout.addWidget(MediaFrame(self.video), 1)
+            frame = MediaFrame(self.video)
             # No audio output is attached: the clips are silent by design.
             self.player = QMediaPlayer(self)
             self.player.setVideoOutput(self.video)
@@ -282,19 +275,15 @@ class ExerciseDialog(QDialog):
         media_row.setContentsMargins(0, 0, 0, 0)
         media_row.setSpacing(CONTROL_SPACING)
         if self.player is not None:
-            media_row.addWidget(self.playback_button)
+            media_row.addWidget(
+                self.playback_button, 0, Qt.AlignmentFlag.AlignLeft
+            )
         dose = QLabel(exercise.dose)
         dose.setWordWrap(True)
         apply_text_role(dose, TextRole.BODY_STRONG)
+        # "5 minutes" is already the countdown; print the time once.
+        dose.setVisible(_DURATION_AT_END.match(exercise.dose) is None)
         media_row.addWidget(dose, 1)
-        self.alternative_picker = AlternativeBreakPicker(
-            alternative_choices
-        )
-        self.alternative_picker.choice_selected.connect(
-            self._choose_alternative
-        )
-        media_row.addWidget(self.alternative_picker)
-        preview_layout.addLayout(media_row)
 
         steps = ContentHeightTextBrowser()
         steps.setOpenExternalLinks(True)
@@ -303,10 +292,25 @@ class ExerciseDialog(QDialog):
             f"<li>{step}</li>" for step in exercise.steps
         )
         steps.setHtml(f"<ol>{step_html}</ol>")
-        preview_layout.addWidget(steps)
-        # The preview (and its video) soaks up the spare height; the stretch
-        # below only matters once the preview is hidden mid-walk.
-        layout.addWidget(self.preview, 1)
+        if self.walk_away:
+            beside = QHBoxLayout()
+            beside.setContentsMargins(0, 0, 0, 0)
+            beside.setSpacing(SECTION_SPACING)
+            if frame is not None and self.video is not None:
+                self.video.setMinimumSize(1, 1)
+                self._thumbnail = frame
+                beside.addWidget(frame, 0, Qt.AlignmentFlag.AlignTop)
+            beside.addWidget(steps, 1, Qt.AlignmentFlag.AlignTop)
+            preview_layout.addLayout(beside)
+            preview_layout.addLayout(media_row)
+            layout.addWidget(self.preview)
+        else:
+            if frame is not None:
+                preview_layout.addWidget(frame, 1)
+            preview_layout.addLayout(media_row)
+            preview_layout.addWidget(steps)
+            # The preview (and its video) soaks up the spare height.
+            layout.addWidget(self.preview, 1)
 
         self.set_checkboxes: list[QCheckBox] = []
         if self._set_count:
@@ -320,30 +324,14 @@ class ExerciseDialog(QDialog):
             checklist.addStretch(1)
             layout.addLayout(checklist)
 
-        self.countdown_block = QWidget()
-        self.countdown = QLabel()
-        self.countdown_caption = CaptionLabel("")
-        self.progress = QProgressBar()
-        self.running_note = SemanticLabel(
-            tr("Off you go. Come back when the timer ends."),
-            tone="info",
-        )
-        if self._duration:
-            self._build_countdown_block(self._duration)
-            layout.addWidget(self.running_note)
+        if duration and not self.walk_away:
             layout.addWidget(self.countdown_block)
-            self.running_note.hide()
-            if self.walk_away:
-                self.countdown_block.hide()
 
-        safety_text = tr(
+        self._short_safety_text = tr(
             "<b>Safety:</b> {safety}", safety=exercise.safety
         )
-        self._short_safety_text = safety_text
-        if show_full_safety:
-            safety_text += f"<br><br>{catalog.global_safety}"
         self.safety = SemanticLabel(
-            safety_text,
+            self._short_safety_text,
             tone="safety",
             role=TextRole.CAPTION,
         )
@@ -400,124 +388,43 @@ class ExerciseDialog(QDialog):
         details_layout.addWidget(self.disclaimer)
         self.details_panel.hide()
         layout.addWidget(self.details_panel)
+        self._show_global_safety_inline(show_full_safety)
 
-        layout.addStretch(0)
+        layout.addStretch(1 if self.walk_away else 0)
+        self._add_footer(layout, alternative_choices, offer_later=True)
 
-        self.completion_note = SemanticLabel(
-            tr("Nice work — break done."),
-            tone="good",
-            role=TextRole.HEADING,
-        )
-        self.completion_note.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.completion_note.hide()
-        layout.addWidget(self.completion_note)
-
-        layout.addWidget(Separator())
-        # Primary Start/Done, then Later and Skip: at most four exits.
-        self.actions = QWidget()
-        button_row = QHBoxLayout(self.actions)
-        button_row.setContentsMargins(0, 0, 0, 0)
-        button_row.setSpacing(SPACE_SM)
-        self.start_button = QPushButton(tr("Start"))
-        self.start_button.clicked.connect(self._start_timer)
-        button_row.addWidget(self.start_button)
-        self.done_button = QPushButton(tr("Done"))
-        self.done_button.clicked.connect(self._finish)
-        button_row.addWidget(self.done_button)
-        button_row.addStretch(1)
-        self.postpone_button = QPushButton(tr("Remind me later"))
-        self.postpone_button.setAutoDefault(False)
-        self.postpone_button.clicked.connect(self._postpone)
-        button_row.addWidget(self.postpone_button)
-        self.skip_button = QPushButton(tr("Skip"))
-        self.skip_button.setAutoDefault(False)
-        self.skip_button.clicked.connect(self._skip)
-        button_row.addWidget(self.skip_button)
-        layout.addWidget(self.actions)
-        self.start_button.setVisible(self._duration is not None)
-        set_primary(self.start_button, True)
-        set_primary(self.done_button, self._duration is None)
-        assign_mnemonics(
-            self.start_button,
-            self.done_button,
-            self.alternative_picker,
-            self.postpone_button,
-            self.skip_button,
-        )
         order = [
             self.video,
             self.playback_button if self.player is not None else None,
-            self.alternative_picker,
             *self.set_checkboxes,
             self.start_button,
             self.done_button,
-            self.postpone_button,
-            self.skip_button,
+            self.stop_button,
+            self.not_now_button,
             self.details_toggle,
         ]
         order = [widget for widget in order if widget is not None]
         for first, second in zip(order, order[1:]):
             QWidget.setTabOrder(first, second)
 
-        self._timer = QTimer(self)
-        self._timer.setInterval(250)
-        self._timer.timeout.connect(self._update_countdown)
-        self._ack_timer = QTimer(self)
-        self._ack_timer.setSingleShot(True)
-        self._ack_timer.setInterval(COMPLETION_ACK_MS)
-        self._ack_timer.timeout.connect(self.accept)
+    def resizeEvent(self, event: QResizeEvent) -> None:
+        super().resizeEvent(event)
+        if self._thumbnail is not None:
+            self._thumbnail.setFixedWidth(
+                round(self.width() * THUMBNAIL_SHARE)
+            )
 
-    def _build_countdown_block(self, seconds: int) -> None:
-        block = QVBoxLayout(self.countdown_block)
-        block.setContentsMargins(0, SPACE_SM, 0, 0)
-        block.setSpacing(0)
-        self.countdown.setText(format_countdown(seconds))
-        font = role_font(TextRole.DISPLAY)
-        if font.pointSizeF() > 0:
-            font.setPointSizeF(font.pointSizeF() * COUNTDOWN_SCALE)
-        self.countdown.setFont(font)
-        self.countdown.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.countdown.setAccessibleName(tr("Time remaining"))
-        block.addWidget(self.countdown)
-        self.countdown_caption.setText(tr("suggested"))
-        self.countdown_caption.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        block.addWidget(self.countdown_caption)
-        self.progress.setRange(0, seconds)
-        self.progress.setValue(0)
-        self.progress.setTextVisible(False)
-        self.progress.setFixedHeight(SPACE_SM)
-        self.progress.setAccessibleName(tr("Break progress"))
-        block.addWidget(self.progress)
+    def _started(self) -> None:
+        if not self.walk_away:
+            return
+        # Hand over to the glanceable countdown; the clip is no longer
+        # needed and would only spend CPU unseen.
+        if self.player is not None:
+            self.player.pause()
+        self.preview.hide()
+        self.running_note.show()
 
-    def _start_timer(self) -> None:
-        if self._duration is None or self._deadline is not None:
-            return
-        self._deadline = time.monotonic() + self._duration
-        self.start_button.hide()
-        self.countdown_caption.setText(tr("remaining"))
-        self.countdown_block.show()
-        if self.walk_away:
-            # Hand over to the glanceable countdown; the clip is no longer
-            # needed and would only spend CPU unseen.
-            if self.player is not None:
-                self.player.pause()
-            self.preview.hide()
-            self.running_note.show()
-        self._timer.start()
-        self._update_countdown()
-
-    def _update_countdown(self) -> None:
-        if self._deadline is None or self._duration is None:
-            return
-        remaining = max(0.0, self._deadline - time.monotonic())
-        self.countdown.setText(format_countdown(remaining))
-        self.progress.setValue(round(self._duration - remaining))
-        if remaining > 0:
-            return
-        self._timer.stop()
-        self.countdown_caption.setText(tr("Suggested time complete"))
-        set_primary(self.done_button, True)
-        announce(self.countdown, tr("Suggested time complete"))
+    def _time_up(self) -> None:
         if self.walk_away:
             QApplication.beep()
 
@@ -542,6 +449,14 @@ class ExerciseDialog(QDialog):
         else:
             self.player.play()
 
+    def _show_global_safety_inline(self, inline: bool) -> None:
+        """Show the general policy once: inline, or under the disclosure."""
+        text = self._short_safety_text
+        if inline:
+            text += f"<br><br>{self.catalog.global_safety}"
+        self.safety.setText(text)
+        self.global_safety.setVisible(not inline)
+
     def showEvent(self, event: QShowEvent) -> None:
         super().showEvent(event)
         if self.show_full_safety:
@@ -558,7 +473,7 @@ class ExerciseDialog(QDialog):
             and self.layout().totalMinimumHeightForWidth(self.width())
             > viewport.height()
         ):
-            self.safety.setText(self._short_safety_text)
+            self._show_global_safety_inline(False)
 
     def _set_details_expanded(self, expanded: bool) -> None:
         self.details_panel.setVisible(expanded)
@@ -568,25 +483,6 @@ class ExerciseDialog(QDialog):
             else Qt.ArrowType.RightArrow
         )
         self.updateGeometry()
-
-    def _finish(self) -> None:
-        """Acknowledge the finished break calmly, then close.
-
-        The outcome is recorded immediately so closing the panel during the
-        acknowledgement still logs the break as done. A static message keeps
-        this free of animation, so there is nothing to reduce.
-        """
-        if self._ack_timer.isActive():
-            return
-        self.outcome = ExerciseOutcome.COMPLETED
-        self._timer.stop()
-        self.actions.setEnabled(False)
-        self.completion_note.show()
-        self._ack_timer.start()
-
-    def _complete(self) -> None:
-        self.outcome = ExerciseOutcome.COMPLETED
-        self.accept()
 
     def _postpone(self) -> None:
         self.outcome = ExerciseOutcome.POSTPONED
@@ -611,8 +507,6 @@ class ExerciseDialog(QDialog):
         super().closeEvent(event)
 
     def done(self, result: int) -> None:
-        self._timer.stop()
-        self._ack_timer.stop()
         if self.player is not None:
             self.player.stop()
         super().done(result)
@@ -630,7 +524,7 @@ class EvidenceDialog(QDialog):
         self.resize(EVIDENCE_SIZE)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(SPACE_MD, SPACE_MD, SPACE_MD, SPACE_MD)
-        browser = QTextBrowser()
+        self.browser = browser = QTextBrowser()
         browser.setOpenExternalLinks(True)
         set_accessible_link_palette(browser)
         # Headings follow the HEADING type role instead of the browser's
@@ -654,59 +548,88 @@ class EvidenceDialog(QDialog):
             )
             for source in catalog.sources
         )
+        sections = [
+            (
+                "scope",
+                tr("Scope"),
+                "<p>"
+                + tr(
+                    "Vulture compares webcam landmarks with your own "
+                    "calibration. It does not measure spinal anatomy, "
+                    "diagnose a condition, or determine whether a posture "
+                    "is medically safe."
+                )
+                + "</p>",
+            ),
+            (
+                "exercise-policy",
+                tr("Exercise policy"),
+                f"<p>{catalog.medical_disclaimer}</p>"
+                f"<p>{catalog.global_safety}</p>"
+                "<p>"
+                + tr(
+                    "Movement doses are copied or conservatively selected "
+                    "from the listed authoritative guidance. The trigger "
+                    "timing is an explicit product setting rather than a "
+                    "clinical prescription."
+                )
+                + "</p>",
+            ),
+            (
+                "break-timing",
+                tr("Break timing"),
+                "<p>"
+                + tr(
+                    "Short, frequent interruptions are better supported "
+                    "than one exact schedule. Controlled studies show "
+                    "stronger acute metabolic effects for light walking "
+                    "than for standing alone, but they do not prove that "
+                    "reminder software prevents long-term disease. Vulture "
+                    "therefore keeps timing and activities configurable."
+                )
+                + "</p>",
+            ),
+            (
+                "eye-comfort",
+                tr("Eye comfort guidance"),
+                "<p>"
+                + tr(
+                    "Looking into the distance and blinking are low-risk "
+                    "comfort prompts. The 20-20-20 rule is widely "
+                    "recommended, but its exact numbers have limited trial "
+                    "support. Vulture does not claim that eye breaks treat "
+                    "dry eye or improve vision, and does not promote "
+                    "palming, eye yoga, or blue-light products."
+                )
+                + "</p>",
+            ),
+            (
+                "restorative-pauses",
+                tr("Restorative pause guidance"),
+                "<p>"
+                + tr(
+                    "Water reminders are neutral convenience cues rather "
+                    "than intake targets, and tea or coffee prompts are "
+                    "reasons to step away rather than recommendations to "
+                    "consume caffeine. The breathing and greenery options "
+                    "are based on promising individual trials, not "
+                    "established treatments."
+                )
+                + "</p>",
+            ),
+            ("sources", tr("Guidance sources"), f"<ul>{source_html}</ul>"),
+            ("media", tr("Media"), f"<p>{catalog.media_provenance}</p>"),
+        ]
+        # A short contents list; "#anchor" links scroll inside the browser.
+        contents = " · ".join(
+            f'<a href="#{anchor}">{title.replace(" ", "&nbsp;")}</a>'
+            for anchor, title, _body in sections
+        )
         browser.setHtml(
-            f"<h2>{tr('Scope')}</h2>"
-            "<p>"
-            + tr(
-                "Vulture compares webcam landmarks with your own calibration. "
-                "It does not measure spinal anatomy, diagnose a condition, or "
-                "determine whether a posture is medically safe."
+            f"<p><b>{tr('On this page')}</b><br>{contents}</p>"
+            + "".join(
+                f'<h2><a name="{anchor}"></a>{title}</h2>{body}'
+                for anchor, title, body in sections
             )
-            + "</p>"
-            f"<h2>{tr('Exercise policy')}</h2>"
-            f"<p>{catalog.medical_disclaimer}</p>"
-            f"<p>{catalog.global_safety}</p>"
-            "<p>"
-            + tr(
-                "Movement doses are copied or conservatively selected from "
-                "the listed authoritative guidance. The trigger timing is an "
-                "explicit product setting rather than a clinical prescription."
-            )
-            + "</p>"
-            f"<h2>{tr('Break timing')}</h2>"
-            "<p>"
-            + tr(
-                "Short, frequent interruptions are better supported than one "
-                "exact schedule. Controlled studies show stronger acute "
-                "metabolic effects for light walking than for standing alone, "
-                "but they do not prove that reminder software prevents "
-                "long-term disease. Vulture therefore keeps timing and "
-                "activities configurable."
-            )
-            + "</p>"
-            f"<h2>{tr('Eye comfort guidance')}</h2>"
-            "<p>"
-            + tr(
-                "Looking into the distance and blinking are low-risk comfort "
-                "prompts. The 20-20-20 rule is widely recommended, but its "
-                "exact numbers have limited trial support. Vulture does not "
-                "claim that eye breaks treat dry eye or improve vision, and "
-                "does not promote palming, eye yoga, or blue-light products."
-            )
-            + "</p>"
-            f"<h2>{tr('Restorative pause guidance')}</h2>"
-            "<p>"
-            + tr(
-                "Water reminders are neutral convenience cues rather than "
-                "intake targets, and tea or coffee prompts are reasons to "
-                "step away rather than recommendations to consume caffeine. "
-                "The breathing and greenery options are based on promising "
-                "individual trials, not established treatments."
-            )
-            + "</p>"
-            f"<h2>{tr('Guidance sources')}</h2>"
-            f"<ul>{source_html}</ul>"
-            f"<h2>{tr('Media')}</h2>"
-            f"<p>{catalog.media_provenance}</p>"
         )
         layout.addWidget(browser)

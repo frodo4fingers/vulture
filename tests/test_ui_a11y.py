@@ -158,7 +158,8 @@ def test_countdown_due_is_announced_once(
     window._update_break_countdown()
 
     assert len(messages) == 1
-    assert "0:00" in window.break_countdown.accessibleName()
+    # The name stays fixed so the ticking time is not read out repeatedly.
+    assert window.break_countdown.accessibleName() == "Time until next break"
 
     _teardown_window(window, application)
 

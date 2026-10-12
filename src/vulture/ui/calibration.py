@@ -393,6 +393,14 @@ class SetupDialog(QDialog):
         form.addRow(tr("Setup name"), self.name_edit)
         form.addRow(tr("Camera"), self.camera_combo)
         layout.addLayout(form)
+        layout.addWidget(
+            CaptionLabel(
+                tr(
+                    "Next, Vulture guides you through a short calibration "
+                    "for this camera."
+                )
+            )
+        )
 
         if not self._cameras:
             warning = QLabel(
@@ -466,9 +474,9 @@ class CalibrationStepSelectionDialog(QDialog):
 
         explanation = QLabel(
             tr(
-                "Choose one calibration stage to record again. An unwanted-"
-                "posture stage first checks the saved good baseline. Replacing "
-                "the good baseline clears every unwanted-posture example "
+                "Choose one calibration stage to record again. A posture "
+                "example first checks the saved good baseline. Replacing "
+                "the good baseline clears every posture example "
                 "because those examples were learned relative to it."
             )
         )
@@ -509,7 +517,7 @@ class CalibrationStepSelectionDialog(QDialog):
         self.baseline_warning = SemanticLabel(
             tr(
                 "Replacing the good baseline removes every learned "
-                "unwanted-posture example for this setup. You will need "
+                "posture example for this setup. You will need "
                 "to recalibrate those steps individually. Continue?"
             ),
             tone="safety",
@@ -550,12 +558,12 @@ class CalibrationStepSelectionDialog(QDialog):
         detail = tr(step.instructions)
         if step.category is None:
             detail += "\n\n" + tr(
-                "Replacing the good baseline removes all learned unwanted-"
-                "posture examples."
+                "Replacing the good baseline removes all learned posture "
+                "examples."
             )
         else:
             detail += "\n\n" + tr(
-                "Only this unwanted posture will be replaced; the other "
+                "Only this posture example will be replaced; the other "
                 "examples stay unchanged."
             )
         self.description.setText(detail)
@@ -769,7 +777,7 @@ class CalibrationDialog(QDialog):
                     ),
                 )
             )
-            self.role_label.set_semantic_tone("unwanted", strong=True)
+            self.role_label.set_semantic_tone("info", strong=True)
         self.reference.set_step(step)
         self.instructions_label.setText(tr(step.instructions))
         self.phase_label.setText(tr("Ready when you are"))
@@ -957,7 +965,7 @@ class CalibrationDialog(QDialog):
                 if category is None:
                     raise CalibrationError(
                         tr(
-                            "Record the selected unwanted posture before "
+                            "Record the selected posture example before "
                             "saving."
                         )
                     )

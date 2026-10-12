@@ -34,7 +34,9 @@ SQLite database stores:
 - highest reminder stage reached during each contiguous episode;
 - setup identifier, local workday, UTC start/end timestamps and UTC offset;
 - aggregate duration and sample count;
-- notification timestamps and categories.
+- notification timestamps and categories;
+- completed movement and rest breaks: kind, channel, exercise identifier for
+  movements, completion time, local workday, and duration.
 
 It does not store raw scores, feature vectors, landmarks, camera frames, or
 exercise video of the user. Retention defaults to 30 days and is configurable

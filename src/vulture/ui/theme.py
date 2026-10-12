@@ -10,7 +10,7 @@ from __future__ import annotations
 from enum import Enum
 
 from PySide6.QtCore import QEvent, QSize, Qt
-from PySide6.QtGui import QColor, QFont, QFontDatabase, QFontMetrics, QPalette
+from PySide6.QtGui import QColor, QFont, QFontMetrics, QPalette
 from PySide6.QtWidgets import (
     QApplication,
     QFrame,
@@ -82,7 +82,9 @@ STATE_COLOR_VALUES = {
     "calibrating": "#2b6cb0",
     "good": "#276749",
     "warning": "#d69e2e",
-    "alert": "#9c4221",
+    # Deep ochre: reads as "attention", never as danger, and stays apart from
+    # the light gold "warning" fill by lightness (5.65:1 with the light text).
+    "alert": "#8a5a00",
     "low_confidence": "#4a5568",
     "camera_unavailable": "#4a5568",
     "uncalibrated": "#6b46c1",
@@ -139,31 +141,41 @@ LINK_COLORS = {
 
 # Workday summary posture palette per scheme, keyed by posture category value
 # (plus "baseline" and "other_tracked_postures"). Owned by the summary surface.
-# Calm coach: baseline is a quiet blue, every deviation is an earth tone (ochre,
-# olive, clay) and none is red. Adjacent stack slots alternate light/dark so
-# they stay apart under colour-vision deficiency; the legend, 2px gaps and the
-# table views carry identity too. Validated with the dataviz palette validator
-# (adjacent pairs, light on #efefef/#ffffff, dark on #171a1f). "Other tracked
-# postures" only appears next to baseline in the 7-day chart.
+# Calm coach: baseline is a quiet blue and no deviation is red. Forward head
+# is olive, slouch clay, shoulders sunk brown, lateral lean teal and the
+# general deviation plum, so neighbours and the olive/brown pair stay apart.
+# Adjacent stack slots alternate light/dark so they stay apart under
+# colour-vision deficiency; the legend, 2px gaps and the table views carry
+# identity too. Validated with the dataviz palette validator (adjacent pairs,
+# light on #efefef/#ffffff, dark on #171a1f). "Other tracked postures" only
+# appears next to baseline in the 7-day chart.
 SUMMARY_POSTURE_PALETTES = {
     "light": {
         "baseline": "#287eaf",
-        "forward_head": "#776700",
+        "forward_head": "#566b00",
         "slouch": "#cc7240",
         "shoulders_sunk": "#884f00",
-        "lateral_lean": "#908905",
-        "general_deviation": "#a44828",
+        "lateral_lean": "#25957c",
+        "general_deviation": "#7a5c9e",
         "other_tracked_postures": "#a56810",
     },
     "dark": {
         "baseline": "#3c8fc1",
-        "forward_head": "#836a0a",
+        "forward_head": "#5f7400",
         "slouch": "#d67654",
         "shoulders_sunk": "#955b16",
-        "lateral_lean": "#869b34",
-        "general_deviation": "#b0561f",
+        "lateral_lean": "#2fa58a",
+        "general_deviation": "#9a7cc0",
         "other_tracked_postures": "#ac7d1b",
     },
+}
+
+# Primary action fill: (fill, text, hover, pressed) per scheme. Both pairs
+# clear 4.5:1 (light 6.8:1, dark 9.8:1); Fusion's default #308cc6 with white
+# text does not (3.7:1).
+PRIMARY_BUTTON_COLORS = {
+    "light": ("#1f5f8f", "#ffffff", "#1a5280", "#144468"),
+    "dark": ("#8cc4f0", "#0b1620", "#a3d1f5", "#6aaee4"),
 }
 
 
@@ -227,11 +239,8 @@ def role_font(role: TextRole, base: QFont | None = None) -> QFont:
         font.setPixelSize(max(_MIN_PIXEL_SIZE, scaled))
     font.setWeight(_ROLE_WEIGHTS[role])
     if role is TextRole.DISPLAY:
-        fixed_family = QFontDatabase.systemFont(
-            QFontDatabase.SystemFont.FixedFont
-        ).family()
-        font.setFamilies([fixed_family, *base_font.families()])
-        font.setStyleHint(QFont.StyleHint.Monospace)
+        # The UI font with tabular figures: digits keep one width without the
+        # typewriter look of the system monospace font.
         _enable_tabular_figures(font)
     return font
 
@@ -339,6 +348,99 @@ def media_surface_style(*, radius: int = RADIUS_MD) -> str:
     return (
         f"background-color: {MEDIA_SURFACE}; color: {MEDIA_TEXT};"
         f" border-radius: {radius}px"
+    )
+
+
+def _button_rule(state: str, **declarations: str) -> str:
+    """One rule for push and tool buttons in ``state`` (``":hover"``...)."""
+    selector = f"QPushButton{state}, QToolButton{state}"
+    body = "; ".join(
+        f"{name.replace('_', '-')}: {value}"
+        for name, value in declarations.items()
+    )
+    return f"{selector} {{ {body} }}"
+
+
+def primary_button_style() -> str:
+    """The one filled action of a surface, at >= 4.5:1 in both schemes.
+
+    Apply with ``button.setStyleSheet(primary_button_style())``. The border is
+    always ``FOCUS_RING_WIDTH`` wide (transparent at rest) so showing the focus
+    ring never moves the label.
+    """
+    palette = QApplication.palette()
+    fill, text, hover, pressed = PRIMARY_BUTTON_COLORS[scheme_name(palette)]
+    window = palette.color(QPalette.ColorRole.Window)
+    disabled_fill = _mix(
+        palette.color(QPalette.ColorRole.WindowText), window, 0.88
+    )
+    base = {
+        "background_color": fill,
+        "color": text,
+        "border": f"{FOCUS_RING_WIDTH}px solid transparent",
+        "border_radius": f"{RADIUS_SM}px",
+        "min_height": f"{CONTROL_MIN_HEIGHT - 2 * FOCUS_RING_WIDTH}px",
+        "padding": f"0 {SPACE_MD}px",
+    }
+    ring = palette.color(QPalette.ColorRole.WindowText).name()
+    return " ".join(
+        [
+            _button_rule("", **base),
+            _button_rule(":hover", background_color=hover),
+            _button_rule(":pressed", background_color=pressed),
+            _button_rule(
+                ":focus",
+                border=f"{FOCUS_RING_WIDTH}px solid {ring}",
+            ),
+            _button_rule(
+                ":disabled",
+                background_color=disabled_fill.name(),
+                color=muted_color(palette).name(),
+            ),
+        ]
+    )
+
+
+def flat_action_style() -> str:
+    """A text action that shows its button shape only when it is in play.
+
+    For the toolbar Settings button and the panel header Later and Close:
+    quiet at rest, a surface and hairline on hover, and a ring on keyboard
+    focus.
+    """
+    palette = QApplication.palette()
+    window = palette.color(QPalette.ColorRole.Window)
+    text = palette.color(QPalette.ColorRole.WindowText)
+    hover_fill = surface_color(palette).name()
+    base = {
+        "background_color": "transparent",
+        "border": f"{FOCUS_RING_WIDTH}px solid transparent",
+        "border_radius": f"{RADIUS_SM}px",
+        "min_height": f"{CONTROL_MIN_HEIGHT - 2 * FOCUS_RING_WIDTH}px",
+        "padding": f"0 {SPACE_SM}px",
+    }
+    return " ".join(
+        [
+            _button_rule("", **base),
+            _button_rule(
+                ":hover",
+                background_color=hover_fill,
+                border=f"{FOCUS_RING_WIDTH}px solid "
+                f"{border_color(palette).name()}",
+            ),
+            _button_rule(
+                ":pressed",
+                background_color=_mix(window, text, 0.12).name(),
+            ),
+            _button_rule(
+                ":focus",
+                border=f"{FOCUS_RING_WIDTH}px solid {text.name()}",
+            ),
+            _button_rule(
+                ":disabled",
+                color=muted_color(palette).name(),
+            ),
+        ]
     )
 
 

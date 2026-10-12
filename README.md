@@ -19,16 +19,19 @@ from the baseline demonstrated for that camera setup.
   head-forward posture, slouch/crouch, sunk shoulders, and lateral lean. The
   right-side calibration panel keeps every stage and its status visible while
   leaving the live camera preview unobstructed.
-- An **Add posture** flow for learning a skipped supported posture or replacing
-  one example later without discarding the other category calibrations.
+- A skipped posture example can be learned later, and **Redo a calibration
+  step** replaces one example without discarding the other category
+  calibrations.
 - Confidence gates: Vulture stays quiet when required landmarks are hidden or
   the camera geometry no longer resembles the calibrated setup.
 - Temporal smoothing, sustained-warning and alert delays, hysteresis, and
   notification cooldowns.
-- A tray icon with green, amber, red, purple, blue, or gray status.
-- A local workday summary with a bright, theme-aware posture palette, daily
-  distribution and
-  timeline views, plus a rolling seven-day report ending on the selected date.
+- A tray icon with green, amber, ochre, purple, blue, or gray status.
+- A local workday summary with a calm, theme-aware posture palette. The day
+  overview leads with breaks, minutes moved, and eye breaks, then nudges and
+  tracked posture time. Stacked 15-minute columns show the day's distribution,
+  and a rolling seven-day report ending on the selected date shows breaks per
+  day.
 - Add setup, calibration, rest breaks, movement guidance, and operational
   notices open in a titled right-side panel with one consistent close action
   while the live camera preview remains visible. Settings, the workday summary,
@@ -229,7 +232,7 @@ controls.
 
 ### Break management
 
-Open **Settings → Break management** to configure four independent reminder
+Open **Settings → Breaks** to configure four independent reminder
 channels:
 
 - **Movement and position changes** default to every 30 minutes with a
@@ -252,13 +255,14 @@ repeating the previous item. The activity and exercise bags are stored locally,
 so restarting the app or changing language does not reset the sequence.
 
 Use **Move now** beside the countdown whenever time is available before the
-next scheduled break. Inside a guided movement, **Choose a different break**
-can switch directly to eye rest, standing, walking, water, tea or coffee,
+next scheduled break. Inside a guided movement, **Not now** → **Swap…** can
+switch directly to eye rest, standing, walking, water, tea or coffee,
 breathing, a full off-screen reset, or another guided movement. Choosing
 another guided movement advances the same shuffled sequence without repeating
 the current exercise. Rest options open with their configured suggested time;
-choose **Start timer** for a live countdown and remain in control when it
-reaches zero.
+choose **Start** for a live countdown. **Stop early** ends the break and counts
+the time taken, and **Done** appears when the suggested time is up. The panel
+stays open until you choose **Done** or **Stop early**.
 
 Saved 0.2.0 profiles keep their previous distance-eye and combined
 walk/water/tea/coffee activity mix. The new water, longer-reset, and greenery
@@ -359,8 +363,9 @@ chooser and active capture guide as visual examples.
 
 Defaults are intentionally conservative:
 
-- warning after 8 seconds of sustained personalized deviation;
-- notification after 60 seconds;
+- a gentle on-screen nudge after 8 seconds of sustained personalized deviation
+  (**Settings → Posture**: "Nudge me after");
+- a notification after 60 seconds (**Send a notification after**);
 - retain accumulated bad-posture time across an up-to-8-second posture-change
   buffer without counting the transition itself;
 - notification cooldown of 2 minutes;
@@ -372,24 +377,33 @@ Ordinary break activities use one native system notification, bundling channels
 that become due together. Vulture requests the configured activity length as
 the timeout, but the operating system remains authoritative.
 
-A guided movement uses break mode. The camera workspace is hidden and the
-movement fills the window in a centred column. The window is raised without
-being resized and without taking keyboard focus, so typing elsewhere is not
-interrupted. Rest breaks and notices appear in the normal side panel beside the
-live camera preview.
+Guided movements and rest breaks both use break mode. The camera workspace is
+hidden and the panel fills the window in a centred column. The window is raised
+without being resized and without taking keyboard focus, so typing elsewhere is
+not interrupted. Notices appear in the normal side panel beside the live camera
+preview.
 
 A movement shows its demonstration video (muted and looping), the dose, and the
 steps. Timed doses show **Start** and then a countdown. Set-based doses show a
-checklist of rounds. Standing walk-away movements show "Watch once, then go" and
-then a large countdown. No button is the default, so pressing Enter cannot
-complete a break. **Done** shows a short acknowledgement before the panel
-closes.
+checklist of rounds. Standing walk-away movements show "Watch once, then go",
+a large countdown, and the demonstration video as a small thumbnail. No button
+is the default, so pressing Enter cannot complete a break. **Done** shows a
+short completion note before the panel closes: "Nice work — that's N breaks
+today." when history is enabled, otherwise "Nice work — break done."
 
-The exercise panel offers three choices. **Done** marks the movement complete
-and clears it. **Remind me later** closes the panel and re-opens it after a
-short delay. **Skip** disregards the movement. Closing or replacing the
-exercise panel behaves like **Remind me later**; its header button reads
-**Later** for the same action. While a movement is pending
+Before **Start**, the footer offers **Start** and a **Not now** menu. A
+movement's menu contains **Later**, **Skip**, and **Swap…**; a rest break's
+menu contains **Skip** and **Swap…**. While a timer runs, only **Stop early**
+is shown, and **Done** appears when the suggested time is up. The header button
+is hidden while a timer runs, and Esc does nothing.
+
+Completed breaks are recorded in the workday history when history is enabled.
+
+The exercise panel offers three outcomes. **Done** marks the movement complete
+and clears it. **Later** (in the **Not now** menu, or the header button)
+closes the panel and re-opens it after a short delay. **Skip** disregards the
+movement. Closing or replacing the exercise panel behaves like **Later**. While
+a movement is pending
 you can also re-open it with **Open movement** from the tray-icon menu.
 If another right-side panel is in use when a movement becomes due, Vulture
 keeps that work intact and opens the pending movement after the panel closes.
@@ -435,8 +449,9 @@ shows anatomically incorrect movement.
 Vulture has no telemetry or upload path. It does not save frames, photos,
 camera videos, raw landmarks, or posture scores. If workday history is enabled,
 it saves local category labels, reminder stages, setup identifiers, timestamps,
-and aggregate durations for the configured retention period. Open **Workday
-summary** to inspect or delete one day or all history. See
+aggregate durations, and completed breaks (kind, channel, and movement
+identifier) for the configured retention period. Open **Workday summary** to
+inspect or delete one day or all history. See
 [docs/PRIVACY.md](docs/PRIVACY.md) for details.
 
 ## Updates and uninstall
@@ -520,7 +535,7 @@ stay language-neutral and must never depict a real person.
   a flat coloured disc with a white "V" (see `create_state_icon` in
   `src/vulture/ui/common.py`). It deserves a distinctive, recognisable mark
   that stays legible at tray sizes (16–32 px) as well as large application
-  sizes, survives recolouring across the six tray states (green, amber, red,
+  sizes, survives recolouring across the six tray states (green, amber, ochre,
   purple, blue, gray) or ships as per-state variants, and exports to the
   platform bundle formats (`.png`, Windows `.ico`, macOS `.icns`). A clean
   monochrome silhouette that Qt can tint per state is ideal.

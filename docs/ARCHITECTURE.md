@@ -20,6 +20,8 @@
 6. `history.WorkdayRecorder` groups valid assessments into local posture
    episodes and checkpoints them to `PostureHistoryStore`; gaps, pause,
    calibration, camera loss, and setup changes close the active episode.
+   Completed movement and rest breaks are passed to `record_break` through the
+   same recorder, which skips them when recording is disabled.
 7. `storage.AppDataStore` atomically writes validated Pydantic models as local
    JSON.
 8. `autostart.AutostartManager` reads and changes the current user's native
@@ -54,7 +56,9 @@ closes, so they cannot discard in-progress settings or setup input.
 The main command row is a native `QToolBar`: the setup selector and primary
 actions stay visible while long localized secondary actions move into Qt's
 overflow menu. A `QStackedWidget` replaces the unused camera canvas with a
-focused first-run setup state until a setup exists. Semantic information,
+first-run card (`_FIRST_RUN_OBJECT_NAME`, themed by `card_style`) until a setup
+exists; it takes initial focus on **Add camera setup**. `ShellMixin` hides the
+footer disclaimer while a side panel is open. Semantic information,
 safety, good-stage, and unwanted-stage labels derive light/dark colors from the
 active palette rather than assuming a light theme.
 
@@ -73,11 +77,15 @@ taskbar icon (`create_state_icon` draws the badge) whenever a movement is
 pending.
 
 The exercise panel exposes three outcomes through an `ExerciseOutcome`:
-**Done** completes and clears the pending movement, **Remind me later**
-postpones it for `EXERCISE_POSTPONE_MINUTES` (a single-shot `QTimer`
-re-presents it), and **Skip** disregards it and clears the pending state.
-Rejecting or replacing the panel is treated as **Remind me later**. In break
-mode the header button reads **Later** and performs the same postponement.
+**Done** completes and clears the pending movement, **Later** postpones it for
+`EXERCISE_POSTPONE_MINUTES` (a single-shot `QTimer` re-presents it), and
+**Skip** disregards it and clears the pending state. **Later** is the first
+item of the **Not now** menu in `BreakPanel`, and the header button performs the
+same postponement. Rejecting or replacing the panel is treated as **Later**.
+Rest breaks have no postponement: their header button reads **Close** and
+dismissing one skips it. `BreakPanel` shows **Start** and the **Not now** menu
+before a timer starts. While a timer runs, `ShellMixin` hides the header button
+and ignores Esc, leaving **Stop early** as the way out.
 **Done** records the outcome immediately, shows a short acknowledgement for
 `COMPLETION_ACK_MS`, then closes. The panel has no default button, so Enter
 cannot complete a break. It is non-modal and never blocks desktop session
@@ -89,9 +97,11 @@ compact.
 
 ## Break mode
 
-`ExerciseDialog` sets `wants_break_mode`. When `MainWindow._show_side_panel`
-hosts such a panel, it hides the camera workspace and gives the movement the
-whole content area in a centred column capped at `_BREAK_COLUMN_MAX_WIDTH`.
+`BreakPanel` sets `wants_break_mode`, so both `ExerciseDialog` (guided
+movements) and `RestBreakDialog` (rest breaks) inherit it. When
+`ShellMixin._show_side_panel` hosts such a panel, it hides the camera workspace
+and gives the break the whole content area in a centred column capped at
+`_BREAK_COLUMN_MAX_WIDTH`.
 Ordinary panels keep the workspace beside them. Break mode never resizes the
 window and skips the height-fit pass. Background arrivals call
 `_show_window(activate=False)`, which sets `WA_ShowWithoutActivating`, raises
@@ -101,7 +111,8 @@ from the user's typing. Closing the panel restores the camera workspace.
 Inside the dialog, the demonstration `QMediaPlayer` has no audio output and
 loops its clip. Timed doses start with **Start** and show a countdown. Set-based
 doses show round checkboxes instead. A standing walk-away movement pauses its
-clip when the countdown starts and shows a large countdown.
+clip when the countdown starts and shows a large countdown, with the clip as a
+small thumbnail beside the steps (`THUMBNAIL_SHARE` of the panel width).
 
 `MainWindow._toggle_tracking()` treats pausing as a camera handoff. It stops
 `CameraThread`, clears the preview, disables calibration actions, and marks the
@@ -119,10 +130,15 @@ primitives — so that every surface reads its sizes from one place instead of
 nudging fonts and margins locally. The colour tokens are calm: posture states
 never use alarm red, and foreground/background pairs meet WCAG AA for small
 text. Captions are quieter through colour rather than size, so the `CAPTION`
-role does not step below body text (`_ROLE_STEPS`). Every clickable control is
-at least `CONTROL_MIN_HEIGHT` (28 px) through `ControlMetricsStyle`, a
-`QProxyStyle` that keeps the platform look while enforcing that minimum for
-push buttons, tool buttons, combo boxes, line edits, and spin boxes. `common`
+role does not step below body text (`_ROLE_STEPS`). The `DISPLAY` role, used for
+countdowns, is the UI font with tabular figures (`tnum`), so digits keep one
+width without a monospace face. `primary_button_style()` is the filled action
+used by `BreakPanel` for **Start** and **Done**, and `flat_action_style()` gives
+the shell's toolbar actions and side-panel header buttons their button shape
+only while they are in play. Every clickable control is at least
+`CONTROL_MIN_HEIGHT` (28 px) through `ControlMetricsStyle`, a `QProxyStyle`
+that keeps the platform look while enforcing that minimum for push buttons,
+tool buttons, combo boxes, line edits, and spin boxes. `common`
 owns shared visual primitives built on those tokens; `calibration`, `settings`,
 `exercises`, `notices`, `summary`, and `summary_dialog` own bounded dialog and
 reporting surfaces.
@@ -246,8 +262,15 @@ identifiers.
 
 ## Workday history
 
-`posture-history.sqlite3` contains only posture-category episodes and reminder
-events. An episode records its local date, UTC timestamps, UTC offset, setup,
+`posture-history.sqlite3` contains only posture-category episodes, reminder
+events, and completed breaks. A `break_events` row records the local date,
+UTC completion time, kind (`movement` or `rest`), channel, exercise identifier
+for movements, and duration. Skipped, postponed, and swapped breaks are not
+recorded. The table is added by the existing `CREATE TABLE IF NOT EXISTS`
+script, so `SCHEMA_VERSION` stays at 1. Deleting a day or all history and
+retention pruning also delete `break_events` rows.
+
+An episode records its local date, UTC timestamps, UTC offset, setup,
 posture label, highest reminder stage reached, duration, and sample count. It
 does not contain frames, landmarks, feature vectors, or numeric posture scores.
 
@@ -256,7 +279,9 @@ finalized on transitions. Inter-frame gaps above two seconds add no duration.
 Intervals crossing local midnight are split between both calendar days. The
 summary panel checkpoints an active episode when today's data is requested,
 then presents a daily overview, selected-day timeline, and rolling seven-day
-report assembled from the same local daily summaries. One selected day or all
+report assembled from the same local daily summaries. The daily overview leads
+with breaks, minutes moved, and eye breaks; the seven-day report shows the
+breaks for each day. One selected day or all
 history can be deleted after an inline confirmation.
 
 ## Why calibration is setup-specific

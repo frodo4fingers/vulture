@@ -34,7 +34,6 @@ from .theme import (
     CONTROL_SPACING,
     HAIRLINE,
     MEDIA_ASPECT_RATIO,
-    MEDIA_TEXT,
     SECTION_SPACING,
     SETUP_SELECTOR_WIDTH,
     SPACE_MD,
@@ -47,6 +46,8 @@ from .theme import (
     TextRole,
     align_first_baseline,
     apply_text_role,
+    card_style,
+    flat_action_style,
     media_surface_style,
 )
 
@@ -100,6 +101,14 @@ def _set_shortcuts(action: QAction, *keys: QKeySequence) -> None:
 
 def _wants_break_mode(panel: QDialog) -> bool:
     return bool(getattr(panel, "wants_break_mode", False))
+
+
+def _offers_later(panel: QDialog) -> bool:
+    """Whether dismissing ``panel`` postpones it (movements) or skips it."""
+    return callable(getattr(panel, "_postpone", None))
+
+
+_FIRST_RUN_OBJECT_NAME = "vultureFirstRunWell"
 
 
 class ShellMixin:
@@ -306,10 +315,10 @@ class ShellMixin:
             _preview_min_size(_PREVIEW_MIN_WIDTH)
         )
 
+        # A calm card surface, not the black media well: there is no camera
+        # yet, so nothing here is video. Styled in ``_apply_shell_theme``.
         self.first_run_panel = QFrame()
-        self.first_run_panel.setStyleSheet(
-            f"QFrame {{ {media_surface_style()} }}"
-        )
+        self.first_run_panel.setObjectName(_FIRST_RUN_OBJECT_NAME)
         first_run_outer = QVBoxLayout(self.first_run_panel)
         first_run_outer.setContentsMargins(
             SPACE_MD,
@@ -330,7 +339,6 @@ class ShellMixin:
         self.first_run_heading.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.first_run_heading.setWordWrap(True)
         apply_text_role(self.first_run_heading, TextRole.TITLE)
-        self.first_run_heading.setStyleSheet(f"color: {MEDIA_TEXT}")
         first_run_layout.addWidget(self.first_run_heading)
         first_run_copy = QLabel(
             tr(
@@ -340,7 +348,6 @@ class ShellMixin:
         )
         first_run_copy.setAlignment(Qt.AlignmentFlag.AlignCenter)
         first_run_copy.setWordWrap(True)
-        first_run_copy.setStyleSheet(f"color: {MEDIA_TEXT}")
         first_run_layout.addWidget(first_run_copy)
         self.first_run_add_button = QPushButton(tr("&Add camera setup"))
         self.first_run_add_button.setDefault(True)
@@ -411,8 +418,9 @@ class ShellMixin:
         self.footer_disclaimer = CaptionLabel(
             tr("Personalized reminder — not a medical device")
         )
-        # Wraps instead of truncating when a side panel narrows the column.
-        self.footer_disclaimer.setWordWrap(True)
+        # One line only: the note hides while a side panel narrows the
+        # column rather than wrapping to three or four lines.
+        self.footer_disclaimer.setWordWrap(False)
         self.footer_disclaimer.setAlignment(
             Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
         )
@@ -452,15 +460,18 @@ class ShellMixin:
         self.side_panel_close_button.setText(tr("Close"))
         self.side_panel_close_button.setAutoRaise(True)
         self.side_panel_close_button.clicked.connect(
-            self._dismiss_side_panel
+            self._dismiss_side_panel_by_user
         )
-        # Esc does what the header button does: close, or "Later" in break
-        # mode. It is live only while a panel is open.
+        # Esc does what the header button does: close, or "Later" for a
+        # movement. It is live only while a panel is open, and does nothing
+        # while a break timer runs (Stop early is the way out then).
         self._dismiss_shortcut = QShortcut(
             QKeySequence(QKeySequence.StandardKey.Cancel), self
         )
         self._dismiss_shortcut.setEnabled(False)
-        self._dismiss_shortcut.activated.connect(self._dismiss_side_panel)
+        self._dismiss_shortcut.activated.connect(
+            self._dismiss_side_panel_by_user
+        )
         side_panel_header_layout.addWidget(self.side_panel_close_button)
         side_panel_layout.addWidget(side_panel_header)
 
@@ -502,6 +513,21 @@ class ShellMixin:
         ):
             self.setTabOrder(previous, widget)
             previous = widget
+        self._apply_shell_theme()
+
+    def _apply_shell_theme(self) -> None:
+        """Palette-derived styles; re-run when the colour scheme changes."""
+        flat = flat_action_style()
+        for button in (
+            self.add_setup_button,
+            self.pause_button,
+            self.calibrate_button,
+            self.recalibrate_step_button,
+            self.settings_button,
+            self.side_panel_close_button,
+        ):
+            button.setStyleSheet(flat)
+        self.first_run_panel.setStyleSheet(card_style(_FIRST_RUN_OBJECT_NAME))
 
     def _build_tray(self) -> None:
         self.tray = QSystemTrayIcon(create_state_icon(self._state), self)
@@ -585,6 +611,9 @@ class ShellMixin:
         self.privacy_note.setVisible(not has_setup)
         self.setup_combo.setEnabled(has_setup and controls_enabled)
         self.first_run_add_button.setEnabled(controls_enabled)
+        if not has_setup and controls_enabled:
+            # The one first-run action, not Settings, owns initial focus.
+            self.first_run_add_button.setFocus()
         # Until a setup exists, camera-only actions are hidden rather than
         # disabled, and the first-run canvas button is the one way to add.
         for action in (
@@ -637,9 +666,7 @@ class ShellMixin:
             camera_reason
             if not camera_controls_enabled
             else tr("Complete a full calibration for this setup first."),
-            tr(
-                "Record the good baseline or one unwanted-posture stage again."
-            ),
+            tr("Record the good baseline or one posture example again."),
         )
         self.calibrate_action.setEnabled(camera_controls_enabled)
         self.recalibrate_step_action.setEnabled(can_recalibrate_step)
@@ -899,8 +926,9 @@ class ShellMixin:
         self._side_panel = panel
         title = panel.windowTitle()
         self.side_panel_title.setText(title)
-        # A movement's header button postpones it, so it says so.
-        if break_mode:
+        # A movement's header button postpones it, so it says so. A rest
+        # break has no "later": dismissing it skips it, so it says Close.
+        if break_mode and _offers_later(panel):
             close_text = tr("Later")
             close_name = tr("Remind me later: {title}", title=title)
         else:
@@ -913,9 +941,16 @@ class ShellMixin:
         )
         self.side_panel_host.setAccessibleName(title)
         self._dismiss_shortcut.setEnabled(True)
+        start_button = getattr(panel, "start_button", None)
+        if start_button is not None:
+            # Hide the header action the moment a timer starts, not on the
+            # next 1 s tick.
+            start_button.clicked.connect(self._sync_break_panel_controls)
+        self._sync_break_panel_controls()
         self.preview_stack.setMinimumSize(
             _preview_min_size(_WORKSPACE_MIN_WIDTH)
         )
+        self.footer_disclaimer.hide()
         self.camera_workspace.setVisible(not break_mode)
         self.side_panel_frame.show()
         self.side_panel_host.show()
@@ -1082,10 +1117,12 @@ class ShellMixin:
             _preview_min_size(_PREVIEW_MIN_WIDTH)
         )
         self.camera_workspace.show()
+        self.footer_disclaimer.show()
         self.side_panel_host.hide()
         self.side_panel_frame.hide()
         self.side_panel_title.clear()
         self._side_panel = None
+        self._update_break_countdown()
         QTimer.singleShot(
             0,
             lambda: self._finish_side_panel_close(
@@ -1116,6 +1153,10 @@ class ShellMixin:
 
     def changeEvent(self, event: QEvent) -> None:
         super().changeEvent(event)
+        if event.type() == QEvent.Type.PaletteChange and hasattr(
+            self, "first_run_panel"
+        ):
+            self._apply_shell_theme()
         if event.type() == QEvent.Type.WindowStateChange:
             self._sync_camera_preview_state()
         if (
@@ -1145,6 +1186,34 @@ class ShellMixin:
             and not self._exercise_postpone_timer.isActive()
         ):
             self._present_exercise()
+
+    def _running_break_panel(self) -> tuple[QDialog, int] | None:
+        """The hosted break panel and its seconds left, once Start ran."""
+        panel = self._side_panel
+        if panel is None or not _wants_break_mode(panel):
+            return None
+        remaining_seconds = getattr(panel, "remaining_seconds", None)
+        remaining = remaining_seconds() if remaining_seconds else None
+        return None if remaining is None else (panel, remaining)
+
+    def _sync_break_panel_controls(self) -> None:
+        """Hide Move now during a break, and Later/Close while it is timed.
+
+        Mid-break the only exit is the panel's own Stop early, so a stray
+        Esc or header click cannot postpone a walk that is under way.
+        """
+        panel = self._side_panel
+        self.move_now_button.setVisible(
+            panel is None or not _wants_break_mode(panel)
+        )
+        self.side_panel_close_button.setVisible(
+            self._running_break_panel() is None
+        )
+
+    def _dismiss_side_panel_by_user(self) -> None:
+        if self._running_break_panel() is not None:
+            return
+        self._dismiss_side_panel()
 
     def _dismiss_side_panel(self) -> None:
         panel = self._side_panel

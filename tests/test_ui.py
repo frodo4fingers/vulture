@@ -287,11 +287,11 @@ def test_workday_summary_renders_stacked_posture_chart(
 def test_workday_summary_uses_calm_earth_tone_palettes() -> None:
     assert set(SUMMARY_POSTURE_PALETTES["light"].values()) == {
         "#287eaf",
-        "#776700",
+        "#566b00",
         "#cc7240",
         "#884f00",
-        "#908905",
-        "#a44828",
+        "#25957c",
+        "#7a5c9e",
         "#a56810",
     }
     for scheme, palette in SUMMARY_POSTURE_PALETTES.items():
@@ -1346,11 +1346,11 @@ def test_workspace_columns_share_top_and_footer_datums(
     window.show()
     application.processEvents()
 
-    # Exercise panels use break mode (no break card or footer), so measure
-    # against a rest break, which keeps the regular two-column layout.
-    window._present_manual_break(ManualBreakChoice.STAND)
+    # Break panels (exercise and rest) use break mode (no break card or
+    # footer), so measure against a regular side panel with a footer.
+    window._show_calibration_window(CalibrationDialog())
     application.processEvents()
-    panel = window._rest_break_dialog
+    panel = window._side_panel
     assert panel is not None
 
     def top(widget) -> int:
@@ -1363,7 +1363,11 @@ def test_workspace_columns_share_top_and_footer_datums(
         window.side_panel_title
     )
 
-    panel_buttons = panel.findChildren(QPushButton)
+    panel_buttons = [
+        button
+        for button in panel.findChildren(QPushButton)
+        if button.isVisible()
+    ]
     assert panel_buttons
     panel_footer = max(bottom(button) for button in panel_buttons)
 
@@ -2501,7 +2505,7 @@ def _swap_action(picker, choice: ManualBreakChoice):
     return next(
         (
             action
-            for action in picker.menu.actions()
+            for action in picker.actions()
             if action.data() == choice.value
         ),
         None,
@@ -2519,7 +2523,7 @@ def test_different_break_chooser_includes_rest_and_movement_options(
     assert dialog is not None
 
     picker = dialog.alternative_picker
-    assert picker.text().replace("&", "") == "Swap…"
+    assert picker.title().replace("&", "") == "Swap…"
     assert _swap_action(picker, ManualBreakChoice.EYE_REST) is not None
     assert _swap_action(picker, ManualBreakChoice.STAND) is not None
     assert _swap_action(picker, ManualBreakChoice.COFFEE) is not None
@@ -2715,7 +2719,7 @@ def test_notice_coexists_with_settings_window(
     _close_test_window(window, application)
 
 
-def test_exercise_done_button_is_leftmost(
+def test_exercise_start_button_is_leftmost(
     application: QApplication,
     tmp_path: Path,
 ) -> None:
@@ -2725,13 +2729,19 @@ def test_exercise_done_button_is_leftmost(
     dialog = window._exercise_dialog
     assert dialog is not None
 
-    buttons = {
+    # Before Start the footer offers the primary action on the left and the
+    # "Not now" menu on the right; Later and Skip live inside that menu.
+    shown = {
         button.text().replace("&", ""): button
         for button in dialog.findChildren(QPushButton)
+        if not button.isHidden()
     }
-    done_x = buttons["Done"].x()
-    assert done_x < buttons["Skip"].x()
-    assert done_x < buttons["Remind me later"].x()
+    assert set(shown) == {"Start", "Not now"}
+    assert shown["Start"].x() < shown["Not now"].x()
+    assert [
+        action.text().replace("&", "")
+        for action in dialog.not_now_menu.actions()
+    ] == ["Later", "Skip", "Swap…"]
 
     _teardown_window(window, application)
 
@@ -2760,11 +2770,19 @@ def test_exercise_steps_hug_content_without_dead_space(
     tmp_path: Path,
 ) -> None:
     window = _make_window(tmp_path)
-    window._offer_exercise()
+    # A walk-away exercise lays its steps beside the video and puts the
+    # playback row below them, so pin a regular one for the gap check.
+    window._pending_exercise = next(
+        exercise
+        for exercise in window.catalog.exercises
+        if exercise.id == "shoulder-roll"
+    )
+    window._present_exercise()
     application.processEvents()
     application.processEvents()
     dialog = window._exercise_dialog
     assert dialog is not None
+    assert not dialog.walk_away
 
     steps = dialog.findChild(ContentHeightTextBrowser)
     safety = dialog.safety

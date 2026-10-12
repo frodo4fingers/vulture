@@ -31,10 +31,10 @@ for _path in (REPO_ROOT, REPO_ROOT / "src"):
 
 from PySide6.QtGui import QColor, QPalette  # noqa: E402
 from PySide6.QtTest import QTest  # noqa: E402
-from PySide6.QtWidgets import QApplication, QDialog  # noqa: E402
+from PySide6.QtWidgets import QApplication, QDialog, QPushButton  # noqa: E402
 
 from vulture.autostart import AutostartManager  # noqa: E402
-from vulture.breaks import ManualBreakChoice  # noqa: E402
+from vulture.breaks import BreakChannel, ManualBreakChoice  # noqa: E402
 from vulture.exercises import load_exercise_catalog  # noqa: E402
 from vulture.history import (  # noqa: E402
     BASELINE_POSTURE,
@@ -54,6 +54,8 @@ from vulture.ui import (  # noqa: E402
     CalibrationStepSelectionDialog,
     MainWindow,
 )
+from vulture.ui.exercises import ExerciseDialog  # noqa: E402
+from vulture.ui.theme import install_control_metrics  # noqa: E402
 
 DEFAULT_SIZES = ((1280, 760), (1024, 640))
 THEMES = ("light", "dark")
@@ -140,6 +142,33 @@ def seed_history(history: PostureHistoryStore, now: datetime) -> None:
         )
 
 
+def state_label(index: int | str) -> str:
+    """Zero-pad numbered states; keep suffixed ones such as "04b" as written."""
+    return str(index).zfill(2)
+
+
+def seed_breaks(history: PostureHistoryStore, now: datetime) -> None:
+    """Record three completed breaks for today. Caller checks record_break exists."""
+    from vulture.history import BreakEvent  # noqa: PLC0415
+
+    plan = (
+        ("movement", BreakChannel.MOVEMENT, 3, 120.0),
+        ("rest", BreakChannel.RESET, 2, 300.0),
+        ("movement", BreakChannel.MOVEMENT, 1, 90.0),
+    )
+    for kind, channel, minutes_ago, seconds in plan:
+        history.record_break(
+            BreakEvent(
+                kind=kind,
+                channel=channel,
+                exercise_id=None,
+                completed_at=now - timedelta(minutes=minutes_ago),
+                local_date=now.date(),
+                duration_seconds=seconds,
+            )
+        )
+
+
 def calibration_profile() -> CalibrationProfile:
     return CalibrationProfile(
         good_center={"head_offset_x": 0.0},
@@ -184,7 +213,11 @@ class Session:
         self.data_dir = data_dir
         self.written: list[Path] = []
         self.failures: list[tuple[str, str]] = []
+        # Main-window grabs of states that open a separate window: identical
+        # to the previous grab by design, so the md5 check annotates them.
+        self.expected_identical: set[Path] = set()
         self.window: MainWindow | None = None
+        self.history: PostureHistoryStore | None = None
         self.catalog = None
 
     @property
@@ -195,6 +228,7 @@ class Session:
         now = datetime.now().astimezone()
         history = PostureHistoryStore(self.data_dir / "history.sqlite3")
         seed_history(history, now)
+        self.history = history
         self.catalog = load_exercise_catalog()
         try:
             autostart = AutostartManager(home=self.data_dir)
@@ -216,21 +250,24 @@ class Session:
         self.window = window
         return window
 
-    def capture(self, index: int, state: str) -> None:
+    def capture(self, index: int | str, state: str, *, separate_window: bool = False) -> None:
         QTest.qWait(SETTLE_MS)
         self.app.processEvents()
         assert self.window is not None
-        prefix = f"{self.label}-{index:02d}-{state}"
-        self._save(self.window.grab(), prefix + ".png")
+        prefix = f"{self.label}-{state_label(index)}-{state}"
+        main_path = self._save(self.window.grab(), prefix + ".png")
+        if separate_window:
+            self.expected_identical.add(main_path)
         for number, dialog in enumerate(visible_dialogs(self.app), start=1):
             self._save(dialog.grab(), f"{prefix}-window{number}.png")
 
-    def _save(self, pixmap, filename: str) -> None:
+    def _save(self, pixmap, filename: str) -> Path:
         path = self.outdir / filename
         if not pixmap.save(str(path)):
             raise RuntimeError(f"could not save {path}")
         self.written.append(path)
         print("ok", path.name, flush=True)
+        return path
 
     def cleanup(self) -> None:
         window = self.window
@@ -247,17 +284,21 @@ class Session:
 
     def run_state(
         self,
-        index: int,
+        index: int | str,
         state: str,
         action: Callable[[], None] | None,
+        *,
+        separate_window: bool = False,
     ) -> None:
         try:
             if action is not None:
                 action()
-            self.capture(index, state)
+            self.capture(index, state, separate_window=separate_window)
         except Exception as exc:
             traceback.print_exc()
-            self.failures.append((f"{index:02d}-{state}", f"{type(exc).__name__}: {exc}"))
+            self.failures.append(
+                (f"{state_label(index)}-{state}", f"{type(exc).__name__}: {exc}")
+            )
         finally:
             try:
                 self.cleanup()
@@ -273,7 +314,7 @@ class Session:
             dialog.resize(*STANDALONE_DIALOG_SIZE)
             dialog.show()
 
-        self.run_state(index, state, action)
+        self.run_state(index, state, action, separate_window=True)
         if dialog is not None:
             dialog.close()
 
@@ -282,14 +323,29 @@ class Session:
         assert window is not None
         self.run_state(1, "first-run", None)
         self.run_state(2, "add-setup", window._add_setup)
-        self.run_state(3, "settings", window._show_settings)
-        self.run_state(4, "summary", window._show_workday_summary)
-        self.run_state(5, "evidence", window._show_evidence)
-        self.run_state(6, "exercise-break", self._present_first_exercise)
+        self.run_state(3, "settings", window._show_settings, separate_window=True)
+        self.run_state(4, "summary", window._show_workday_summary, separate_window=True)
+        if hasattr(PostureHistoryStore, "record_break"):
+            self.run_state(
+                "04b",
+                "summary-breaks",
+                self._show_summary_with_breaks,
+                separate_window=True,
+            )
+        else:
+            print("note: PostureHistoryStore.record_break missing, skipping 04b-summary-breaks")
+        self.run_state(5, "evidence", window._show_evidence, separate_window=True)
+        self.run_state(
+            6, "exercise-break", self._present_first_exercise, separate_window=True
+        )
+        self.run_state(
+            "06b", "exercise-running", self._present_running_exercise, separate_window=True
+        )
         self.run_state(
             7,
             "rest-break",
             lambda: window._present_manual_break(ManualBreakChoice.STAND),
+            separate_window=True,
         )
         self.run_standalone(8, "calibration-capture", CalibrationDialog)
         self.run_standalone(
@@ -310,8 +366,32 @@ class Session:
         self.window._pending_exercise = self.catalog.exercises[0]
         self.window._present_exercise()
 
+    def _present_running_exercise(self) -> None:
+        self._present_first_exercise()
+        # The break dialog lives in the side panel, so it is not a top-level window.
+        assert self.window is not None
+        dialogs = [d for d in self.window.findChildren(ExerciseDialog) if d.isVisible()]
+        assert dialogs, "exercise dialog is not visible"
+        dialog = dialogs[0]
+        button = getattr(dialog, "start_button", None) or next(
+            b
+            for b in dialog.findChildren(QPushButton)
+            if b.isVisible() and b.text().replace("&", "") == "Start"
+        )
+        button.click()
+        QTest.qWait(1200)
 
-def report(written: list[Path], failures: list[tuple[str, str]]) -> None:
+    def _show_summary_with_breaks(self) -> None:
+        assert self.window is not None and self.history is not None
+        seed_breaks(self.history, datetime.now().astimezone())
+        self.window._show_workday_summary()
+
+
+def report(
+    written: list[Path],
+    failures: list[tuple[str, str]],
+    expected_identical: set[Path],
+) -> None:
     by_hash: dict[str, list[Path]] = defaultdict(list)
     print("\nmd5 summary:")
     for path in sorted(written):
@@ -319,8 +399,13 @@ def report(written: list[Path], failures: list[tuple[str, str]]) -> None:
         by_hash[digest].append(path)
         print(f"{digest}  {path.name}")
     for paths in by_hash.values():
-        if len(paths) > 1:
-            names = ", ".join(p.name for p in paths)
+        expected = [p for p in paths if p in expected_identical]
+        unexpected = [p for p in paths if p not in expected_identical]
+        if len(expected) > 1:
+            names = ", ".join(p.name for p in expected)
+            print(f"NOTE identical main-window grabs (state opens a separate window): {names}")
+        if len(unexpected) > 1:
+            names = ", ".join(p.name for p in unexpected)
             print(f"WARN identical files: {names}")
     print(f"\n{len(written)} files written, {len(failures)} states failed")
     for state, error in failures:
@@ -334,9 +419,11 @@ def main(argv: list[str] | None = None) -> int:
     themes = THEMES if args.theme == "both" else (args.theme,)
 
     app = QApplication.instance() or QApplication(sys.argv[:1])
+    install_control_metrics(app)
     default_palette = QPalette(app.palette())
     written: list[Path] = []
     failures: list[tuple[str, str]] = []
+    expected_identical: set[Path] = set()
 
     for theme in themes:
         palette = dark_palette(default_palette) if theme == "dark" else default_palette
@@ -353,6 +440,7 @@ def main(argv: list[str] | None = None) -> int:
                     session.failures.append(("session", f"{type(exc).__name__}: {exc}"))
                 finally:
                     written.extend(session.written)
+                    expected_identical.update(session.expected_identical)
                     failures.extend(
                         (f"{session.label} {state}", error)
                         for state, error in session.failures
@@ -362,7 +450,7 @@ def main(argv: list[str] | None = None) -> int:
                     app.processEvents()
     app.setPalette(default_palette)
 
-    report(written, failures)
+    report(written, failures, expected_identical)
     return 1 if failures else 0
 
 

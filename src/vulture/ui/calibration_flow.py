@@ -257,7 +257,7 @@ class CalibrationFlowMixin:
                 base_profile=None,
                 tracking_message=tr("Recalibrating good baseline."),
                 success_message=tr(
-                    "Good baseline saved. Recalibrate unwanted postures "
+                    "Good baseline saved. Recalibrate posture examples "
                     "as needed."
                 ),
                 save_failure_message=tr(
@@ -290,7 +290,7 @@ class CalibrationFlowMixin:
             instructions=(
                 "Return to the comfortable good posture used for this "
                 "setup. This confirms that the camera and seat still "
-                "match before the new unwanted example is learned."
+                "match before the new posture example is learned."
             ),
             image_filename=CALIBRATION_STEPS[0].image_filename,
             required=True,

@@ -80,13 +80,19 @@ def test_walk_away_flow_uses_start_then_done(
     dialog.show()
     assert dialog.walk_away
     assert not dialog.start_button.isHidden()
-    assert dialog.countdown_block.isHidden()
+    # The suggested time is the hero before Start.
+    assert not dialog.countdown_block.isHidden()
+    assert dialog.countdown_caption.text() == "suggested"
 
     dialog.start_button.click()
     assert dialog.start_button.isHidden()
     assert dialog.preview.isHidden()
     assert not dialog.countdown_block.isHidden()
     assert dialog.countdown.text() == "5:00"
+    # While the timer runs only "Stop early" remains.
+    assert not dialog.stop_button.isHidden()
+    assert dialog.not_now_button.isHidden()
+    assert dialog.done_button.isHidden()
     dialog.reject()
 
 
@@ -96,7 +102,10 @@ def test_rep_dose_has_checklist_and_no_timer(
     dialog = _dialog("ankle-point-flex")
     dialog.show()
     assert len(dialog.set_checkboxes) == 2
-    assert dialog.start_button.isHidden()
+    assert not dialog.start_button.isHidden()
+    assert dialog.done_button.isHidden()
+    dialog.start_button.click()
+    assert not dialog.done_button.isHidden()
     dialog.reject()
 
 
@@ -124,6 +133,7 @@ def test_done_shows_acknowledgement_then_closes(
 ) -> None:
     dialog = _dialog("shoulder-roll")
     dialog.show()
+    dialog.start_button.click()
     dialog.done_button.click()
     assert dialog.outcome == ExerciseOutcome.COMPLETED
     assert dialog.completion_note.isVisible()
@@ -136,5 +146,5 @@ def test_swap_menu_emits_choice(application: QApplication) -> None:
     picker = AlternativeBreakPicker((ManualBreakChoice.STAND,))
     seen: list[str] = []
     picker.choice_selected.connect(seen.append)
-    picker.menu.actions()[0].trigger()
+    picker.actions()[0].trigger()
     assert seen == [ManualBreakChoice.STAND.value]

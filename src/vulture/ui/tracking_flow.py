@@ -23,7 +23,11 @@ from vulture.breaks import (
     reset_break_activities,
     reset_break_message,
 )
-from vulture.history import DailyPostureSummary, HistoryStorageError
+from vulture.history import (
+    BreakEvent,
+    DailyPostureSummary,
+    HistoryStorageError,
+)
 from vulture.i18n import tr
 from vulture.models import (
     FeatureFrame,
@@ -38,7 +42,11 @@ from .exercises import (
     ExerciseDialog,
     ExerciseOutcome,
 )
-from .break_options import RestBreakDialog, RestBreakOutcome
+from .break_options import (
+    RestBreakDialog,
+    RestBreakOutcome,
+    format_countdown,
+)
 
 
 class TrackingFlowMixin:
@@ -422,17 +430,25 @@ class TrackingFlowMixin:
         return min(candidates, key=lambda item: item[1]) if candidates else None
 
     def _update_break_countdown(self) -> None:
+        self._sync_break_panel_controls()
+        running = self._running_break_panel()
+        if running is not None:
+            panel, remaining = running
+            self.next_break_label.setText(
+                tr("On a break: {title}", title=panel.active_break_title)
+            )
+            self.break_countdown.setText(format_countdown(remaining))
+            self.break_countdown_caption.setText(tr("remaining"))
+            return
         next_break = self._next_break()
         if next_break is None:
             self.next_break_label.setText(tr("Break reminders are off"))
             self.break_countdown.setText("--:--")
-            self.break_countdown.setAccessibleName(
-                tr("Time until next break: {time}", time="--:--")
-            )
             self.break_countdown_caption.setText(
                 tr("Enable them in Settings")
             )
             self._break_due_announced = False
+            self._break_minute_announced = False
             return
         channel, remaining_seconds = next_break
         self.next_break_label.setText(break_channel_name(channel))
@@ -444,12 +460,10 @@ class TrackingFlowMixin:
             if hours
             else f"{minutes}:{seconds:02d}"
         )
+        # The accessible name stays "Time until next break" (set once in the
+        # shell): a ticking name would be re-read every second. Assistive
+        # technology hears the time only at one minute left and when due.
         self.break_countdown.setText(countdown)
-        # A label's accessible name replaces its text, so the name carries
-        # the time too.
-        self.break_countdown.setAccessibleName(
-            tr("Time until next break: {time}", time=countdown)
-        )
         due = total_seconds == 0
         self.break_countdown_caption.setText(
             tr("due now") if due else tr("until next break")
@@ -459,7 +473,17 @@ class TrackingFlowMixin:
                 self.break_countdown,
                 f"{self.next_break_label.text()}: {tr('due now')}",
             )
+        last_minute = 0 < total_seconds <= 60
+        if last_minute and not self._break_minute_announced:
+            announce(
+                self.break_countdown,
+                tr(
+                    "{title} in one minute",
+                    title=self.next_break_label.text(),
+                ),
+            )
         self._break_due_announced = due
+        self._break_minute_announced = last_minute
 
     def _check_sedentary_break(self) -> None:
         self._check_break_reminders()
@@ -641,6 +665,7 @@ class TrackingFlowMixin:
                 current_exercise_id=exercise.id,
             ),
             show_full_safety=not self.data.full_safety_shown,
+            breaks_today=self._breaks_today_after_this(),
         )
         dialog.finished.connect(self._exercise_dialog_finished)
         self._exercise_dialog = dialog
@@ -729,6 +754,18 @@ class TrackingFlowMixin:
                 dialog,
                 allow_deferred_exercise=False,
             )
+            if outcome == ExerciseOutcome.COMPLETED:
+                # Recorded before the reload/quit guard: a break finished
+                # during the completion card still counts.
+                self._record_completed_break(
+                    "movement",
+                    (
+                        *self._pending_exercise_reset_channels,
+                        BreakChannel.MOVEMENT,
+                    )[0],
+                    dialog.exercise.id,
+                    dialog.completed_seconds,
+                )
         if self._language_reload_preparing or self._quitting:
             return
         if outcome == ExerciseOutcome.SWAPPED:
@@ -801,6 +838,7 @@ class TrackingFlowMixin:
         dialog = RestBreakDialog(
             prompt,
             self._alternative_break_choices(current_choice=choice),
+            breaks_today=self._breaks_today_after_this(),
         )
         dialog.finished.connect(self._rest_break_dialog_finished)
         self._rest_break_dialog = dialog
@@ -816,6 +854,13 @@ class TrackingFlowMixin:
                 dialog,
                 allow_deferred_exercise=False,
             )
+            if dialog.outcome == RestBreakOutcome.COMPLETED:
+                self._record_completed_break(
+                    "rest",
+                    dialog.prompt.channel,
+                    None,
+                    dialog.completed_seconds,
+                )
         if self._language_reload_preparing or self._quitting:
             return
         if (
@@ -910,6 +955,48 @@ class TrackingFlowMixin:
             return
         try:
             self.history_recorder.record_reminder(event)
+        except HistoryStorageError as error:
+            self._disable_history_for_session(error)
+
+    def _breaks_today_after_this(self) -> int | None:
+        """Today's break count once this one is done, or None if unknown.
+
+        Without a recording history store the count would be wrong, so the
+        break panel falls back to its plain "break done" message.
+        """
+        recorder = self.history_recorder
+        if recorder is None or not recorder.enabled:
+            return None
+        try:
+            summary = recorder.store.daily_summary(
+                datetime.now().astimezone().date()
+            )
+        except HistoryStorageError as error:
+            self._disable_history_for_session(error)
+            return None
+        return len(summary.breaks) + 1
+
+    def _record_completed_break(
+        self,
+        kind: str,
+        channel: BreakChannel,
+        exercise_id: str | None,
+        duration_seconds: float,
+    ) -> None:
+        if self.history_recorder is None:
+            return
+        completed_at = datetime.now().astimezone()
+        try:
+            self.history_recorder.record_break(
+                BreakEvent(
+                    kind=kind,
+                    channel=channel,
+                    exercise_id=exercise_id,
+                    completed_at=completed_at,
+                    local_date=completed_at.date(),
+                    duration_seconds=max(0.0, duration_seconds),
+                )
+            )
         except HistoryStorageError as error:
             self._disable_history_for_session(error)
 
