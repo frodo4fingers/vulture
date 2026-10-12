@@ -34,14 +34,17 @@ the worker reaches feature and recognition parity.
 
 `MainWindow` owns a `side_panel_frame` as the second pane of its horizontal
 workspace splitter. The frame supplies one shared title and close action above
-the scrollable `side_panel_host`. Setup, settings, calibration selection and
-capture, workday summary, evidence and safety, movement guidance, and
-operational notices are `QDialog` content objects reparented as widgets into
-that host. Only one panel is active at a time. Opening another rejects and
-cleans up the previous panel, while Save/Cancel outcomes continue through
-asynchronous `finished` signals rather than nested modal `exec()` loops. The
-host sizes the main window from the active panel's hints and minimums, falling
-back to scrolling only when screen geometry requires it, while preserving a
+the scrollable `side_panel_host`. Add setup, calibration selection and capture,
+rest breaks, movement guidance, and operational notices are `QDialog` content
+objects reparented as widgets into that host. These are the short
+interruptions and flows that belong beside the live preview. Settings, the
+workday summary, and evidence and safety instead open through
+`SecondaryWindowPresenter` (`application_flow.py`) as separate windows placed
+beside the main window. Only one side panel is active at a time. Opening another
+rejects and cleans up the previous panel, while Save/Cancel outcomes continue
+through asynchronous `finished` signals rather than nested modal `exec()` loops.
+The host sizes the main window from the active panel's hints and minimums,
+falling back to scrolling only when screen geometry requires it, while preserving a
 visible camera workspace. Validation, calibration errors, and destructive
 history confirmation remain inline; operational failures use an embedded
 `NoticeDialog`. Background movement offers and notices are deferred while a
@@ -73,16 +76,39 @@ The exercise panel exposes three outcomes through an `ExerciseOutcome`:
 **Done** completes and clears the pending movement, **Remind me later**
 postpones it for `EXERCISE_POSTPONE_MINUTES` (a single-shot `QTimer`
 re-presents it), and **Skip** disregards it and clears the pending state.
-Rejecting or replacing the panel is treated as **Remind me later**. The panel
-is non-modal and never blocks desktop session shutdown. Safety remains visible;
-source links and the medical disclaimer are progressively disclosed to keep
-the primary movement instructions compact.
+Rejecting or replacing the panel is treated as **Remind me later**. In break
+mode the header button reads **Later** and performs the same postponement.
+**Done** records the outcome immediately, shows a short acknowledgement for
+`COMPLETION_ACK_MS`, then closes. The panel has no default button, so Enter
+cannot complete a break. It is non-modal and never blocks desktop session
+shutdown. The inline safety line is specific to the movement. The first movement
+shown also appends the full global safety text (`AppData.full_safety_shown`).
+Source links and the medical disclaimer are progressively disclosed under
+**Sources and medical context** to keep the primary movement instructions
+compact.
+
+## Break mode
+
+`ExerciseDialog` sets `wants_break_mode`. When `MainWindow._show_side_panel`
+hosts such a panel, it hides the camera workspace and gives the movement the
+whole content area in a centred column capped at `_BREAK_COLUMN_MAX_WIDTH`.
+Ordinary panels keep the workspace beside them. Break mode never resizes the
+window and skips the height-fit pass. Background arrivals call
+`_show_window(activate=False)`, which sets `WA_ShowWithoutActivating`, raises
+the window, and calls `QApplication.alert`, so a movement cannot take keyboard focus
+from the user's typing. Closing the panel restores the camera workspace.
+
+Inside the dialog, the demonstration `QMediaPlayer` has no audio output and
+loops its clip. Timed doses start with **Start** and show a countdown. Set-based
+doses show round checkboxes instead. A standing walk-away movement pauses its
+clip when the countdown starts and shows a large countdown.
 
 `MainWindow._toggle_tracking()` treats pausing as a camera handoff. It stops
 `CameraThread`, clears the preview, disables calibration actions, and marks the
-camera available to meeting applications. Resuming reactivates the selected
-setup and starts a fresh camera thread. A paused runtime state survives language
-reload without briefly reopening the camera.
+camera available to meeting applications. The toolbar and tray action read
+**Pause camera** while tracking and **Resume tracking** while paused. Resuming
+reactivates the selected setup and starts a fresh camera thread. A paused
+runtime state survives language reload without briefly reopening the camera.
 
 ## UI module boundaries
 
@@ -90,9 +116,16 @@ reload without briefly reopening the camera.
 `theme` owns the design tokens — the spacing scale, the type roles, the
 palette-derived colours, and the `Card`, `Separator`, and `CaptionLabel`
 primitives — so that every surface reads its sizes from one place instead of
-nudging fonts and margins locally. `common` owns shared visual primitives
-built on those tokens; `calibration`, `settings`, `exercises`, `notices`,
-`summary`, and `summary_dialog` own bounded dialog and reporting surfaces.
+nudging fonts and margins locally. The colour tokens are calm: posture states
+never use alarm red, and foreground/background pairs meet WCAG AA for small
+text. Captions are quieter through colour rather than size, so the `CAPTION`
+role does not step below body text (`_ROLE_STEPS`). Every clickable control is
+at least `CONTROL_MIN_HEIGHT` (28 px) through `ControlMetricsStyle`, a
+`QProxyStyle` that keeps the platform look while enforcing that minimum for
+push buttons, tool buttons, combo boxes, line edits, and spin boxes. `common`
+owns shared visual primitives built on those tokens; `calibration`, `settings`,
+`exercises`, `notices`, `summary`, and `summary_dialog` own bounded dialog and
+reporting surfaces.
 `shell`, `calibration_flow`, `tracking_flow`, and `application_flow`
 provide behavior-preserving `MainWindow` mixins, while `main_window` contains
 the runtime snapshot and concrete composition root. Dialog modules do not

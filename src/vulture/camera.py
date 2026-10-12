@@ -397,7 +397,12 @@ class _CameraAnalysisWorker:
         )
         preview = _rgb_frame_to_image(preview_frame)
         if self.owner.descriptor.mirror_preview:
-            preview = preview.mirrored(True, False)
+            # Qt 6.9 replaced mirrored() with flipped(); 6.8 is still allowed.
+            preview = (
+                preview.flipped(Qt.Orientation.Horizontal)
+                if hasattr(preview, "flipped")
+                else preview.mirrored(True, False)
+            )
         self.owner.preview_ready.emit(preview)
 
     def _close_detector(self) -> None:

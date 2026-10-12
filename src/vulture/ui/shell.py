@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from PySide6.QtCore import QEvent, Qt, QTimer
-from PySide6.QtGui import QAction, QGuiApplication
+from PySide6.QtCore import QEvent, QSize, Qt, QTimer
+from PySide6.QtGui import QAction, QGuiApplication, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
@@ -29,17 +29,17 @@ from vulture.models import TrackerState
 from vulture.tracking import PostureEvaluator
 
 from .calibration import SetupDialog
-from .common import SemanticLabel, create_state_icon
+from .common import SemanticLabel, create_state_icon, shortcut_hint
 from .theme import (
     CONTROL_SPACING,
     HAIRLINE,
+    MEDIA_ASPECT_RATIO,
     MEDIA_TEXT,
     SECTION_SPACING,
     SETUP_SELECTOR_WIDTH,
     SPACE_MD,
     SPACE_SM,
     SPACE_XS,
-    STATUS_DOT_SIZE,
     WINDOW_MARGIN,
     Card,
     CaptionLabel,
@@ -56,6 +56,50 @@ _WINDOW_CONTENT_SPACING = SECTION_SPACING
 # The hosted side panel keeps the divider clear on its left and stays flush
 # with the workspace footer at the bottom so both columns share one baseline.
 SIDE_PANEL_CONTENT_MARGINS = (0, SPACE_MD, 0, 0)
+# Qt's QWIDGETSIZE_MAX, which PySide6 does not export.
+_UNBOUNDED_WIDTH = 16_777_215
+# Break mode centres the movement in a column as wide as the widest side
+# panel, so the demonstration video keeps a sensible size on wide windows.
+_BREAK_COLUMN_MAX_WIDTH = 760
+# Side panel width range, and the narrowest the workspace may get beside it.
+_SIDE_PANEL_MIN_WIDTH = 380
+_SIDE_PANEL_MAX_WIDTH = 760
+_WORKSPACE_MIN_WIDTH = 340
+# A window opening a panel grows to at least this workspace plus the panel.
+_WINDOW_WORKSPACE_WIDTH = 620
+_WINDOW_PANEL_MIN_HEIGHT = 720
+# The camera preview keeps the media ratio at both widths.
+_PREVIEW_MIN_WIDTH = 640
+_FIRST_RUN_MAX_WIDTH = 500
+_SETUP_COMBO_MIN_WIDTH = 180
+
+
+def _preview_min_size(width: int) -> QSize:
+    return QSize(width, round(width / MEDIA_ASPECT_RATIO))
+
+
+def _standard_or(
+    standard: QKeySequence.StandardKey,
+    fallback: str,
+) -> list[QKeySequence]:
+    """The platform's shortcuts for ``standard``, else ``fallback``."""
+    return QKeySequence.keyBindings(standard) or [QKeySequence(fallback)]
+
+
+def _set_shortcuts(action: QAction, *keys: QKeySequence) -> None:
+    """Give a toolbar action its keys plus the Alt mnemonic from its text.
+
+    Qt shows toolbar buttons without the ``&`` marker and never registers it,
+    so the mnemonic has to be a real shortcut.
+    """
+    mnemonic = QKeySequence.mnemonic(action.text())
+    action.setShortcuts(
+        [*keys, *([mnemonic] if not mnemonic.isEmpty() else [])]
+    )
+
+
+def _wants_break_mode(panel: QDialog) -> bool:
+    return bool(getattr(panel, "wants_break_mode", False))
 
 
 class ShellMixin:
@@ -87,9 +131,11 @@ class ShellMixin:
         setup_row = QHBoxLayout(setup_control)
         setup_row.setContentsMargins(0, 0, SPACE_SM, 0)
         setup_row.setSpacing(SPACE_SM)
-        setup_row.addWidget(QLabel(tr("Setup")))
+        setup_label = QLabel(tr("Set&up"))
+        setup_row.addWidget(setup_label)
         self.setup_combo = QComboBox()
-        self.setup_combo.setMinimumWidth(180)
+        setup_label.setBuddy(self.setup_combo)
+        self.setup_combo.setMinimumWidth(_SETUP_COMBO_MIN_WIDTH)
         self.setup_combo.setMaximumWidth(SETUP_SELECTOR_WIDTH)
         self.setup_combo.setSizePolicy(
             QSizePolicy.Policy.Expanding,
@@ -98,7 +144,7 @@ class ShellMixin:
         self.setup_combo.currentIndexChanged.connect(self._setup_changed)
         setup_row.addWidget(self.setup_combo, 1)
         setup_row.addStretch(0)
-        self.command_bar.addWidget(setup_control)
+        self.setup_control_action = self.command_bar.addWidget(setup_control)
 
         command_bar_spacer = QWidget()
         command_bar_spacer.setSizePolicy(
@@ -107,38 +153,41 @@ class ShellMixin:
         )
         self.command_bar.addWidget(command_bar_spacer)
 
-        self.add_setup_command = QAction(tr("Add setup"), self)
+        self.add_setup_command = QAction(tr("&Add setup"), self)
         self.add_setup_command.triggered.connect(self._add_setup)
         self.command_bar.addAction(self.add_setup_command)
         self.pause_command = QAction(
-            tr("Release camera")
+            tr("Pause camera")
             if self._tracking_enabled
             else tr("Resume tracking"),
             self,
         )
         self.pause_command.triggered.connect(self._toggle_tracking)
         self.command_bar.addAction(self.pause_command)
-        self.command_bar.addSeparator()
-        self.calibrate_command = QAction(tr("Calibrate"), self)
+        self.camera_separator = self.command_bar.addSeparator()
+        self.calibrate_command = QAction(tr("&Calibrate"), self)
         self.calibrate_command.triggered.connect(self._calibrate)
         self.command_bar.addAction(self.calibrate_command)
         self.recalibrate_step_command = QAction(
-            tr("Recalibrate step"),
+            tr("Re&do a calibration step"),
             self,
-        )
-        self.recalibrate_step_command.setToolTip(
-            tr(
-                "Record the good baseline or one unwanted-posture stage again."
-            )
         )
         self.recalibrate_step_command.triggered.connect(
             self._recalibrate_step
         )
         self.command_bar.addAction(self.recalibrate_step_command)
-        self.command_bar.addSeparator()
-        self.settings_command = QAction(tr("Settings"), self)
+        self.settings_separator = self.command_bar.addSeparator()
+        self.settings_command = QAction(tr("&Settings"), self)
         self.settings_command.triggered.connect(self._show_settings)
         self.command_bar.addAction(self.settings_command)
+        _set_shortcuts(self.add_setup_command)
+        _set_shortcuts(self.calibrate_command)
+        _set_shortcuts(self.recalibrate_step_command)
+        _set_shortcuts(
+            self.settings_command,
+            *_standard_or(QKeySequence.StandardKey.Preferences, "Ctrl+,"),
+        )
+        self.pause_command.setShortcut(QKeySequence("Ctrl+Shift+P"))
 
         self.add_setup_button = self.command_bar.widgetForAction(
             self.add_setup_command
@@ -155,13 +204,24 @@ class ShellMixin:
         self.settings_button = self.command_bar.widgetForAction(
             self.settings_command
         )
+        # Toolbar buttons are unfocusable by default, which would leave the
+        # commands out of the keyboard tab chain.
+        for button in (
+            self.add_setup_button,
+            self.pause_button,
+            self.calibrate_button,
+            self.recalibrate_step_button,
+            self.settings_button,
+        ):
+            button.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         layout.addWidget(self.command_bar)
 
         self.break_timer_group = Card(tr("Next break"))
-        self.move_now_button = QPushButton(tr("Move now"))
+        self.break_timer_group.setAccessibleName(tr("Next break"))
+        self.move_now_button = QPushButton(tr("&Move now"))
         self.move_now_button.setAutoDefault(False)
         self.move_now_button.clicked.connect(
-            lambda: self._offer_exercise()
+            lambda: self._offer_exercise(activate=True)
         )
         self.break_timer_group.add_header_action(self.move_now_button)
 
@@ -201,31 +261,38 @@ class ShellMixin:
         self.workspace_splitter = QSplitter(Qt.Orientation.Horizontal)
         self.workspace_splitter.setChildrenCollapsible(False)
         self.workspace_splitter.setHandleWidth(SPACE_MD)
-        camera_workspace = QWidget()
+        # Break mode hides this whole column so a movement owns the window.
+        self.camera_workspace = camera_workspace = QWidget()
         camera_layout = QVBoxLayout(camera_workspace)
         camera_layout.setContentsMargins(0, 0, 0, 0)
         camera_layout.setSpacing(_WINDOW_CONTENT_SPACING)
 
         self.status_group = Card(tr("Tracking status"))
+        self.status_group.setAccessibleName(tr("Tracking status"))
+        # A small coloured dot reinforces the state name beside it; the
+        # name, not the colour, carries the meaning.
         status_layout = QHBoxLayout()
         status_layout.setContentsMargins(0, 0, 0, 0)
-        status_layout.setSpacing(SPACE_MD)
-        self.status_dot = QLabel("V")
-        self.status_dot.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.status_dot.setFixedSize(STATUS_DOT_SIZE, STATUS_DOT_SIZE)
-        apply_text_role(self.status_dot, TextRole.TITLE)
-        self.status_label = QLabel()
-        self.status_label.setWordWrap(True)
-        self.status_label.setAlignment(
-            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
-        )
+        status_layout.setSpacing(SPACE_SM)
+        self.status_state_label = QLabel()
+        apply_text_role(self.status_state_label, TextRole.BODY_STRONG)
+        self.status_state_label.setWordWrap(True)
+        dot_size = self.status_state_label.fontMetrics().capHeight()
+        self.status_dot = QLabel()
+        self.status_dot.setFixedSize(dot_size, dot_size)
         status_layout.addWidget(
             self.status_dot,
             0,
-            Qt.AlignmentFlag.AlignTop,
+            Qt.AlignmentFlag.AlignVCenter,
         )
-        status_layout.addWidget(self.status_label, 1)
+        status_layout.addWidget(self.status_state_label, 1)
         self.status_group.body.addLayout(status_layout)
+        self.status_label = QLabel()
+        self.status_label.setWordWrap(True)
+        self.status_label.setAlignment(
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
+        )
+        self.status_group.body.addWidget(self.status_label)
         self.status_group.body.addStretch(1)
         signal_row = QHBoxLayout()
         signal_row.setContentsMargins(0, 0, 0, 0)
@@ -235,7 +302,9 @@ class ShellMixin:
         camera_layout.addLayout(signal_row)
 
         self.preview_stack = QStackedWidget()
-        self.preview_stack.setMinimumSize(640, 360)
+        self.preview_stack.setMinimumSize(
+            _preview_min_size(_PREVIEW_MIN_WIDTH)
+        )
 
         self.first_run_panel = QFrame()
         self.first_run_panel.setStyleSheet(
@@ -249,16 +318,19 @@ class ShellMixin:
             SPACE_MD,
         )
         first_run_outer.addStretch(1)
+        # No minimum width: the copy wraps, so the panel still fits the
+        # narrow preview left beside an open side panel. It expands up to a
+        # comfortable measure when there is room.
         first_run_content = QWidget()
-        first_run_content.setMinimumWidth(380)
-        first_run_content.setMaximumWidth(500)
+        first_run_content.setMaximumWidth(_FIRST_RUN_MAX_WIDTH)
         first_run_layout = QVBoxLayout(first_run_content)
         first_run_layout.setContentsMargins(0, 0, 0, 0)
         first_run_layout.setSpacing(SPACE_MD)
         self.first_run_heading = QLabel(tr("Camera tracking is optional"))
         self.first_run_heading.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.first_run_heading.setWordWrap(True)
         apply_text_role(self.first_run_heading, TextRole.TITLE)
-        self.first_run_heading.setStyleSheet("color: #f2f6fb")
+        self.first_run_heading.setStyleSheet(f"color: {MEDIA_TEXT}")
         first_run_layout.addWidget(self.first_run_heading)
         first_run_copy = QLabel(
             tr(
@@ -268,10 +340,9 @@ class ShellMixin:
         )
         first_run_copy.setAlignment(Qt.AlignmentFlag.AlignCenter)
         first_run_copy.setWordWrap(True)
-        first_run_copy.setMinimumHeight(40)
         first_run_copy.setStyleSheet(f"color: {MEDIA_TEXT}")
         first_run_layout.addWidget(first_run_copy)
-        self.first_run_add_button = QPushButton(tr("Add camera setup"))
+        self.first_run_add_button = QPushButton(tr("&Add camera setup"))
         self.first_run_add_button.setDefault(True)
         self.first_run_add_button.clicked.connect(self._add_setup)
         first_run_actions = QHBoxLayout()
@@ -280,11 +351,13 @@ class ShellMixin:
         first_run_actions.addWidget(self.first_run_add_button)
         first_run_actions.addStretch(1)
         first_run_layout.addLayout(first_run_actions)
-        first_run_outer.addWidget(
-            first_run_content,
-            0,
-            Qt.AlignmentFlag.AlignCenter,
-        )
+        # The content takes the width first; the spacers only share what is
+        # left beyond its maximum, which centres it.
+        first_run_row = QHBoxLayout()
+        first_run_row.addStretch()
+        first_run_row.addWidget(first_run_content, 1)
+        first_run_row.addStretch()
+        first_run_outer.addLayout(first_run_row)
         first_run_outer.addStretch(1)
         self.preview_stack.addWidget(self.first_run_panel)
 
@@ -294,7 +367,10 @@ class ShellMixin:
         self.preview_stack.addWidget(self.preview)
         camera_layout.addWidget(self.preview_stack, 1)
 
-        privacy = SemanticLabel(
+        # Shown while the user decides whether to add a camera; once a setup
+        # exists the promise lives in Evidence and safety instead of the
+        # workspace.
+        self.privacy_note = privacy = SemanticLabel(
             tr(
                 "<b>Private by design:</b> camera frames are analyzed locally "
                 "and discarded immediately. Stored workday history contains "
@@ -309,29 +385,51 @@ class ShellMixin:
         footer = QHBoxLayout()
         footer.setContentsMargins(0, 0, 0, 0)
         footer.setSpacing(CONTROL_SPACING)
-        self.summary_button = QPushButton(tr("Workday summary"))
+        self.summary_button = QPushButton(tr("&Workday summary"))
         self.summary_button.setAutoDefault(False)
         self.summary_button.clicked.connect(self._show_workday_summary)
         self.summary_button.setEnabled(self.history_store is not None)
         footer.addWidget(self.summary_button)
-        self.evidence_button = QPushButton(tr("Evidence and safety"))
+        self.evidence_button = QPushButton(tr("&Evidence and safety"))
         self.evidence_button.setAutoDefault(False)
         self.evidence_button.clicked.connect(self._show_evidence)
         footer.addWidget(self.evidence_button)
-        footer.addStretch()
+        # Window shortcuts are actions, so they cannot clash with the buttons'
+        # own Alt mnemonics.
+        self.evidence_action = QAction(tr("Evidence and safety"), self)
+        self.evidence_action.setShortcuts(
+            _standard_or(QKeySequence.StandardKey.HelpContents, "F1")
+        )
+        self.evidence_action.triggered.connect(self._show_evidence)
+        self.addAction(self.evidence_action)
+        self.evidence_button.setToolTip(
+            shortcut_hint(
+                self.evidence_action.text(),
+                self.evidence_action.shortcut(),
+            )
+        )
         self.footer_disclaimer = CaptionLabel(
             tr("Personalized reminder — not a medical device")
         )
-        self.footer_disclaimer.setWordWrap(False)
-        footer.addWidget(
-            self.footer_disclaimer,
-            0,
-            Qt.AlignmentFlag.AlignVCenter,
+        # Wraps instead of truncating when a side panel narrows the column.
+        self.footer_disclaimer.setWordWrap(True)
+        self.footer_disclaimer.setAlignment(
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
         )
+        footer.addWidget(self.footer_disclaimer, 1)
         camera_layout.addLayout(footer)
 
+        # In break mode the frame spans the window and the column inside it
+        # keeps a readable measure, centred by the spacers either side.
         self.side_panel_frame = QWidget()
-        side_panel_layout = QVBoxLayout(self.side_panel_frame)
+        side_panel_row = QHBoxLayout(self.side_panel_frame)
+        side_panel_row.setContentsMargins(0, 0, 0, 0)
+        side_panel_row.setSpacing(0)
+        self.side_panel_column = QWidget()
+        side_panel_row.addStretch()
+        side_panel_row.addWidget(self.side_panel_column, 1)
+        side_panel_row.addStretch()
+        side_panel_layout = QVBoxLayout(self.side_panel_column)
         side_panel_layout.setContentsMargins(0, 0, 0, 0)
         side_panel_layout.setSpacing(0)
 
@@ -356,6 +454,13 @@ class ShellMixin:
         self.side_panel_close_button.clicked.connect(
             self._dismiss_side_panel
         )
+        # Esc does what the header button does: close, or "Later" in break
+        # mode. It is live only while a panel is open.
+        self._dismiss_shortcut = QShortcut(
+            QKeySequence(QKeySequence.StandardKey.Cancel), self
+        )
+        self._dismiss_shortcut.setEnabled(False)
+        self._dismiss_shortcut.activated.connect(self._dismiss_side_panel)
         side_panel_header_layout.addWidget(self.side_panel_close_button)
         side_panel_layout.addWidget(side_panel_header)
 
@@ -371,8 +476,8 @@ class ShellMixin:
             self._side_panel_scroll_range_changed
         )
         side_panel_layout.addWidget(self.side_panel_host, 1)
-        self.side_panel_frame.setMinimumWidth(380)
-        self.side_panel_frame.setMaximumWidth(760)
+        self.side_panel_frame.setMinimumWidth(_SIDE_PANEL_MIN_WIDTH)
+        self.side_panel_frame.setMaximumWidth(_SIDE_PANEL_MAX_WIDTH)
         self.side_panel_frame.hide()
 
         self.workspace_splitter.addWidget(camera_workspace)
@@ -381,6 +486,23 @@ class ShellMixin:
         self.workspace_splitter.setStretchFactor(1, 0)
         layout.addWidget(self.workspace_splitter, 1)
 
+        # Visual order: toolbar, cards, footer, then the side panel.
+        previous = self.setup_combo
+        for widget in (
+            self.add_setup_button,
+            self.pause_button,
+            self.calibrate_button,
+            self.recalibrate_step_button,
+            self.settings_button,
+            self.move_now_button,
+            self.first_run_add_button,
+            self.summary_button,
+            self.evidence_button,
+            self.side_panel_close_button,
+        ):
+            self.setTabOrder(previous, widget)
+            previous = widget
+
     def _build_tray(self) -> None:
         self.tray = QSystemTrayIcon(create_state_icon(self._state), self)
         self.tray_menu = QMenu(self)
@@ -388,7 +510,7 @@ class ShellMixin:
         show_action = QAction(tr("Show Vulture"), self)
         show_action.triggered.connect(self._show_window)
         self.pause_action = QAction(
-            tr("Release camera")
+            tr("Pause camera")
             if self._tracking_enabled
             else tr("Resume tracking"),
             self,
@@ -400,7 +522,7 @@ class ShellMixin:
         )
         self.calibrate_action.triggered.connect(self._calibrate)
         self.recalibrate_step_action = QAction(
-            tr("Recalibrate step"),
+            tr("Redo a calibration step"),
             self,
         )
         self.recalibrate_step_action.triggered.connect(
@@ -409,6 +531,15 @@ class ShellMixin:
         self.summary_action = QAction(tr("Workday summary"), self)
         self.summary_action.setEnabled(self.history_store is not None)
         self.summary_action.triggered.connect(self._show_workday_summary)
+        # Also live on the window, so the shortcut works without the tray.
+        self.summary_action.setShortcut(QKeySequence("Ctrl+Shift+S"))
+        self.addAction(self.summary_action)
+        self.summary_button.setToolTip(
+            shortcut_hint(
+                self.summary_action.text(),
+                self.summary_action.shortcut(),
+            )
+        )
         self.open_exercise_action = QAction(tr("Open movement"), self)
         self.open_exercise_action.setVisible(False)
         self.open_exercise_action.triggered.connect(
@@ -451,19 +582,66 @@ class ShellMixin:
             self.preview if has_setup else self.first_run_panel
         )
         self.status_group.setVisible(has_setup)
+        self.privacy_note.setVisible(not has_setup)
         self.setup_combo.setEnabled(has_setup and controls_enabled)
-        self.add_setup_command.setEnabled(controls_enabled)
         self.first_run_add_button.setEnabled(controls_enabled)
-        self.calibrate_command.setEnabled(camera_controls_enabled)
-        self.calibrate_action.setEnabled(camera_controls_enabled)
-        self.pause_command.setEnabled(has_setup and controls_enabled)
-        self.settings_command.setEnabled(controls_enabled)
-        can_recalibrate_step = (
-            camera_controls_enabled
-            and self.data.active_setup() is not None
+        # Until a setup exists, camera-only actions are hidden rather than
+        # disabled, and the first-run canvas button is the one way to add.
+        for action in (
+            self.setup_control_action,
+            self.add_setup_command,
+            self.pause_command,
+            self.camera_separator,
+            self.calibrate_command,
+            self.recalibrate_step_command,
+            self.settings_separator,
+            self.pause_action,
+            self.calibrate_action,
+            self.recalibrate_step_action,
+        ):
+            action.setVisible(has_setup)
+        calibration_reason = tr("Finish or cancel the calibration first.")
+        camera_reason = (
+            calibration_reason
+            if not controls_enabled
+            else tr("Resume tracking to use the camera.")
+        )
+        has_calibration = (
+            self.data.active_setup() is not None
             and self.data.active_setup().calibration is not None
         )
-        self.recalibrate_step_command.setEnabled(can_recalibrate_step)
+        can_recalibrate_step = camera_controls_enabled and has_calibration
+        self._set_command_state(
+            self.add_setup_command,
+            controls_enabled,
+            calibration_reason,
+        )
+        self._set_command_state(
+            self.pause_command,
+            has_setup and controls_enabled,
+            calibration_reason,
+        )
+        self._set_command_state(
+            self.settings_command,
+            controls_enabled,
+            calibration_reason,
+        )
+        self._set_command_state(
+            self.calibrate_command,
+            camera_controls_enabled,
+            camera_reason,
+        )
+        self._set_command_state(
+            self.recalibrate_step_command,
+            can_recalibrate_step,
+            camera_reason
+            if not camera_controls_enabled
+            else tr("Complete a full calibration for this setup first."),
+            tr(
+                "Record the good baseline or one unwanted-posture stage again."
+            ),
+        )
+        self.calibrate_action.setEnabled(camera_controls_enabled)
         self.recalibrate_step_action.setEnabled(can_recalibrate_step)
         self.pause_action.setEnabled(has_setup and controls_enabled)
         self.summary_button.setEnabled(
@@ -473,26 +651,39 @@ class ShellMixin:
             controls_enabled and self.history_store is not None
         )
         self.evidence_button.setEnabled(controls_enabled)
+        self.evidence_action.setEnabled(controls_enabled)
         self.move_now_button.setEnabled(controls_enabled)
+
+    @staticmethod
+    def _set_command_state(
+        action: QAction,
+        enabled: bool,
+        disabled_reason: str,
+        tooltip: str = "",
+    ) -> None:
+        """Enable a toolbar command; a disabled one says why on hover."""
+        action.setEnabled(enabled)
+        # ``iconText`` is the label without its ``&`` mnemonic marker.
+        action.setToolTip(
+            shortcut_hint(tooltip or action.iconText(), action.shortcut())
+            if enabled
+            else disabled_reason
+        )
 
     def _add_setup(self) -> None:
         if self._language_reload_preparing:
             return
         if self._setup_dialog is not None:
-            self._secondary_window_presenter.focus(self._setup_dialog)
+            self._focus_side_panel(self._setup_dialog)
             return
         dialog = SetupDialog(self)
         self._setup_dialog = dialog
-        self._secondary_window_presenter.present(
-            "setup",
-            dialog,
-            modality=Qt.WindowModality.WindowModal,
-        )
         dialog.finished.connect(
             lambda result, active_dialog=dialog: (
                 self._finish_add_setup(active_dialog, result)
             )
         )
+        self._show_side_panel(dialog)
 
     def _finish_add_setup(
         self,
@@ -502,6 +693,7 @@ class ShellMixin:
         if dialog is not self._setup_dialog:
             return
         self._setup_dialog = None
+        self._hide_side_panel(dialog)
         if result != QDialog.DialogCode.Accepted:
             return
         setup = dialog.setup_profile()
@@ -666,7 +858,18 @@ class ShellMixin:
             panel.setProperty("preferredSidePanelWidth", requested)
         panel.setMinimumWidth(0)
 
-    def _show_side_panel(self, panel: QDialog) -> None:
+    def _show_side_panel(
+        self,
+        panel: QDialog,
+        *,
+        activate: bool = True,
+    ) -> None:
+        """Host ``panel`` beside the workspace.
+
+        A panel with ``wants_break_mode`` instead takes over the whole
+        workspace without resizing the window. ``activate=False`` raises the
+        window without taking keyboard focus from another application.
+        """
         previous = self._side_panel
         if previous is not None and previous is not panel:
             if previous.isVisible():
@@ -674,8 +877,10 @@ class ShellMixin:
             if self._side_panel is previous:
                 self._hide_side_panel(previous)
 
+        break_mode = _wants_break_mode(panel)
         if (
-            self._size_before_side_panel is None
+            not break_mode
+            and self._size_before_side_panel is None
             and not self.isMaximized()
             and not self.isFullScreen()
         ):
@@ -694,10 +899,24 @@ class ShellMixin:
         self._side_panel = panel
         title = panel.windowTitle()
         self.side_panel_title.setText(title)
-        self.side_panel_close_button.setAccessibleName(
-            tr("Close {title}", title=title)
+        # A movement's header button postpones it, so it says so.
+        if break_mode:
+            close_text = tr("Later")
+            close_name = tr("Remind me later: {title}", title=title)
+        else:
+            close_text = tr("Close")
+            close_name = tr("Close {title}", title=title)
+        self.side_panel_close_button.setText(close_text)
+        self.side_panel_close_button.setAccessibleName(close_name)
+        self.side_panel_close_button.setToolTip(
+            shortcut_hint(close_name, self._dismiss_shortcut.key())
         )
-        self.preview_stack.setMinimumSize(340, 191)
+        self.side_panel_host.setAccessibleName(title)
+        self._dismiss_shortcut.setEnabled(True)
+        self.preview_stack.setMinimumSize(
+            _preview_min_size(_WORKSPACE_MIN_WIDTH)
+        )
+        self.camera_workspace.setVisible(not break_mode)
         self.side_panel_frame.show()
         self.side_panel_host.show()
         panel.show()
@@ -706,8 +925,13 @@ class ShellMixin:
             central_layout.activate()
 
         screen = self.screen() or QGuiApplication.primaryScreen()
-        if screen is not None:
-            available = screen.availableGeometry()
+        self.side_panel_column.setMaximumWidth(
+            _BREAK_COLUMN_MAX_WIDTH if break_mode else _UNBOUNDED_WIDTH
+        )
+        if break_mode:
+            self.side_panel_frame.setMaximumWidth(_UNBOUNDED_WIDTH)
+        elif screen is not None:
+            available = self._available_client_size(screen)
             requested_panel_size = panel.sizeHint().expandedTo(
                 panel.minimumSizeHint()
             ).expandedTo(panel.minimumSize())
@@ -719,9 +943,9 @@ class ShellMixin:
                     panel.minimumWidth(),
                     requested_panel_size.width(),
                     preferred_width,
-                    380,
+                    _SIDE_PANEL_MIN_WIDTH,
                 ),
-                760,
+                _SIDE_PANEL_MAX_WIDTH,
             )
             panel_vertical_overhead = max(
                 0,
@@ -736,33 +960,49 @@ class ShellMixin:
                 target_height = self.height()
             else:
                 target_width = min(
-                    max(self.width(), 620 + requested_panel_width),
+                    max(
+                        self.width(),
+                        _WINDOW_WORKSPACE_WIDTH + requested_panel_width,
+                    ),
                     available.width(),
                 )
                 target_height = min(
-                    max(self.height(), 720, requested_window_height),
+                    max(
+                        self.height(),
+                        _WINDOW_PANEL_MIN_HEIGHT,
+                        requested_window_height,
+                    ),
                     available.height(),
                 )
                 self.resize(target_width, target_height)
             panel_width = min(
                 requested_panel_width,
-                max(380, target_width - 340),
+                max(_SIDE_PANEL_MIN_WIDTH, target_width - _WORKSPACE_MIN_WIDTH),
             )
             self.side_panel_frame.setMaximumWidth(
-                max(620, requested_panel_width)
+                max(_WINDOW_WORKSPACE_WIDTH, requested_panel_width)
             )
             self.workspace_splitter.setSizes(
-                [max(340, target_width - panel_width), panel_width]
+                [
+                    max(_WORKSPACE_MIN_WIDTH, target_width - panel_width),
+                    panel_width,
+                ]
             )
-        self._show_window()
+        self._show_window(activate=activate)
         panel.setFocus(Qt.FocusReason.OtherFocusReason)
         QTimer.singleShot(0, lambda: self._fit_side_panel_height(panel))
+
+    def _available_client_size(self, screen) -> QSize:
+        """The largest client area whose frame still fits on ``screen``."""
+        frame = self.frameGeometry().size() - self.geometry().size()
+        return screen.availableGeometry().size() - frame
 
     def _fit_side_panel_height(self, panel: QDialog) -> None:
         """Grow for overflow that appears only after native layout settles."""
         if (
             panel is not self._side_panel
             or not panel.isVisible()
+            or _wants_break_mode(panel)
             or getattr(self, "_side_panel_height_fit_active", False)
         ):
             return
@@ -774,7 +1014,7 @@ class ShellMixin:
             return
         target_height = min(
             self.height() + overflow,
-            screen.availableGeometry().height(),
+            self._available_client_size(screen).height(),
         )
         if target_height <= self.height():
             return
@@ -795,23 +1035,26 @@ class ShellMixin:
         if maximum > 0 and self._side_panel is not None:
             self._fit_side_panel_height(self._side_panel)
 
-    def _show_calibration_window(
-        self,
-        window: QDialog,
-        *,
-        key: str,
-    ) -> None:
+    def _show_calibration_window(self, window: QDialog) -> None:
+        """Host a calibration step beside the live preview it relies on."""
         self._calibration_window = window
-        self._show_window()
-        self._secondary_window_presenter.present(
-            key,
-            window,
-            modality=Qt.WindowModality.ApplicationModal,
+        # Connected before the flow's own handler, so the panel is gone by
+        # the time the flow opens the next calibration step.
+        window.finished.connect(
+            lambda _result, active_window=window: self._hide_side_panel(
+                active_window
+            )
         )
+        self._show_side_panel(window)
 
-    def _focus_side_panel(self, panel: QDialog | None = None) -> None:
+    def _focus_side_panel(
+        self,
+        panel: QDialog | None = None,
+        *,
+        activate: bool = True,
+    ) -> None:
         target = panel or self._side_panel
-        self._show_window()
+        self._show_window(activate=activate)
         self.side_panel_frame.show()
         self.side_panel_host.show()
         if target is not None:
@@ -820,11 +1063,7 @@ class ShellMixin:
         QApplication.alert(self)
 
     def _focus_calibration_window(self) -> None:
-        self._show_window()
-        if self._calibration_window is not None:
-            self._secondary_window_presenter.focus(
-                self._calibration_window
-            )
+        self._focus_side_panel(self._calibration_window)
 
     def _hide_side_panel(
         self,
@@ -838,7 +1077,11 @@ class ShellMixin:
         if hosted is not None:
             hosted.hide()
             hosted.deleteLater()
-        self.preview_stack.setMinimumSize(640, 360)
+        self._dismiss_shortcut.setEnabled(False)
+        self.preview_stack.setMinimumSize(
+            _preview_min_size(_PREVIEW_MIN_WIDTH)
+        )
+        self.camera_workspace.show()
         self.side_panel_host.hide()
         self.side_panel_frame.hide()
         self.side_panel_title.clear()

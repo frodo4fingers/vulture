@@ -94,12 +94,12 @@ class CalibrationFlowMixin:
             ),
         )
         self._suspend_history()
-        dialog = CalibrationDialog(self)
-        self._calibration_dialog = dialog
-        self._show_calibration_window(
-            dialog,
-            key="calibration-capture",
+        dialog = CalibrationDialog(
+            self,
+            sound_cues=self.data.calibration_sound_cues,
         )
+        self._calibration_dialog = dialog
+        self._show_calibration_window(dialog)
         dialog.finished.connect(
             lambda result, active_dialog=dialog: (
                 self._finish_full_calibration(active_dialog, result)
@@ -209,10 +209,7 @@ class CalibrationFlowMixin:
             setup.calibration,
             self,
         )
-        self._show_calibration_window(
-            selection,
-            key="calibration-selection",
-        )
+        self._show_calibration_window(selection)
         selection.finished.connect(
             lambda result, active_selection=selection, active_setup=setup: (
                 self._finish_recalibration_selection(
@@ -338,12 +335,10 @@ class CalibrationFlowMixin:
             self,
             steps=steps,
             base_profile=base_profile,
+            sound_cues=self.data.calibration_sound_cues,
         )
         self._calibration_dialog = dialog
-        self._show_calibration_window(
-            dialog,
-            key="calibration-capture",
-        )
+        self._show_calibration_window(dialog)
         dialog.finished.connect(
             lambda result, active_dialog=dialog, active_setup=setup: (
                 self._finish_recalibration_dialog(

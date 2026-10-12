@@ -5,13 +5,10 @@ from dataclasses import dataclass
 from datetime import date, timedelta, timezone
 
 from PySide6.QtCharts import (
-    QAreaSeries,
     QBarCategoryAxis,
     QBarSet,
-    QCategoryAxis,
     QChart,
     QChartView,
-    QLineSeries,
     QStackedBarSeries,
     QValueAxis,
 )
@@ -24,26 +21,38 @@ from PySide6.QtCore import (
 from PySide6.QtGui import (
     QBrush,
     QColor,
+    QCursor,
     QPainter,
     QPalette,
     QPen,
 )
-from PySide6.QtWidgets import QApplication, QFrame, QLabel, QProgressBar, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (
+    QApplication,
+    QFrame,
+    QLabel,
+    QProgressBar,
+    QToolTip,
+    QVBoxLayout,
+    QWidget,
+)
 
 from vulture.history import (
     BASELINE_POSTURE,
     DailyPostureSummary,
     StoredPostureEpisode,
 )
-from vulture.i18n import tr
-from vulture.models import PostureCategory, TrackerState
+from vulture.i18n import current_language, tr
+from vulture.models import InterfaceLanguage, PostureCategory, TrackerState
 
-from .common import SUMMARY_POSTURES
+from .common import SUMMARY_POSTURES, format_duration
 from .theme import (
+    SUMMARY_POSTURE_PALETTES,
     HAIRLINE,
     RADIUS_MD,
+    RADIUS_SM,
     SPACE_MD,
     SPACE_SM,
+    SPACE_XS,
     CaptionLabel,
     TextRole,
     apply_text_role,
@@ -51,27 +60,17 @@ from .theme import (
 
 
 SUMMARY_OTHER_POSTURES = "other_tracked_postures"
-SUMMARY_POSTURE_PALETTES = {
-    "light": {
-        BASELINE_POSTURE: "#34A853",
-        PostureCategory.FORWARD_HEAD.value: "#4285F4",
-        PostureCategory.SLOUCH.value: "#EA4335",
-        PostureCategory.SHOULDERS_SUNK.value: "#FBBC04",
-        PostureCategory.LATERAL_LEAN.value: "#A142F4",
-        PostureCategory.GENERAL_DEVIATION.value: "#12B5CB",
-        SUMMARY_OTHER_POSTURES: "#4285F4",
-    },
-    "dark": {
-        BASELINE_POSTURE: "#81C995",
-        PostureCategory.FORWARD_HEAD.value: "#8AB4F8",
-        PostureCategory.SLOUCH.value: "#F28B82",
-        PostureCategory.SHOULDERS_SUNK.value: "#FDD663",
-        PostureCategory.LATERAL_LEAN.value: "#C58AF9",
-        PostureCategory.GENERAL_DEVIATION.value: "#78D9EC",
-        SUMMARY_OTHER_POSTURES: "#8AB4F8",
-    },
-}
 SUMMARY_CHART_BUCKET_SECONDS = 15 * 60
+# Charts get real height; a day is up to a full work day of 15-minute columns.
+SUMMARY_DAY_CHART_MIN_HEIGHT = 260
+SUMMARY_WEEK_CHART_MIN_HEIGHT = 220
+# Above this many columns only whole hours are labelled on the time axis.
+SUMMARY_LABEL_EVERY_BUCKET_LIMIT = 12
+_UI_LOCALE_NAMES = {
+    InterfaceLanguage.ENGLISH: "en_US",
+    InterfaceLanguage.GERMAN: "de_DE",
+    InterfaceLanguage.SPANISH: "es_ES",
+}
 REMINDER_STAGE_TITLES = {
     TrackerState.GOOD: "No reminder",
     TrackerState.WARNING: "Warning",
@@ -98,6 +97,16 @@ class RollingWeekData:
     tracked_seconds: float
     reminder_count: int
     days_with_data: int
+
+
+def ui_locale() -> QLocale:
+    """Locale of the chosen UI language, not of the operating system."""
+    return QLocale(_UI_LOCALE_NAMES[current_language()])
+
+
+def _clock_label(hours: float) -> str:
+    minutes = round(hours * 60)
+    return f"{minutes // 60:02d}:{minutes % 60:02d}"
 
 
 def summary_posture_color(
@@ -209,10 +218,18 @@ def build_posture_area_data(
         for _episode, started_at, _end in episode_bounds
     )
     last_second = max(ended_at for _episode, _start, ended_at in episode_bounds)
-    chart_start = math.floor(first_second / 3_600) * 3_600
-    chart_end = math.ceil(last_second / 3_600) * 3_600
+    # Columns start and stop at the first and last bucket that hold data, so
+    # the chart never shows a tail past the last recorded sample.
+    chart_start = (
+        math.floor(first_second / SUMMARY_CHART_BUCKET_SECONDS)
+        * SUMMARY_CHART_BUCKET_SECONDS
+    )
+    chart_end = (
+        math.ceil(last_second / SUMMARY_CHART_BUCKET_SECONDS)
+        * SUMMARY_CHART_BUCKET_SECONDS
+    )
     if chart_end <= chart_start:
-        chart_end = min(86_400, chart_start + 3_600)
+        chart_end = chart_start + SUMMARY_CHART_BUCKET_SECONDS
 
     bucket_count = max(
         1,
@@ -293,10 +310,10 @@ class SummaryMetric(QFrame):
         self.setMinimumWidth(120)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(SPACE_MD, SPACE_SM, SPACE_MD, SPACE_SM)
+        layout.setContentsMargins(SPACE_MD, SPACE_XS, SPACE_MD, SPACE_XS)
         layout.setSpacing(0)
         self.value_label = QLabel()
-        apply_text_role(self.value_label, TextRole.TITLE)
+        apply_text_role(self.value_label, TextRole.HEADING)
         layout.addWidget(self.value_label)
         self.caption_label = CaptionLabel(caption)
         layout.addWidget(self.caption_label)
@@ -352,7 +369,8 @@ class PostureProgressBar(QProgressBar):
         self._applying_style = False
         self.setRange(0, 1000)
         self.setTextVisible(False)
-        self.setFixedHeight(9)
+        # A slim track, not a stray constant: one spacing step tall.
+        self.setFixedHeight(SPACE_SM)
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._apply_palette()
 
@@ -376,11 +394,11 @@ class PostureProgressBar(QProgressBar):
             "QProgressBar {"
             "border: none;"
             f"background-color: {track.name()};"
-            "border-radius: 4px;"
+            f"border-radius: {RADIUS_SM}px;"
             "}"
             "QProgressBar::chunk {"
             f"background-color: {color.name()};"
-            "border-radius: 4px;"
+            f"border-radius: {RADIUS_SM}px;"
             "}"
         )
         self._applying_style = True
@@ -390,163 +408,18 @@ class PostureProgressBar(QProgressBar):
             self._applying_style = False
 
 
-class PostureAreaChart(QChartView):
-    def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__(QChart(), parent)
-        self._area_series: list[tuple[str, QAreaSeries]] = []
-        self._boundary_series: list[QLineSeries] = []
-        self.setRenderHint(QPainter.RenderHint.Antialiasing)
-        self.setMinimumHeight(220)
-        self.setAccessibleName(
-            tr("Posture over time (15-minute intervals)")
-        )
-        self.setAccessibleDescription(tr("Tracked posture time"))
-        self.chart().setBackgroundVisible(False)
-        self.chart().setDropShadowEnabled(False)
-        self.chart().legend().setAlignment(Qt.AlignmentFlag.AlignBottom)
-        self._apply_palette()
+class _StackedColumnChart(QChartView):
+    """Stacked columns drawn from the palette: shared styling and clearing."""
 
-    def changeEvent(self, event: QEvent) -> None:
-        super().changeEvent(event)
-        if event.type() == QEvent.Type.PaletteChange:
-            self._apply_palette()
-
-    def _apply_palette(self) -> None:
-        chart = self.chart()
-        foreground = self.palette().color(QPalette.ColorRole.WindowText)
-        grid = self.palette().color(QPalette.ColorRole.Mid)
-        grid.setAlpha(70)
-        axis_line = QColor(foreground)
-        axis_line.setAlpha(135)
-        chart.setTitleBrush(QBrush(foreground))
-        chart.legend().setLabelColor(foreground)
-        for posture, area in self._area_series:
-            color = summary_posture_color(posture, self.palette())
-            border = (
-                color.lighter(108)
-                if self.palette().color(
-                    QPalette.ColorRole.Window
-                ).lightness() < 128
-                else color.darker(108)
-            )
-            area.setBrush(QBrush(color))
-            area.setPen(QPen(border, 0.8))
-        for axis in chart.axes():
-            axis.setLabelsColor(foreground)
-            axis.setTitleBrush(QBrush(foreground))
-            axis.setLinePenColor(axis_line)
-            axis.setGridLineColor(grid)
-
-    def clear(self) -> None:
-        chart = self.chart()
-        chart.removeAllSeries()
-        for axis in chart.axes():
-            chart.removeAxis(axis)
-            axis.deleteLater()
-        self._area_series.clear()
-        self._boundary_series.clear()
-        chart.setTitle("")
-        chart.legend().setVisible(False)
-
-    def set_summary(self, summary: DailyPostureSummary) -> None:
-        self.clear()
-        chart = self.chart()
-        area_data = build_posture_area_data(summary)
-        if area_data is None:
-            chart.setTitle(tr("No tracked posture data for this day."))
-            return
-
-        x_values = (
-            area_data.start_hour,
-            *area_data.bucket_hours,
-            area_data.end_hour,
-        )
-        lower_values = [0.0] * len(x_values)
-        area_series: list[QAreaSeries] = []
-        for posture, title in SUMMARY_POSTURES:
-            posture_minutes = area_data.minutes_by_posture[posture]
-            if not any(posture_minutes):
-                continue
-            values = (
-                posture_minutes[0],
-                *posture_minutes,
-                posture_minutes[-1],
-            )
-            upper_values = [
-                lower + value
-                for lower, value in zip(
-                    lower_values,
-                    values,
-                    strict=True,
-                )
-            ]
-            lower_series = QLineSeries()
-            upper_series = QLineSeries()
-            for hour, lower, upper in zip(
-                x_values,
-                lower_values,
-                upper_values,
-                strict=True,
-            ):
-                lower_series.append(hour, lower)
-                upper_series.append(hour, upper)
-
-            area = QAreaSeries(upper_series, lower_series)
-            area.setName(tr(title))
-            area.setOpacity(0.82)
-            chart.addSeries(area)
-            area_series.append(area)
-            self._area_series.append((posture, area))
-            self._boundary_series.extend((lower_series, upper_series))
-            lower_values = upper_values
-
-        x_axis = QCategoryAxis()
-        x_axis.setTitleText(tr("Time of day"))
-        x_axis.setRange(area_data.start_hour, area_data.end_hour)
-        x_axis.setStartValue(area_data.start_hour)
-        x_axis.setLabelsPosition(
-            QCategoryAxis.AxisLabelsPosition.AxisLabelsPositionOnValue
-        )
-        hour_span = round(area_data.end_hour - area_data.start_hour)
-        label_step = max(1, math.ceil(hour_span / 6))
-        label_hours = list(
-            range(
-                round(area_data.start_hour),
-                round(area_data.end_hour) + 1,
-                label_step,
-            )
-        )
-        if label_hours[-1] != round(area_data.end_hour):
-            label_hours.append(round(area_data.end_hour))
-        for hour in label_hours:
-            x_axis.append(f"{hour:02d}:00", hour)
-        y_axis = QValueAxis()
-        y_axis.setTitleText(tr("Tracked minutes"))
-        y_axis.setRange(0, SUMMARY_CHART_BUCKET_SECONDS / 60)
-        y_axis.setTickCount(4)
-        y_axis.setLabelFormat("%.0f")
-
-        chart.addAxis(x_axis, Qt.AlignmentFlag.AlignBottom)
-        chart.addAxis(y_axis, Qt.AlignmentFlag.AlignLeft)
-        for area in area_series:
-            area.attachAxis(x_axis)
-            area.attachAxis(y_axis)
-        chart.legend().setVisible(False)
-        self._apply_palette()
-
-
-class RollingWeekChart(QChartView):
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(self, min_height: int, parent: QWidget | None = None) -> None:
         super().__init__(QChart(), parent)
         self._bar_sets: list[tuple[str, QBarSet]] = []
+        self._tooltip_for = None
         self.setRenderHint(QPainter.RenderHint.Antialiasing)
-        self.setMinimumHeight(180)
-        self.setAccessibleName(tr("Rolling 7-day posture report"))
-        self.setAccessibleDescription(tr("Tracked posture time"))
+        self.setMinimumHeight(min_height)
         self.chart().setBackgroundVisible(False)
         self.chart().setDropShadowEnabled(False)
         self.chart().legend().setAlignment(Qt.AlignmentFlag.AlignBottom)
-        self._apply_palette()
 
     def changeEvent(self, event: QEvent) -> None:
         super().changeEvent(event)
@@ -555,24 +428,19 @@ class RollingWeekChart(QChartView):
 
     def _apply_palette(self) -> None:
         chart = self.chart()
-        foreground = self.palette().color(QPalette.ColorRole.WindowText)
-        grid = self.palette().color(QPalette.ColorRole.Mid)
+        palette = self.palette()
+        foreground = palette.color(QPalette.ColorRole.WindowText)
+        gap = palette.color(QPalette.ColorRole.Window)
+        grid = palette.color(QPalette.ColorRole.Mid)
         grid.setAlpha(70)
         axis_line = QColor(foreground)
         axis_line.setAlpha(135)
         chart.setTitleBrush(QBrush(foreground))
         chart.legend().setLabelColor(foreground)
-        dark = (
-            self.palette()
-            .color(QPalette.ColorRole.Window)
-            .lightness()
-            < 128
-        )
         for posture, bar_set in self._bar_sets:
-            color = summary_posture_color(posture, self.palette())
-            border = color.lighter(108) if dark else color.darker(108)
-            bar_set.setColor(color)
-            bar_set.setBorderColor(border)
+            bar_set.setColor(summary_posture_color(posture, palette))
+            # A surface-coloured outline leaves a gap between stacked segments.
+            bar_set.setPen(QPen(gap, 1.5))
             bar_set.setLabelColor(foreground)
         for axis in chart.axes():
             axis.setLabelsColor(foreground)
@@ -590,6 +458,145 @@ class RollingWeekChart(QChartView):
         chart.setTitle("")
         chart.legend().setVisible(False)
 
+    def _add_bar_set(
+        self,
+        series: QStackedBarSeries,
+        posture: str,
+        title: str,
+        values: tuple[float, ...],
+    ) -> None:
+        bar_set = QBarSet(title)
+        bar_set.append(values)
+        series.append(bar_set)
+        self._bar_sets.append((posture, bar_set))
+
+    def _watch_hover(self, series: QStackedBarSeries, tooltip_for) -> None:
+        # A bound method, not a lambda: a closure over self keeps the chart
+        # alive past Qt's own teardown.
+        self._tooltip_for = tooltip_for
+        series.hovered.connect(self._on_hover)
+
+    def _on_hover(self, status: bool, index: int, bar_set: QBarSet) -> None:
+        if status and self._tooltip_for is not None:
+            QToolTip.showText(
+                QCursor.pos(),
+                self._tooltip_for(index, bar_set.label(), bar_set.at(index)),
+                self,
+            )
+        else:
+            QToolTip.hideText()
+
+
+class PostureAreaChart(_StackedColumnChart):
+    """Stacked columns, one per 15-minute bucket (name kept for callers)."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(SUMMARY_DAY_CHART_MIN_HEIGHT, parent)
+        self.setAccessibleName(
+            tr("Posture over time (15-minute intervals)")
+        )
+        self.setAccessibleDescription(tr("No tracked posture data for this day."))
+        self._apply_palette()
+
+    def clear(self) -> None:
+        super().clear()
+        self.setAccessibleDescription(tr("No tracked posture data for this day."))
+
+    def set_summary(self, summary: DailyPostureSummary) -> None:
+        self.clear()
+        chart = self.chart()
+        area_data = build_posture_area_data(summary)
+        if area_data is None:
+            chart.setTitle(tr("No tracked posture data for this day."))
+            return
+
+        bucket_count = len(area_data.bucket_hours)
+        bucket_starts = [
+            area_data.start_hour
+            + index * SUMMARY_CHART_BUCKET_SECONDS / 3_600
+            for index in range(bucket_count)
+        ]
+        # QBarCategoryAxis drops duplicate categories, so unlabelled columns
+        # get a unique run of spaces instead of an empty string.
+        every_bucket = bucket_count <= SUMMARY_LABEL_EVERY_BUCKET_LIMIT
+        categories = [
+            _clock_label(start)
+            if every_bucket or round(start * 60) % 60 == 0
+            else " " * (index + 1)
+            for index, start in enumerate(bucket_starts)
+        ]
+
+        def tooltip_for(index: int, name: str, minutes: float) -> str:
+            return tr(
+                "{start}–{end}  {posture}: {duration}",
+                start=_clock_label(bucket_starts[index]),
+                end=_clock_label(
+                    bucket_starts[index]
+                    + SUMMARY_CHART_BUCKET_SECONDS / 3_600
+                ),
+                posture=name,
+                duration=format_duration(minutes * 60),
+            )
+
+        series = QStackedBarSeries()
+        series.setBarWidth(0.9)
+        totals: list[tuple[str, float]] = []
+        for posture, title in SUMMARY_POSTURES:
+            posture_minutes = area_data.minutes_by_posture[posture]
+            if not any(posture_minutes):
+                continue
+            self._add_bar_set(series, posture, tr(title), posture_minutes)
+            totals.append((tr(title), sum(posture_minutes) * 60))
+        self._watch_hover(series, tooltip_for)
+        chart.addSeries(series)
+
+        x_axis = QBarCategoryAxis()
+        x_axis.setTitleText(tr("Time of day"))
+        x_axis.append(categories)
+        if not every_bucket:
+            # Labels are clipped to one column's width unless turned upright.
+            x_axis.setLabelsAngle(-90)
+        y_axis = QValueAxis()
+        y_axis.setTitleText(tr("Tracked minutes"))
+        y_axis.setRange(0, SUMMARY_CHART_BUCKET_SECONDS / 60)
+        y_axis.setTickCount(4)
+        y_axis.setLabelFormat("%.0f")
+
+        chart.addAxis(x_axis, Qt.AlignmentFlag.AlignBottom)
+        chart.addAxis(y_axis, Qt.AlignmentFlag.AlignLeft)
+        series.attachAxis(x_axis)
+        series.attachAxis(y_axis)
+        chart.legend().setVisible(True)
+        chart.legend().setAlignment(Qt.AlignmentFlag.AlignBottom)
+        self.setAccessibleDescription(
+            tr(
+                "Tracked from {start} to {end}. {details}",
+                start=_clock_label(area_data.start_hour),
+                end=_clock_label(area_data.end_hour),
+                details="; ".join(
+                    f"{title} {format_duration(seconds)}"
+                    for title, seconds in totals
+                ),
+            )
+        )
+        self._apply_palette()
+
+
+class RollingWeekChart(_StackedColumnChart):
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(SUMMARY_WEEK_CHART_MIN_HEIGHT, parent)
+        self.setAccessibleName(tr("Rolling 7-day posture report"))
+        self.setAccessibleDescription(
+            tr("No tracked posture data in this 7-day window.")
+        )
+        self._apply_palette()
+
+    def clear(self) -> None:
+        super().clear()
+        self.setAccessibleDescription(
+            tr("No tracked posture data in this 7-day window.")
+        )
+
     def set_summary(self, summary: RollingWeekData) -> None:
         self.clear()
         chart = self.chart()
@@ -600,6 +607,11 @@ class RollingWeekChart(QChartView):
             self._apply_palette()
             return
 
+        locale = ui_locale()
+        day_labels = [
+            locale.toString(QDate(v.year, v.month, v.day), "ddd d")
+            for v in summary.dates
+        ]
         series = QStackedBarSeries()
         series.setBarWidth(0.72)
         weekly_sets = (
@@ -625,25 +637,23 @@ class RollingWeekChart(QChartView):
                 ),
             ),
         )
+        def tooltip_for(index: int, name: str, minutes: float) -> str:
+            return tr(
+                "{day}  {posture}: {duration}",
+                day=day_labels[index],
+                posture=name,
+                duration=format_duration(minutes * 60),
+            )
+
         for posture, title, values in weekly_sets:
             if not any(values):
                 continue
-            bar_set = QBarSet(title)
-            bar_set.append(values)
-            series.append(bar_set)
-            self._bar_sets.append((posture, bar_set))
+            self._add_bar_set(series, posture, title, values)
+        self._watch_hover(series, tooltip_for)
         chart.addSeries(series)
 
         date_axis = QBarCategoryAxis()
-        date_axis.append(
-            [
-                QLocale().toString(
-                    QDate(value.year, value.month, value.day),
-                    "ddd d",
-                )
-                for value in summary.dates
-            ]
-        )
+        date_axis.append(day_labels)
         minutes_axis = QValueAxis()
         minutes_axis.setTitleText(tr("Minutes"))
         maximum_minutes = max(
@@ -664,4 +674,21 @@ class RollingWeekChart(QChartView):
         series.attachAxis(minutes_axis)
         chart.legend().setVisible(True)
         chart.legend().setAlignment(Qt.AlignmentFlag.AlignTop)
+        self.setAccessibleDescription(
+            tr(
+                "Last 7 days. {details}",
+                details="; ".join(
+                    tr(
+                        "{day}: {tracked} tracked, {baseline} within baseline",
+                        day=label,
+                        tracked=format_duration(sum(totals.values())),
+                        baseline=format_duration(totals[BASELINE_POSTURE]),
+                    )
+                    for label, totals in zip(
+                        day_labels, summary.daily_totals, strict=True
+                    )
+                    if sum(totals.values()) > 0
+                ),
+            )
+        )
         self._apply_palette()

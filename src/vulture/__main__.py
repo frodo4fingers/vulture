@@ -24,6 +24,7 @@ from vulture.models import InterfaceLanguage
 from vulture.resources import resource_path
 from vulture.storage import AppDataStore, StorageError
 from vulture.ui import CALIBRATION_STEPS, MainWindow
+from vulture.ui.theme import install_control_metrics
 from vulture.vision import MediaPipeDetector
 
 from PySide6.QtCore import (
@@ -199,6 +200,7 @@ def main() -> int:
     app.setOrganizationDomain("vulture.local")
     app.setOrganizationName("Vulture")
     app.setQuitOnLastWindowClosed(False)
+    install_control_metrics(app)
 
     store = AppDataStore()
     try:

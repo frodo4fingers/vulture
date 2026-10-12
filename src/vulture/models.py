@@ -283,6 +283,10 @@ class ReminderEvent(StrictModel):
 class AppData(StrictModel):
     schema_version: int = 1
     interface_language: InterfaceLanguage = InterfaceLanguage.ENGLISH
+    calibration_sound_cues: bool = True
+    # The global movement safety text is shown in full once, on the first
+    # movement break; later breaks show only the exercise-specific line.
+    full_safety_shown: bool = False
     active_setup_id: str | None = None
     setups: list[SetupProfile] = Field(default_factory=list)
     alert_policy: AlertPolicy = Field(default_factory=AlertPolicy)

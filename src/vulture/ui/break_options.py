@@ -3,13 +3,20 @@ from __future__ import annotations
 import time
 
 from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtGui import (
+    QAccessible,
+    QAccessibleAnnouncementEvent,
+    QAction,
+)
 from PySide6.QtWidgets import (
-    QComboBox,
+    QAbstractButton,
     QDialog,
     QHBoxLayout,
     QLabel,
+    QMenu,
     QProgressBar,
     QPushButton,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -23,18 +30,84 @@ from vulture.i18n import tr
 
 from .common import SemanticLabel, format_duration
 from .theme import (
+    CONTROL_MIN_HEIGHT,
     CONTROL_SPACING,
+    HAIRLINE,
+    RADIUS_SM,
+    REST_PANEL_MIN_SIZE,
     SECTION_SPACING,
+    SPACE_LG,
     SPACE_SM,
-    SPACE_XS,
     CaptionLabel,
-    Separator,
     TextRole,
     apply_text_role,
 )
 
 
-class AlternativeBreakPicker(QWidget):
+# Qt has no "primary button" without a default button, and a default button
+# lets a stray Enter complete a break. Mark the main action by colour instead,
+# using the platform palette so both colour schemes stay legible.
+_PRIMARY_BUTTON_STYLE = (
+    "QPushButton {"
+    " background-color: palette(highlight);"
+    " color: palette(highlighted-text);"
+    " font-weight: 600;"
+    f" border: {HAIRLINE}px solid palette(highlight);"
+    f" border-radius: {RADIUS_SM}px;"
+    f" padding: 0 {SPACE_LG}px;"
+    f" min-height: {CONTROL_MIN_HEIGHT}px;"
+    " }"
+    "QPushButton:focus {"
+    f" border: {2 * HAIRLINE}px solid palette(text);"
+    " }"
+    "QPushButton:disabled {"
+    " background-color: palette(mid);"
+    " border-color: palette(mid);"
+    " }"
+)
+
+
+def set_primary(button: QPushButton, primary: bool) -> None:
+    """Visually emphasise ``button`` without making it a default button."""
+    button.setAutoDefault(False)
+    button.setDefault(False)
+    button.setStyleSheet(_PRIMARY_BUTTON_STYLE if primary else "")
+
+
+def assign_mnemonics(*buttons: QAbstractButton) -> None:
+    """Give each button an ``&`` mnemonic no sibling uses.
+
+    Picks the first letter not taken yet, so translated labels get unique
+    keys without every language needing its own hand-placed ``&``.
+    """
+    used: set[str] = set()
+    for button in buttons:
+        text = button.text().replace("&", "")
+        for index, char in enumerate(text):
+            if char.isalnum() and char.lower() not in used:
+                used.add(char.lower())
+                button.setText(f"{text[:index]}&{text[index:]}")
+                break
+
+
+def announce(widget: QWidget, message: str) -> None:
+    """Tell assistive technology about a state the user may not see."""
+    widget.setAccessibleDescription(message)
+    if QAccessible.isActive():
+        event = QAccessibleAnnouncementEvent(widget, message)
+        event.setPoliteness(QAccessible.AnnouncementPoliteness.Assertive)
+        QAccessible.updateAccessibility(event)
+
+
+def format_countdown(seconds: float) -> str:
+    total_seconds = max(0, int(seconds + 0.999))
+    minutes, remaining_seconds = divmod(total_seconds, 60)
+    return f"{minutes}:{remaining_seconds:02d}"
+
+
+class AlternativeBreakPicker(QToolButton):
+    """A small "Swap..." menu for choosing a different kind of break."""
+
     choice_selected = Signal(str)
 
     def __init__(
@@ -43,28 +116,23 @@ class AlternativeBreakPicker(QWidget):
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(SPACE_XS)
-        prompt = CaptionLabel(tr("Would another kind of break fit better?"))
-        self.combo = QComboBox()
-        self.combo.setAccessibleName(tr("Choose a different break..."))
-        self.combo.addItem(tr("Choose a different break..."), None)
+        self.setText(tr("Swap…"))
+        self.setToolTip(tr("Would another kind of break fit better?"))
+        self.setAccessibleName(tr("Choose a different break..."))
+        self.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        self.menu = QMenu(self)
         for choice in choices:
-            self.combo.addItem(
-                manual_break_choice_label(choice),
-                choice.value,
-            )
-        self.combo.activated.connect(self._choice_activated)
-        layout.addWidget(prompt)
-        layout.addWidget(self.combo)
+            action = self.menu.addAction(manual_break_choice_label(choice))
+            action.setData(choice.value)
+        self.menu.triggered.connect(self._choice_triggered)
+        self.setMenu(self.menu)
+        if not choices:
+            self.hide()
 
-    def _choice_activated(self, index: int) -> None:
-        value = self.combo.itemData(index)
-        if not isinstance(value, str):
-            return
-        self.choice_selected.emit(value)
-        self.combo.setCurrentIndex(0)
+    def _choice_triggered(self, action: QAction) -> None:
+        value = action.data()
+        if isinstance(value, str):
+            self.choice_selected.emit(value)
 
 
 class RestBreakOutcome:
@@ -85,7 +153,7 @@ class RestBreakDialog(QDialog):
         self.outcome = RestBreakOutcome.DISMISSED
         self.selected_choice: ManualBreakChoice | None = None
         self.setWindowTitle(prompt.title)
-        self.setMinimumSize(440, 360)
+        self.setMinimumSize(REST_PANEL_MIN_SIZE)
 
         layout = QVBoxLayout(self)
         layout.setSpacing(SECTION_SPACING)
@@ -108,6 +176,7 @@ class RestBreakDialog(QDialog):
         )
         apply_text_role(self.countdown, TextRole.DISPLAY)
         self.countdown.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.countdown.setAccessibleName(tr("Time remaining"))
         countdown_block.addWidget(self.countdown)
         self.countdown_caption = CaptionLabel(tr("suggested"))
         self.countdown_caption.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -122,32 +191,39 @@ class RestBreakDialog(QDialog):
         layout.addWidget(self.progress)
         layout.addStretch(1)
 
-        layout.addWidget(Separator())
+        actions = QHBoxLayout()
+        actions.setContentsMargins(0, 0, 0, 0)
+        actions.setSpacing(CONTROL_SPACING)
+        self.start_button = QPushButton(tr("Start timer"))
+        set_primary(self.start_button, True)
+        self.start_button.clicked.connect(self._start_timer)
+        actions.addWidget(self.start_button)
+        self.done_button = QPushButton(tr("Done"))
+        set_primary(self.done_button, False)
+        self.done_button.clicked.connect(self._complete)
+        actions.addWidget(self.done_button)
+        actions.addStretch(1)
         self.alternative_picker = AlternativeBreakPicker(
             alternative_choices
         )
         self.alternative_picker.choice_selected.connect(
             self._switch_break
         )
-        layout.addWidget(self.alternative_picker)
-
-        actions = QHBoxLayout()
-        actions.setContentsMargins(0, 0, 0, 0)
-        actions.setSpacing(CONTROL_SPACING)
-        self.start_button = QPushButton(tr("Start timer"))
-        self.start_button.setDefault(True)
-        self.start_button.clicked.connect(self._start_timer)
-        actions.addWidget(self.start_button)
-        self.done_button = QPushButton(tr("Done"))
-        self.done_button.setAutoDefault(False)
-        self.done_button.clicked.connect(self._complete)
-        actions.addWidget(self.done_button)
-        actions.addStretch(1)
+        actions.addWidget(self.alternative_picker)
         skip_button = QPushButton(tr("Skip"))
         skip_button.setAutoDefault(False)
         skip_button.clicked.connect(self.reject)
         actions.addWidget(skip_button)
         layout.addLayout(actions)
+        assign_mnemonics(
+            self.start_button,
+            self.done_button,
+            self.alternative_picker,
+            skip_button,
+        )
+        QWidget.setTabOrder(self.start_button, self.done_button)
+        QWidget.setTabOrder(self.done_button, self.alternative_picker)
+        QWidget.setTabOrder(self.alternative_picker, skip_button)
 
         self._deadline: float | None = None
         self._timer = QTimer(self)
@@ -156,9 +232,7 @@ class RestBreakDialog(QDialog):
 
     @staticmethod
     def _format_countdown(seconds: float) -> str:
-        total_seconds = max(0, int(seconds + 0.999))
-        minutes, remaining_seconds = divmod(total_seconds, 60)
-        return f"{minutes}:{remaining_seconds:02d}"
+        return format_countdown(seconds)
 
     def _start_timer(self) -> None:
         self._deadline = time.monotonic() + self.prompt.duration_seconds
@@ -180,7 +254,9 @@ class RestBreakDialog(QDialog):
         self._timer.stop()
         self.countdown_caption.setText(tr("Suggested time complete"))
         self.start_button.setText(tr("Timer complete"))
-        self.done_button.setDefault(True)
+        set_primary(self.start_button, False)
+        set_primary(self.done_button, True)
+        announce(self.countdown, tr("Suggested time complete"))
 
     def _complete(self) -> None:
         self.outcome = RestBreakOutcome.COMPLETED

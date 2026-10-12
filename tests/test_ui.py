@@ -35,6 +35,7 @@ from vulture.calibration import CalibrationError, CalibrationFitter
 from vulture.storage import AppDataStore
 
 from PySide6.QtCore import QDate, QRect, QSize, Qt
+from PySide6.QtCharts import QStackedBarSeries
 from PySide6.QtGui import QColor, QImage, QPalette
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import (
@@ -68,7 +69,11 @@ from vulture.ui import (
     build_rolling_week_data,
     create_state_icon,
 )
-from vulture.ui.common import ContentHeightTextBrowser, SemanticLabel
+from vulture.ui.common import (
+    STATE_COLORS,
+    ContentHeightTextBrowser,
+    SemanticLabel,
+)
 from vulture.ui.shell import SIDE_PANEL_CONTENT_MARGINS
 from vulture.ui.theme import WINDOW_MARGIN
 from tests.test_calibration import make_frame
@@ -155,16 +160,17 @@ def test_posture_area_data_buckets_episode_overlap() -> None:
     data = build_posture_area_data(summary)
 
     assert data is not None
+    # Columns span only the first to last 15-minute bucket with data.
     assert data.start_hour == 9
-    assert data.end_hour == 10
-    assert data.bucket_hours == (9.125, 9.375, 9.625, 9.875)
-    assert data.minutes_by_posture[BASELINE_POSTURE] == (10, 0, 0, 0)
+    assert data.end_hour == 9.5
+    assert data.bucket_hours == (9.125, 9.375)
+    assert data.minutes_by_posture[BASELINE_POSTURE] == (10, 0)
     assert data.minutes_by_posture[
         PostureCategory.FORWARD_HEAD.value
-    ] == (5, 5, 0, 0)
+    ] == (5, 5)
     assert data.minutes_by_posture[
         PostureCategory.SLOUCH.value
-    ] == (0, 10, 0, 0)
+    ] == (0, 10)
 
 
 def test_rolling_week_data_aggregates_seven_days() -> None:
@@ -227,23 +233,23 @@ def test_workday_summary_renders_stacked_posture_chart(
     assert isinstance(dialog.posture_chart, PostureAreaChart)
     assert isinstance(dialog.weekly_chart, RollingWeekChart)
     assert dialog.period_tabs.count() == 3
-    assert not dialog.posture_chart.chart().legend().isVisible()
+    # One stacked-column series with one bar set per posture; the legend
+    # is on so colour is never the only cue.
+    assert dialog.posture_chart.chart().legend().isVisible() is True
     assert len(dialog.posture_chart.chart().series()) == 1
+    assert isinstance(
+        dialog.posture_chart.chart().series()[0], QStackedBarSeries
+    )
     assert [
-        series.name()
-        for series in dialog.posture_chart.chart().series()
+        bars.label()
+        for bars in dialog.posture_chart.chart().series()[0].barSets()
     ] == [
         "Within baseline",
     ]
     assert (
-        dialog.posture_chart.chart()
-        .series()[0]
-        .brush()
-        .color()
-        .name()
-        == "#34a853"
+        dialog.posture_chart._bar_sets[0][1].color().name()
+        == SUMMARY_POSTURE_PALETTES["light"][BASELINE_POSTURE]
     )
-    assert dialog.posture_chart.chart().series()[0].opacity() == 0.82
     assert dialog.timeline.rowCount() == 1
     assert dialog.period_tabs.isTabEnabled(dialog.timeline_tab_index)
     assert len(dialog.weekly_chart.chart().series()) == 1
@@ -278,19 +284,26 @@ def test_workday_summary_renders_stacked_posture_chart(
     application.processEvents()
 
 
-def test_workday_summary_uses_bright_theme_palettes() -> None:
+def test_workday_summary_uses_calm_earth_tone_palettes() -> None:
     assert set(SUMMARY_POSTURE_PALETTES["light"].values()) == {
-        "#34A853",
-        "#4285F4",
-        "#EA4335",
-        "#FBBC04",
-        "#A142F4",
-        "#12B5CB",
+        "#287eaf",
+        "#776700",
+        "#cc7240",
+        "#884f00",
+        "#908905",
+        "#a44828",
+        "#a56810",
     }
-    assert min(
-        QColor(color).hsvSaturation()
-        for color in SUMMARY_POSTURE_PALETTES["dark"].values()
-    ) >= 80
+    for scheme, palette in SUMMARY_POSTURE_PALETTES.items():
+        assert len(set(palette.values())) == len(palette) == 7, scheme
+        assert (
+            palette["other_tracked_postures"]
+            != palette[PostureCategory.FORWARD_HEAD.value]
+        )
+        # Muted on purpose: no red hue (wrapping around 0 degrees).
+        for color in palette.values():
+            hue = QColor(color).hue()
+            assert 15 <= hue <= 345, (scheme, color)
 
 
 def test_workday_summary_restyles_metrics_after_palette_change(
@@ -352,7 +365,7 @@ def test_workday_summary_restyles_metrics_after_palette_change(
             in dialog.daily_tracked_metric.styleSheet()
         )
         assert (
-            "#81c995"
+            "#3c8fc1"
             in dialog.total_bars[BASELINE_POSTURE].styleSheet()
         )
         assert (
@@ -848,12 +861,15 @@ def test_full_calibration_lists_every_stage(
 ) -> None:
     dialog = CalibrationDialog()
 
-    assert dialog.stage_list.count() == len(CALIBRATION_STEPS)
-    assert "GOOD" in dialog.stage_list.item(0).text()
-    assert "CURRENT" in dialog.stage_list.item(0).text()
+    assert len(dialog.stepper._pills) == len(CALIBRATION_STEPS)
+    assert (
+        "Step 1: Comfortable baseline, current"
+        in dialog.stepper.accessibleDescription()
+    )
     assert all(
-        "UNWANTED" in dialog.stage_list.item(index).text()
-        for index in range(1, dialog.stage_list.count())
+        f"Step {index + 1}: " in dialog.stepper.accessibleDescription()
+        and "not started" in dialog.stepper.accessibleDescription()
+        for index in range(1, len(CALIBRATION_STEPS))
     )
     assert dialog.reference_image.accessibleName() == "Comfortable baseline"
     assert dialog.reference_image.pixmap() is not None
@@ -882,10 +898,13 @@ def test_incremental_calibration_shows_baseline_and_selected_posture(
         base_profile=make_profile(),
     )
 
-    assert dialog.stage_list.count() == 2
-    assert "GOOD" in dialog.stage_list.item(0).text()
-    assert "UNWANTED" in dialog.stage_list.item(1).text()
-    assert "required" in dialog.stage_list.item(1).text()
+    assert len(dialog.stepper._pills) == 2
+    assert dialog.role_label.text() == "Your comfortable baseline"
+
+    dialog._step_index = 1
+    dialog._show_step()
+
+    assert dialog.role_label.text() == "Example: Slouch / crouch (required)"
 
     dialog.timer.stop()
     dialog.close()
@@ -1057,9 +1076,12 @@ def test_calibration_retry_heading_names_the_pose_once(
 
     dialog._finish_sample()
 
-    assert dialog.phase_label.text() == "RETRY — SLOUCH EXAMPLE"
+    assert dialog.phase_label.text() == "Let's try that again"
     assert "UNWANTED" not in dialog.phase_label.text()
-    assert dialog.start_button.text() == "Retry sample"
+    assert dialog.start_button.text() == "&Retry sample"
+    # The retry reason is shown in the visible feedback label.
+    assert not dialog.feedback_label.isHidden()
+    assert dialog.feedback_label.text()
 
     dialog.timer.stop()
     dialog.close()
@@ -1156,7 +1178,11 @@ def _assert_embedded_panel(
     assert panel is window._side_panel
     assert window.side_panel_host.widget() is panel
     assert window.side_panel_host.isVisible()
-    assert window.preview_stack.isVisible()
+    if isinstance(panel, ExerciseDialog):
+        # Break mode: the panel takes over the workspace, camera hidden.
+        assert window.camera_workspace.isHidden()
+    else:
+        assert window.preview_stack.isVisible()
     assert not panel.isWindow()
 
 
@@ -1167,17 +1193,6 @@ def _assert_modeless_window(
     assert dialog.isWindow()
     assert dialog.isVisible()
     assert dialog.windowModality() is Qt.WindowModality.NonModal
-    assert window.side_panel_frame.isHidden()
-
-
-def _assert_modal_window(
-    window: MainWindow,
-    dialog: QDialog,
-    modality: Qt.WindowModality,
-) -> None:
-    assert dialog.isWindow()
-    assert dialog.isVisible()
-    assert dialog.windowModality() is modality
     assert window.side_panel_frame.isHidden()
 
 
@@ -1201,29 +1216,18 @@ def test_secondary_windows_coexist_with_embedded_task_flows(
         ],
     )
 
-    original_geometry = window.geometry()
-    original_preview_size = window.preview_stack.size()
-    original_preview_minimum = window.preview_stack.minimumSize()
-    original_splitter_sizes = window.workspace_splitter.sizes()
-
     window._add_setup()
     application.processEvents()
     setup_dialog = window._setup_dialog
     assert isinstance(setup_dialog, SetupDialog)
-    _assert_modal_window(
-        window,
-        setup_dialog,
-        Qt.WindowModality.WindowModal,
-    )
-    assert window.geometry() == original_geometry
-    assert window.preview_stack.size() == original_preview_size
-    assert window.preview_stack.minimumSize() == original_preview_minimum
-    assert window.workspace_splitter.sizes() == original_splitter_sizes
+    # Setup is a side panel beside the preview; the window may grow for it.
+    _assert_embedded_panel(window, setup_dialog)
 
     window._add_setup()
     application.processEvents()
     assert window._setup_dialog is setup_dialog
     setup_dialog.reject()
+    QTest.qWait(1)
     application.processEvents()
 
     original_geometry = window.geometry()
@@ -1342,9 +1346,11 @@ def test_workspace_columns_share_top_and_footer_datums(
     window.show()
     application.processEvents()
 
-    window._offer_exercise()
+    # Exercise panels use break mode (no break card or footer), so measure
+    # against a rest break, which keeps the regular two-column layout.
+    window._present_manual_break(ManualBreakChoice.STAND)
     application.processEvents()
-    panel = window._exercise_dialog
+    panel = window._rest_break_dialog
     assert panel is not None
 
     def top(widget) -> int:
@@ -2098,11 +2104,16 @@ def test_tall_exercise_panel_opens_without_vertical_scrollbar(
     window.screen = lambda: SimpleNamespace(
         availableGeometry=lambda: QRect(0, 0, 1920, 1080)
     )
+    original_size = window.size()
 
     window._offer_exercise()
     application.processEvents()
 
+    # Break mode never resizes the window and hides the camera column.
     assert window._exercise_dialog is not None
+    assert window.size() == original_size
+    assert window.camera_workspace.isHidden()
+    assert window.side_panel_host.verticalScrollBar().maximum() == 0
     assert not window.side_panel_host.verticalScrollBar().isVisible()
 
     _teardown_window(window, application)
@@ -2188,22 +2199,12 @@ def test_add_setup_window_transitions_to_calibration_window(
     window._camera_is_healthy = lambda: True
     window.show()
     application.processEvents()
-    original_geometry = window.geometry()
-    original_preview_minimum = window.preview_stack.minimumSize()
-    original_splitter_sizes = window.workspace_splitter.sizes()
 
     window._add_setup()
     application.processEvents()
     setup_window = window._setup_dialog
     assert isinstance(setup_window, SetupDialog)
-    _assert_modal_window(
-        window,
-        setup_window,
-        Qt.WindowModality.WindowModal,
-    )
-    assert window.geometry() == original_geometry
-    assert window.preview_stack.minimumSize() == original_preview_minimum
-    assert window.workspace_splitter.sizes() == original_splitter_sizes
+    _assert_embedded_panel(window, setup_window)
 
     setup_window.name_edit.setText("Standing desk")
     setup_window._validate_and_accept()
@@ -2213,14 +2214,7 @@ def test_add_setup_window_transitions_to_calibration_window(
     assert window.data.setups[0].name == "Standing desk"
     assert window.data.active_setup_id == window.data.setups[0].id
     assert isinstance(window._calibration_window, CalibrationDialog)
-    _assert_modal_window(
-        window,
-        window._calibration_window,
-        Qt.WindowModality.ApplicationModal,
-    )
-    assert window.geometry() == original_geometry
-    assert window.preview_stack.minimumSize() == original_preview_minimum
-    assert window.workspace_splitter.sizes() == original_splitter_sizes
+    _assert_embedded_panel(window, window._calibration_window)
 
     window._calibration_window.reject()
     application.processEvents()
@@ -2241,7 +2235,6 @@ def test_full_calibration_is_exclusive_window_beside_live_preview(
     window.show()
     application.processEvents()
     original_geometry = window.geometry()
-    original_preview_size = window.preview_stack.size()
     original_preview_minimum = window.preview_stack.minimumSize()
     original_splitter_sizes = window.workspace_splitter.sizes()
 
@@ -2250,23 +2243,16 @@ def test_full_calibration_is_exclusive_window_beside_live_preview(
 
     calibration = window._calibration_window
     assert isinstance(calibration, CalibrationDialog)
-    _assert_modal_window(
-        window,
-        calibration,
-        Qt.WindowModality.ApplicationModal,
-    )
-    assert calibration.width() <= 800
-    assert calibration.height() <= 600
+    # Calibration is a side panel beside the live preview; the window may
+    # grow for it, bounded by the (mocked 800x600) screen.
+    _assert_embedded_panel(window, calibration)
+    assert window.width() <= 800
     assert (
         calibration.scroll_area.horizontalScrollBarPolicy()
         is Qt.ScrollBarPolicy.ScrollBarAlwaysOff
     )
     assert window.preview.isVisible()
     assert not window.setup_combo.isEnabled()
-    assert window.geometry() == original_geometry
-    assert window.preview_stack.size() == original_preview_size
-    assert window.preview_stack.minimumSize() == original_preview_minimum
-    assert window.workspace_splitter.sizes() == original_splitter_sizes
 
     window._calibrate()
     application.processEvents()
@@ -2282,6 +2268,9 @@ def test_full_calibration_is_exclusive_window_beside_live_preview(
     assert window._calibration_window is None
     assert window.side_panel_frame.isHidden()
     assert window.setup_combo.isEnabled()
+    # The panel's resize is restored asynchronously.
+    QTest.qWait(1)
+    application.processEvents()
     assert window.geometry() == original_geometry
     # Completion changes the status copy, which can reflow by a few pixels
     # across Qt patch versions without resizing the window or camera workspace.
@@ -2302,25 +2291,14 @@ def test_recalibration_chooser_transitions_to_exclusive_capture_window(
     window._activate_setup = lambda: None
     window.show()
     application.processEvents()
-    original_geometry = window.geometry()
-    original_preview_size = window.preview_stack.size()
-    original_preview_minimum = window.preview_stack.minimumSize()
-    original_splitter_sizes = window.workspace_splitter.sizes()
 
     window._recalibrate_step()
     application.processEvents()
 
     selection = window._calibration_window
     assert isinstance(selection, CalibrationStepSelectionDialog)
-    _assert_modal_window(
-        window,
-        selection,
-        Qt.WindowModality.ApplicationModal,
-    )
-    assert window.geometry() == original_geometry
-    assert window.preview_stack.size() == original_preview_size
-    assert window.preview_stack.minimumSize() == original_preview_minimum
-    assert window.workspace_splitter.sizes() == original_splitter_sizes
+    _assert_embedded_panel(window, selection)
+    assert window.side_panel_title.text() == "Redo a calibration step"
 
     window._recalibrate_step()
     application.processEvents()
@@ -2339,20 +2317,12 @@ def test_recalibration_chooser_transitions_to_exclusive_capture_window(
 
     capture = window._calibration_window
     assert isinstance(capture, CalibrationDialog)
-    _assert_modal_window(
-        window,
-        capture,
-        Qt.WindowModality.ApplicationModal,
-    )
+    _assert_embedded_panel(window, capture)
     assert capture is window._calibration_dialog
     assert len(capture.steps) == 2
     assert capture.steps[0].category is None
     assert capture.steps[1].category is PostureCategory.SHOULDERS_SUNK
     assert window.preview.isVisible()
-    assert window.geometry() == original_geometry
-    assert window.preview_stack.size() == original_preview_size
-    assert window.preview_stack.minimumSize() == original_preview_minimum
-    assert window.workspace_splitter.sizes() == original_splitter_sizes
 
     capture.reject()
     application.processEvents()
@@ -2379,26 +2349,27 @@ def test_recalibration_chooser_keeps_media_and_copy_together(
 
     panel = window._calibration_window
     assert isinstance(panel, CalibrationStepSelectionDialog)
-    layout = panel.layout()
-    spacing = layout.spacing()
-    media_copy_gap = (
+    # The description sits beside the photo, so the two share a row.
+    assert (
         panel.description.geometry().top()
-        - panel.reference_image.geometry().bottom()
-        - 1
+        < panel.reference_image.geometry().bottom()
     )
-
-    assert media_copy_gap <= spacing
+    assert (
+        panel.description.geometry().left()
+        > panel.reference_image.geometry().left()
+    )
 
     panel.reject()
     application.processEvents()
     _teardown_window(window, application)
 
 
-def test_calibration_reference_image_keeps_widescreen_ratio() -> None:
+def test_calibration_reference_image_keeps_four_by_three_ratio() -> None:
     image = ui_module.CalibrationStageImage()
 
-    assert image.heightForWidth(480) == 270
-    assert image.sizeHint() == QSize(480, 270)
+    # Photos are cropped to head-and-shoulders at 4:3.
+    assert image.heightForWidth(480) == 360
+    assert image.sizeHint() == QSize(200, 150)
 
 
 def test_camera_error_closes_calibration_window_without_popup(
@@ -2525,6 +2496,18 @@ def test_move_now_opens_a_shuffled_exercise(
     _teardown_window(window, application)
 
 
+def _swap_action(picker, choice: ManualBreakChoice):
+    """The "Swap..." menu action that selects ``choice``, if any."""
+    return next(
+        (
+            action
+            for action in picker.menu.actions()
+            if action.data() == choice.value
+        ),
+        None,
+    )
+
+
 def test_different_break_chooser_includes_rest_and_movement_options(
     application: QApplication,
     tmp_path: Path,
@@ -2535,11 +2518,12 @@ def test_different_break_chooser_includes_rest_and_movement_options(
     dialog = window._exercise_dialog
     assert dialog is not None
 
-    combo = dialog.alternative_picker.combo
-    assert combo.findData(ManualBreakChoice.EYE_REST.value) >= 0
-    assert combo.findData(ManualBreakChoice.STAND.value) >= 0
-    assert combo.findData(ManualBreakChoice.COFFEE.value) >= 0
-    assert combo.findData(ManualBreakChoice.GUIDED_MOVEMENT.value) >= 0
+    picker = dialog.alternative_picker
+    assert picker.text().replace("&", "") == "Swap…"
+    assert _swap_action(picker, ManualBreakChoice.EYE_REST) is not None
+    assert _swap_action(picker, ManualBreakChoice.STAND) is not None
+    assert _swap_action(picker, ManualBreakChoice.COFFEE) is not None
+    assert _swap_action(picker, ManualBreakChoice.GUIDED_MOVEMENT) is not None
     assert not hasattr(dialog, "swap_button")
     _teardown_window(window, application)
 
@@ -2556,11 +2540,10 @@ def test_another_guided_movement_advances_shuffle_bag(
     assert first_dialog is not None
     assert first_exercise is not None
 
-    combo = first_dialog.alternative_picker.combo
-    guided_index = combo.findData(
-        ManualBreakChoice.GUIDED_MOVEMENT.value
-    )
-    combo.activated.emit(guided_index)
+    _swap_action(
+        first_dialog.alternative_picker,
+        ManualBreakChoice.GUIDED_MOVEMENT,
+    ).trigger()
     application.processEvents()
 
     assert first_dialog.outcome == ExerciseOutcome.SWAPPED
@@ -2580,9 +2563,10 @@ def test_different_break_choice_opens_focused_rest_panel(
     exercise_dialog = window._exercise_dialog
     assert exercise_dialog is not None
 
-    combo = exercise_dialog.alternative_picker.combo
-    stand_index = combo.findData(ManualBreakChoice.STAND.value)
-    combo.activated.emit(stand_index)
+    _swap_action(
+        exercise_dialog.alternative_picker,
+        ManualBreakChoice.STAND,
+    ).trigger()
     application.processEvents()
 
     rest_dialog = window._rest_break_dialog
@@ -2605,9 +2589,10 @@ def test_rest_break_timer_counts_down_to_completion(
     application.processEvents()
     exercise_dialog = window._exercise_dialog
     assert exercise_dialog is not None
-    combo = exercise_dialog.alternative_picker.combo
-    coffee_index = combo.findData(ManualBreakChoice.COFFEE.value)
-    combo.activated.emit(coffee_index)
+    _swap_action(
+        exercise_dialog.alternative_picker,
+        ManualBreakChoice.COFFEE,
+    ).trigger()
     application.processEvents()
     rest_dialog = window._rest_break_dialog
     assert isinstance(rest_dialog, RestBreakDialog)
@@ -2653,9 +2638,10 @@ def test_switching_rest_break_stops_its_timer(
     rest_dialog.start_button.click()
     assert rest_dialog._timer.isActive()
 
-    combo = rest_dialog.alternative_picker.combo
-    stand_index = combo.findData(ManualBreakChoice.STAND.value)
-    combo.activated.emit(stand_index)
+    _swap_action(
+        rest_dialog.alternative_picker,
+        ManualBreakChoice.STAND,
+    ).trigger()
     application.processEvents()
 
     assert not rest_dialog._timer.isActive()
@@ -2682,7 +2668,9 @@ def test_background_exercise_coexists_with_settings_window(
     _assert_embedded_panel(window, window._exercise_dialog)
     assert window._pending_exercise is not None
     assert window.open_exercise_action.isVisible()
-    assert window._size_before_side_panel == original_size
+    # Break mode never resizes the window, so there is no size to restore.
+    assert window.size() == original_size
+    assert window._size_before_side_panel is None
 
     settings.reject()
     application.processEvents()
@@ -2738,7 +2726,8 @@ def test_exercise_done_button_is_leftmost(
     assert dialog is not None
 
     buttons = {
-        button.text(): button for button in dialog.findChildren(QPushButton)
+        button.text().replace("&", ""): button
+        for button in dialog.findChildren(QPushButton)
     }
     done_x = buttons["Done"].x()
     assert done_x < buttons["Skip"].x()
@@ -2778,19 +2767,26 @@ def test_exercise_steps_hug_content_without_dead_space(
     assert dialog is not None
 
     steps = dialog.findChild(ContentHeightTextBrowser)
-    safety = dialog.findChild(SemanticLabel)
+    safety = dialog.safety
     assert steps is not None
-    assert safety is not None
+    assert isinstance(safety, SemanticLabel)
 
     document_height = int(steps.document().size().height())
     # The steps browser is sized to its rendered content instead of reserving
     # a fixed block, so its height tracks the document closely.
     assert steps.height() <= document_height + 12
-    # The safety guidance follows immediately, without a wasted gap.
-    gap = safety.mapTo(dialog, safety.rect().topLeft()).y() - (
-        steps.mapTo(dialog, steps.rect().bottomLeft()).y()
-    )
+    # The steps close the preview group without a wasted gap (the video
+    # above takes the spare height), and the safety guidance sits below it.
+    gap = dialog.preview.rect().bottom() - steps.mapTo(
+        dialog.preview, steps.rect().bottomLeft()
+    ).y()
     assert 0 <= gap <= 16
+    assert (
+        safety.mapTo(dialog, safety.rect().topLeft()).y()
+        >= dialog.preview.mapTo(
+            dialog, dialog.preview.rect().bottomLeft()
+        ).y()
+    )
 
     _teardown_window(window, application)
 
@@ -2845,7 +2841,7 @@ def test_exercise_close_keeps_window_open_when_already_visible(
     _teardown_window(window, application)
 
 
-def test_warning_status_uses_dark_contrast_text(
+def test_warning_status_shows_state_colour_dot_and_title(
     application: QApplication,
     tmp_path: Path,
 ) -> None:
@@ -2853,7 +2849,11 @@ def test_warning_status_uses_dark_contrast_text(
 
     window._set_state(TrackerState.WARNING, "Warning")
 
-    assert "color: #1a202c" in window.status_dot.styleSheet()
+    # The dot is a small coloured marker without text; the title sits in the
+    # label beside it, so colour is never the only cue.
+    assert STATE_COLORS[TrackerState.WARNING] in window.status_dot.styleSheet()
+    assert window.status_dot.text() == ""
+    assert window.status_state_label.text() == "Posture drifting"
 
     _teardown_window(window, application)
 
@@ -2898,7 +2898,7 @@ def test_releasing_camera_stops_capture_until_resume(
 
     assert window._tracking_enabled
     assert restarted == [True]
-    assert window.pause_button.text() == "Release camera"
+    assert window.pause_button.text() == "Pause camera"
     assert window.calibrate_button.isEnabled()
     assert window._tracked_seconds_since_break == 101
     assert window._tracked_seconds_since_eye_break == 202
@@ -2921,7 +2921,7 @@ def test_failed_camera_release_keeps_tracking_enabled(
     application.processEvents()
 
     assert window._tracking_enabled
-    assert window.pause_button.text() == "Release camera"
+    assert window.pause_button.text() == "Pause camera"
     assert window._state is TrackerState.CAMERA_UNAVAILABLE
 
     _teardown_window(window, application)

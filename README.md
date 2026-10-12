@@ -29,14 +29,16 @@ from the baseline demonstrated for that camera setup.
 - A local workday summary with a bright, theme-aware posture palette, daily
   distribution and
   timeline views, plus a rolling seven-day report ending on the selected date.
-- Setup, settings, calibration, workday summary, evidence and safety, movement
-  guidance, and operational notices all draw out in a titled right-side panel
-  with one consistent close action while the live camera preview remains
-  visible. Panels size to their content and scroll only when the screen cannot
+- Add setup, calibration, rest breaks, movement guidance, and operational
+  notices open in a titled right-side panel with one consistent close action
+  while the live camera preview remains visible. Settings, the workday summary,
+  and evidence and safety open in separate windows beside the main window.
+  Panels size to their content and scroll only when the screen cannot
   accommodate them.
-- **Release camera** stops posture tracking and relinquishes the webcam for
+- **Pause camera** stops posture tracking and relinquishes the webcam for
   meeting applications while the independent break timer keeps running.
-  **Resume tracking** reacquires the selected camera afterward.
+  **Resume tracking** reacquires the selected camera afterward. Camera actions
+  appear once a setup exists.
 - English, German, and Spanish interfaces, selected under **Settings** and
   saved locally. Changing language rebuilds the desktop window immediately
   without restarting the process.
@@ -46,8 +48,8 @@ from the baseline demonstrated for that camera setup.
   rejects partial out-of-frame detections, and blurs the non-person camera
   preview background. The temporary mask is discarded with each frame.
 - An evidence-linked catalog of 13 conservative movements with accessibility
-  filters. Eight retain original pregenerated MP4 instructions and five
-  additional Vulture Lite movements use the same sourced text-first panel.
+  filters. Each movement has a bundled, silent, looping demonstration video and
+  sourced text instructions.
 - Configurable break management that runs independently of posture alerts:
   position changes, standing, walking, guided movements, distance or greenery
   views, blinking, closed-eye rest, water, tea or coffee, slow breathing, and
@@ -317,9 +319,9 @@ health professional.
 5. Repeat this process when camera position, crop, resolution, desk, or seat
    changes materially.
 
-Use **Recalibrate step** in the main window or tray menu to record any one
-visible stage again. The stage chooser and capture guide open inside the main
-window to the right of the live camera preview, so position and framing remain
+Use **Redo a calibration step** in the main window's toolbar or the tray menu to
+record any one visible stage again. The stage chooser and capture guide open
+inside the main window to the right of the live camera preview, so position and framing remain
 visible throughout. For an unwanted posture, Vulture first asks for a short
 sample of the saved good baseline to confirm that the camera and seat still
 match, then replaces only the selected posture; the other examples remain
@@ -338,7 +340,7 @@ personalized head-forward example may still work through relative head/face
 scale, but it is not a clinical neck-angle measurement.
 
 After upgrading an existing installation, re-record **Sunk shoulders** and
-**Lateral lean** with **Recalibrate step** so their profiles include the
+**Lateral lean** with **Redo a calibration step** so their profiles include the
 upper-body fallbacks. Vulture cannot retrofit old examples because calibration
 frames and landmarks are intentionally never stored.
 
@@ -368,19 +370,33 @@ Defaults are intentionally conservative:
 
 Ordinary break activities use one native system notification, bundling channels
 that become due together. Vulture requests the configured activity length as
-the timeout, but the operating system remains authoritative. A guided movement
-raises the main window and opens its instructions in the right-side panel
-beside the live camera preview.
+the timeout, but the operating system remains authoritative.
+
+A guided movement uses break mode. The camera workspace is hidden and the
+movement fills the window in a centred column. The window is raised without
+being resized and without taking keyboard focus, so typing elsewhere is not
+interrupted. Rest breaks and notices appear in the normal side panel beside the
+live camera preview.
+
+A movement shows its demonstration video (muted and looping), the dose, and the
+steps. Timed doses show **Start** and then a countdown. Set-based doses show a
+checklist of rounds. Standing walk-away movements show "Watch once, then go" and
+then a large countdown. No button is the default, so pressing Enter cannot
+complete a break. **Done** shows a short acknowledgement before the panel
+closes.
 
 The exercise panel offers three choices. **Done** marks the movement complete
 and clears it. **Remind me later** closes the panel and re-opens it after a
 short delay. **Skip** disregards the movement. Closing or replacing the
-exercise panel behaves like **Remind me later**. While a movement is pending
+exercise panel behaves like **Remind me later**; its header button reads
+**Later** for the same action. While a movement is pending
 you can also re-open it with **Open movement** from the tray-icon menu.
 If another right-side panel is in use when a movement becomes due, Vulture
 keeps that work intact and opens the pending movement after the panel closes.
-Safety guidance stays visible; source links and the longer medical context are
-available through **Sources and medical context**.
+Safety guidance stays visible: each movement shows its own safety line, and the
+first movement break also shows the full global safety text once. Source links
+and the longer medical context are available through **Sources and medical
+context**.
 
 While a movement is waiting, Vulture marks its tray icon and taskbar icon with a
 yellow dot. The marker clears once the movement is completed or skipped.
@@ -392,7 +408,7 @@ uncertain, or missing-frame transition can preserve the previous bad-posture
 timer, but the transition time itself is excluded and a longer recovery resets
 the timer.
 
-Use **Release camera** before joining a meeting that needs the same webcam.
+Use **Pause camera** before joining a meeting that needs the same webcam.
 Vulture stops its camera thread rather than merely suspending posture scoring,
 clears the preview, and disables calibration until **Resume tracking** is
 selected.
@@ -400,9 +416,9 @@ selected.
 ## Exercise guidance
 
 The thirteen bundled clips are language-neutral generated demonstrations
-created for Vulture. They contain no narration, text, logos, or footage of a
-real person. Twelve use the shared mannequin style; a minimal geometric
-fallback remains for `ankle-point-flex` until a reviewed mannequin replacement
+created for Vulture. They have no audio track and contain no narration, text,
+logos, or footage of a real person. Twelve use the shared mannequin style; a
+minimal geometric fallback remains for `ankle-point-flex` until a reviewed mannequin replacement
 is available. The movement instructions and doses—not the artwork—are linked
 to the authoritative sources in [docs/EVIDENCE.md](docs/EVIDENCE.md).
 
@@ -443,7 +459,7 @@ setup, preference, calibration, and local history record.
 
 ## Troubleshooting
 
-- **Another application needs the webcam:** choose **Release camera** in
+- **Another application needs the webcam:** choose **Pause camera** in
   Vulture, join the meeting, then choose **Resume tracking** afterward.
 - **The camera does not open:** close other camera applications, confirm the
   operating-system privacy permission, and verify that the selected setup
@@ -517,9 +533,9 @@ stay language-neutral and must never depict a real person.
   `continuity_lock`, and the review requirement are all in
   `src/vulture/resources/exercises/video-prompts.json`.
 - **One replacement instructional video.** Twelve clips are full mannequin
-  demonstrations (~2.6 MB each); `ankle-point-flex.mp4` is still a minimal
-  geometric placeholder (~28 KB). It needs a proper replacement generated from
-  the `ankle-point-flex` prompt in `video-prompts.json` (prepend the shared
+  demonstrations (about 1.1–1.7 MB each); `ankle-point-flex.mp4` is still a
+  minimal geometric placeholder (about 35 KB). It needs a proper replacement
+  generated from the `ankle-point-flex` prompt in `video-prompts.json` (prepend the shared
   `continuity_lock`), reviewed against the same requirement, and saved over
   `src/vulture/resources/exercises/videos/ankle-point-flex.mp4`. Keep it a
   10-second, 16:9 seamless loop with no narration, on-screen text, logo, or

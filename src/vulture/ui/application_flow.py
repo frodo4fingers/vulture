@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QApplication,
@@ -19,14 +20,13 @@ from vulture.tracking import PostureEvaluator
 
 from .common import (
     STATE_COLORS,
-    STATE_FOREGROUND_COLORS,
+    announce,
     create_state_icon,
 )
 from .exercises import EvidenceDialog
 from .notices import NoticeDialog
 from .settings import SettingsDialog
 from .summary_dialog import WorkdaySummaryDialog
-from .theme import STATUS_DOT_SIZE
 
 
 class ApplicationFlowMixin:
@@ -201,6 +201,7 @@ class ApplicationFlowMixin:
             start_at_login_enabled=startup_enabled,
             startup_setting_available=startup_setting_available,
             startup_setting_error=startup_setting_error,
+            calibration_sound_cues=self.data.calibration_sound_cues,
             parent=self,
         )
         self._settings_dialog = dialog
@@ -298,7 +299,12 @@ class ApplicationFlowMixin:
             new_language,
             new_break_preferences,
         )
+        previous_sound_cues = self.data.calibration_sound_cues
+        self.data.calibration_sound_cues = (
+            dialog.calibration_sound_cues.isChecked()
+        )
         if not self._save_data():
+            self.data.calibration_sound_cues = previous_sound_cues
             (
                 self.data.alert_policy,
                 self.data.exercise_preferences,
@@ -401,19 +407,35 @@ class ApplicationFlowMixin:
         if dialog is not None:
             self._hide_side_panel(dialog)
 
+    @staticmethod
+    def _state_title(state: TrackerState) -> str:
+        return {
+            TrackerState.STOPPED: tr("Tracking paused"),
+            TrackerState.CALIBRATING: tr("Calibrating"),
+            TrackerState.GOOD: tr("Comfortable posture"),
+            TrackerState.WARNING: tr("Posture drifting"),
+            TrackerState.ALERT: tr("Time to change position"),
+            TrackerState.LOW_CONFIDENCE: tr("Looking for you"),
+            TrackerState.CAMERA_UNAVAILABLE: tr("Camera unavailable"),
+            TrackerState.UNCALIBRATED: tr("Not calibrated yet"),
+        }[state]
+
     def _set_state(self, state: TrackerState, message: str) -> None:
+        changed = state is not self._state
         self._state = state
-        color = STATE_COLORS[state]
-        foreground = STATE_FOREGROUND_COLORS[state]
+        self._status_message = message
+        title = self._state_title(state)
         self.status_dot.setStyleSheet(
-            f"background: {color}; color: {foreground}; "
-            f"border-radius: {STATUS_DOT_SIZE // 2}px; font-weight: 600"
+            f"background: {STATE_COLORS[state]}; "
+            f"border-radius: {self.status_dot.width() // 2}px"
         )
+        self.status_state_label.setText(title)
         self.status_label.setText(message)
         self._apply_icon()
-        self.tray.setToolTip(
-            tr("Vulture — {message}", message=message)
-        )
+        # "Looking for you" flickers while the camera settles; the rest are
+        # worth hearing once per change.
+        if changed and state is not TrackerState.LOW_CONFIDENCE:
+            announce(self.status_label, f"{title}. {message}")
 
     def _apply_icon(self) -> None:
         icon = create_state_icon(
@@ -421,6 +443,15 @@ class ApplicationFlowMixin:
         )
         self.setWindowIcon(icon)
         self.tray.setIcon(icon)
+        # The icon is colour and a badge only; the tooltip says it in words.
+        tooltip = tr(
+            "Vulture — {state}: {message}",
+            state=self._state_title(self._state),
+            message=self._status_message,
+        )
+        if self._pending_exercise is not None:
+            tooltip += "\n" + self.open_exercise_action.text()
+        self.tray.setToolTip(tooltip)
 
     def _show_tray_message(
         self,
@@ -474,12 +505,25 @@ class ApplicationFlowMixin:
             return
         self._show_window()
 
-    def _show_window(self) -> None:
+    def _show_window(self, *, activate: bool = True) -> None:
+        """Bring the window forward.
+
+        Background arrivals pass ``activate=False``: the window is raised and
+        flagged for attention, but keyboard focus stays where the user is
+        typing, so a keystroke can never answer a panel by accident.
+        """
         if self._language_reload_preparing:
             return
+        self.setAttribute(
+            Qt.WidgetAttribute.WA_ShowWithoutActivating,
+            not activate,
+        )
         self.show()
         self.raise_()
-        self.activateWindow()
+        if activate:
+            self.activateWindow()
+        else:
+            QApplication.alert(self)
         self._secondary_window_presenter.restore_for_owner()
 
     def closeEvent(self, event: QCloseEvent) -> None:

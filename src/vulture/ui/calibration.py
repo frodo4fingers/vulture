@@ -5,21 +5,18 @@ import time
 from collections import defaultdict
 
 from pydantic import Field
-from PySide6.QtCore import QSize, Qt, QTimer
-from PySide6.QtGui import QColor, QPixmap
+from PySide6.QtCore import QRect, QSize, Qt, QTimer, QUrl
+from PySide6.QtGui import QPalette, QPixmap
+from PySide6.QtMultimedia import QSoundEffect
 from PySide6.QtWidgets import (
-    QAbstractItemView,
     QComboBox,
     QDialog,
     QDialogButtonBox,
     QFormLayout,
     QFrame,
-    QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
-    QListWidget,
-    QListWidgetItem,
     QProgressBar,
     QPushButton,
     QScrollArea,
@@ -41,11 +38,32 @@ from vulture.models import (
 )
 from vulture.resources import resource_path
 
+from .break_options import announce, assign_mnemonics
 from .common import POSTURE_TITLES, SemanticLabel
 from .theme import (
+    CALIBRATION_MIN_SIZE,
+    CALIBRATION_SIZE,
+    CALIBRATION_STAGE_COLORS,
+    FOCUS_RING_WIDTH,
+    HAIRLINE,
+    RADIUS_MD,
+    RADIUS_SM,
+    SPACE_MD,
+    SPACE_SM,
+    SETUP_MIN_SIZE,
+    SETUP_SIZE,
+    SPACE_XS,
+    STEP_SELECTION_MIN_SIZE,
+    STEP_SELECTION_SIZE,
+    CaptionLabel,
+    Separator,
     TextRole,
+    _PaletteAwareMixin,
     apply_text_role,
+    border_color,
     media_surface_style,
+    muted_color,
+    scheme_name,
 )
 
 
@@ -54,6 +72,7 @@ class CalibrationStep(StrictModel):
     title: str
     instructions: str
     image_filename: str | None = None
+    image_caption: str | None = None
     category: PostureCategory | None = None
     required: bool = False
     capture_seconds: int = Field(default=15, ge=5)
@@ -79,6 +98,9 @@ CALIBRATION_STEPS = [
             "your neck, and stop if anything hurts."
         ),
         image_filename="calibration-02-head-forward.jpg",
+        # The reference photo shows a head turn; until it is regenerated the
+        # caption says which movement is meant.
+        image_caption="Chin moves forward, not sideways.",
         category=PostureCategory.FORWARD_HEAD,
     ),
     CalibrationStep(
@@ -119,8 +141,23 @@ POSTURE_STEPS = {
 }
 
 
+# The reference photos show the whole seated figure; the webcam sees head and
+# shoulders. Each photo is cropped at render time to a 4:3 window whose
+# top-left corner (in source pixels) frames that photo's head and shoulders.
+# Corners were tuned by eye per photo because the figure drifts between shots.
+CROP_SIZE = (400, 300)
+HEAD_AND_SHOULDERS_CORNERS = {
+    "calibration-01-comfortable-baseline.jpg": (440, 50),
+    "calibration-02-head-forward.jpg": (440, 30),
+    "calibration-03-slouch.jpg": (460, 70),
+    "calibration-04-sunk-shoulders.jpg": (460, 70),
+    "calibration-05-side-lean.jpg": (470, 55),
+}
+DEFAULT_CROP_CORNER = (440, 50)
+
+
 class CalibrationStageImage(QLabel):
-    ASPECT_RATIO = 16 / 9
+    ASPECT_RATIO = CROP_SIZE[0] / CROP_SIZE[1]
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -136,13 +173,13 @@ class CalibrationStageImage(QLabel):
         return True
 
     def heightForWidth(self, width: int) -> int:
-        return max(160, round(width / self.ASPECT_RATIO))
+        return round(width / self.ASPECT_RATIO)
 
     def sizeHint(self) -> QSize:
-        return QSize(480, 270)
+        return QSize(*CROP_SIZE) / 2
 
     def minimumSizeHint(self) -> QSize:
-        return QSize(284, 160)
+        return QSize(*CROP_SIZE) / 3
 
     def set_step(self, step: CalibrationStep) -> None:
         if step.image_filename is None:
@@ -156,6 +193,10 @@ class CalibrationStageImage(QLabel):
             raise RuntimeError(
                 f"Calibration image could not be decoded: {path}"
             )
+        x, y = HEAD_AND_SHOULDERS_CORNERS.get(
+            step.image_filename, DEFAULT_CROP_CORNER
+        )
+        pixmap = pixmap.copy(QRect(x, y, *CROP_SIZE))
         self._source_pixmap = pixmap
         self.setAccessibleName(tr(step.title))
         self.setAccessibleDescription(tr(step.instructions))
@@ -172,18 +213,154 @@ class CalibrationStageImage(QLabel):
         self.setPixmap(
             self._source_pixmap.scaled(
                 self.size(),
-                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.AspectRatioMode.KeepAspectRatioByExpanding,
                 Qt.TransformationMode.SmoothTransformation,
             )
         )
+
+
+class CalibrationReference(QWidget):
+    """Reference photo with an optional caption underneath."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(SPACE_XS)
+        self.image = CalibrationStageImage()
+        self.caption = CaptionLabel()
+        layout.addWidget(self.image)
+        layout.addWidget(self.caption)
+        layout.addStretch(1)
+
+    def set_step(self, step: CalibrationStep) -> None:
+        self.image.set_step(step)
+        caption = tr(step.image_caption) if step.image_caption else ""
+        self.caption.setText(caption)
+        self.caption.setVisible(bool(caption))
+        self.setVisible(step.image_filename is not None)
+
+
+# Stage state -> (marker, spoken word). The marker and the word carry the
+# state, so colour is only reinforcement.
+_STAGE_MARKERS = {
+    "current": ("●", "current"),
+    "recorded": ("✓", "recorded"),
+    "retry": ("!", "needs another try"),
+    "skipped": ("–", "skipped"),
+    "pending": ("○", "not started"),
+}
+
+
+class CalibrationStepper(_PaletteAwareMixin, QFrame):
+    """"Step 2 of 5" plus one marker per stage; focusable for keyboard users."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setObjectName("calibrationStepper")
+        self.setFocusPolicy(Qt.FocusPolicy.TabFocus)
+        self.setAccessibleName(tr("Calibration progress"))
+        self._state: tuple[list[str], list[str], int] | None = None
+        self._counter = QLabel()
+        apply_text_role(self._counter, TextRole.BODY_STRONG)
+        self._pills: list[QLabel] = []
+        self._row = QHBoxLayout(self)
+        self._row.setContentsMargins(SPACE_XS, SPACE_XS, SPACE_XS, SPACE_XS)
+        self._row.setSpacing(SPACE_SM)
+        self._row.addWidget(self._counter)
+        self._row.addStretch(1)
+
+    def set_state(
+        self, titles: list[str], statuses: list[str], index: int
+    ) -> None:
+        self._state = (titles, statuses, index)
+        while len(self._pills) < len(titles):
+            pill = QLabel()
+            apply_text_role(pill, TextRole.CAPTION)
+            self._pills.append(pill)
+            self._row.insertWidget(self._row.count() - 1, pill)
+        self._refresh_theme()
+
+    def _apply_theme(self) -> None:
+        self._render()
+
+    def _render(self) -> None:
+        if self._state is None:
+            return
+        titles, statuses, index = self._state
+        total = len(titles)
+        colors = CALIBRATION_STAGE_COLORS[scheme_name()]
+        focus = self.palette().color(QPalette.ColorRole.Highlight).name()
+        self.setStyleSheet(
+            f"QFrame#calibrationStepper {{ border:"
+            f" {FOCUS_RING_WIDTH}px solid transparent;"
+            f" border-radius: {RADIUS_MD}px }}"
+            f" QFrame#calibrationStepper:focus {{ border-color: {focus} }}"
+        )
+        current = min(index, total - 1)
+        self._counter.setText(
+            tr("Step {current} of {total}", current=current + 1, total=total)
+        )
+        summary = []
+        for position, (pill, title, status) in enumerate(
+            zip(self._pills, titles, statuses)
+        ):
+            state = (
+                "current"
+                if position == index and status != "retry"
+                else status
+            )
+            marker, word = _STAGE_MARKERS[state]
+            pill.setText(f"{marker} {position + 1}")
+            description = tr(
+                "Step {number}: {title}, {state}",
+                number=position + 1,
+                title=tr(title),
+                state=tr(word),
+            )
+            pill.setAccessibleName(description)
+            pill.setToolTip(description)
+            summary.append(description)
+            if state == "pending":
+                look = (
+                    f"background: transparent; color:"
+                    f" {muted_color().name()}; border:"
+                    f" {HAIRLINE}px solid {border_color().name()}"
+                )
+            else:
+                background, foreground = colors[state]
+                weight = "; font-weight: 600" if state == "current" else ""
+                look = (
+                    f"background-color: {background}; color: {foreground};"
+                    f" border: {HAIRLINE}px solid {foreground}{weight}"
+                )
+            pill.setStyleSheet(
+                f"QLabel {{ {look}; border-radius: {RADIUS_SM}px;"
+                f" padding: {HAIRLINE}px {SPACE_SM}px }}"
+            )
+        self.setAccessibleDescription(
+            tr(
+                "Step {current} of {total}. ",
+                current=current + 1,
+                total=total,
+            )
+            + " ".join(summary)
+        )
+
+
+def _friendly_camera_name(camera: CameraDescriptor) -> str:
+    """The camera's description without the trailing device path."""
+    suffix = f" ({camera.locator})"
+    name = camera.display_name
+    return name[: -len(suffix)] if name.endswith(suffix) else name
 
 
 class SetupDialog(QDialog):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent, Qt.WindowType.Dialog)
         self.setWindowTitle(tr("Add camera setup"))
-        self.setMinimumSize(420, 220)
-        self.resize(500, 260)
+        self.setMinimumSize(SETUP_MIN_SIZE)
+        self.resize(SETUP_SIZE)
         self._cameras = discover_cameras()
 
         layout = QVBoxLayout(self)
@@ -199,8 +376,20 @@ class SetupDialog(QDialog):
         form = QFormLayout()
         self.name_edit = QLineEdit(tr("Desk setup"))
         self.camera_combo = QComboBox()
-        for camera in self._cameras:
-            self.camera_combo.addItem(camera.display_name, camera)
+        names = [_friendly_camera_name(camera) for camera in self._cameras]
+        seen: dict[str, int] = {}
+        for camera, name in zip(self._cameras, names):
+            index = self.camera_combo.count()
+            seen[name] = seen.get(name, 0) + 1
+            shared = names.count(name) > 1
+            self.camera_combo.addItem(
+                f"{name} ({seen[name]})" if shared else name, camera
+            )
+            # Device paths are noise to read; keep them for identical names.
+            if shared and isinstance(camera.locator, str):
+                self.camera_combo.setItemData(
+                    index, camera.locator, Qt.ItemDataRole.ToolTipRole
+                )
         form.addRow(tr("Setup name"), self.name_edit)
         form.addRow(tr("Camera"), self.camera_combo)
         layout.addLayout(form)
@@ -229,6 +418,12 @@ class SetupDialog(QDialog):
         save_button = buttons.button(QDialogButtonBox.StandardButton.Save)
         save_button.setEnabled(bool(self._cameras))
         layout.addWidget(buttons)
+        # Content hugs the top; spare height stays below the buttons.
+        layout.addStretch(1)
+        cancel_button = buttons.button(QDialogButtonBox.StandardButton.Cancel)
+        QWidget.setTabOrder(self.name_edit, self.camera_combo)
+        QWidget.setTabOrder(self.camera_combo, save_button)
+        QWidget.setTabOrder(save_button, cancel_button)
 
     def _validate_and_accept(self) -> None:
         if not self.name_edit.text().strip():
@@ -263,9 +458,9 @@ class CalibrationStepSelectionDialog(QDialog):
         super().__init__(parent, Qt.WindowType.Window)
         self.profile = profile
         self._baseline_confirmation_pending = False
-        self.setWindowTitle(tr("Recalibrate step"))
-        self.setMinimumSize(480, 420)
-        self.resize(620, 600)
+        self.setWindowTitle(tr("Redo a calibration step"))
+        self.setMinimumSize(STEP_SELECTION_MIN_SIZE)
+        self.resize(STEP_SELECTION_SIZE)
 
         layout = QVBoxLayout(self)
 
@@ -300,11 +495,17 @@ class CalibrationStepSelectionDialog(QDialog):
         form.addRow(tr("Calibration step"), self.step_combo)
         layout.addLayout(form)
 
-        self.reference_image = CalibrationStageImage()
-        layout.addWidget(self.reference_image)
-
+        # Photo on one half, copy on the other.
+        self.reference = CalibrationReference()
+        self.reference_image = self.reference.image
         self.description = SemanticLabel(tone="info")
-        layout.addWidget(self.description)
+        reference_row = QHBoxLayout()
+        reference_row.setSpacing(SPACE_MD)
+        reference_row.addWidget(self.reference, 1)
+        reference_row.addWidget(
+            self.description, 1, Qt.AlignmentFlag.AlignTop
+        )
+        layout.addLayout(reference_row)
         self.baseline_warning = SemanticLabel(
             tr(
                 "Replacing the good baseline removes every learned "
@@ -326,25 +527,26 @@ class CalibrationStepSelectionDialog(QDialog):
         self.confirm_button = buttons.button(
             QDialogButtonBox.StandardButton.Ok
         )
-        self.confirm_button.setText(
-            tr("Recalibrate step")
-        )
+        self.confirm_button.setText(tr("Redo this step"))
         buttons.accepted.connect(self._confirm_selection)
         buttons.rejected.connect(self.reject)
-        layout.addWidget(buttons)
         layout.addStretch(1)
+        layout.addWidget(buttons)
+        cancel_button = buttons.button(QDialogButtonBox.StandardButton.Cancel)
+        QWidget.setTabOrder(self.step_combo, self.confirm_button)
+        QWidget.setTabOrder(self.confirm_button, cancel_button)
         self._update_description()
 
     def _update_description(self) -> None:
         self._baseline_confirmation_pending = False
         self.baseline_warning.hide()
-        self.confirm_button.setText(tr("Recalibrate step"))
+        self.confirm_button.setText(tr("Redo this step"))
         step = self._current_step()
         if step is None:
-            self.reference_image.hide()
+            self.reference.hide()
             self.description.clear()
             return
-        self.reference_image.set_step(step)
+        self.reference.set_step(step)
         detail = tr(step.instructions)
         if step.category is None:
             detail += "\n\n" + tr(
@@ -386,6 +588,14 @@ class CalibrationStepSelectionDialog(QDialog):
         )
 
 
+SOUND_CUE_FILES = {
+    "countdown": "countdown.wav",
+    "start": "record-start.wav",
+    "end": "record-end.wav",
+}
+SOUND_CUE_VOLUME = 0.6
+
+
 class CalibrationDialog(QDialog):
     def __init__(
         self,
@@ -393,8 +603,11 @@ class CalibrationDialog(QDialog):
         *,
         steps: list[CalibrationStep] | None = None,
         base_profile: CalibrationProfile | None = None,
+        sound_cues: bool = True,
     ) -> None:
         super().__init__(parent, Qt.WindowType.Window)
+        self._sound_cues = sound_cues
+        self._cue_effects: dict[str, QSoundEffect] = {}
         self.steps = [
             step.model_copy(deep=True)
             for step in (steps or CALIBRATION_STEPS)
@@ -436,59 +649,49 @@ class CalibrationDialog(QDialog):
         else:
             window_title = tr("Calibrate this setup")
         self.setWindowTitle(window_title)
-        self.setMinimumSize(500, 480)
-        self.resize(680, 700)
+        self.setMinimumSize(CALIBRATION_MIN_SIZE)
+        self.resize(CALIBRATION_SIZE)
         outer_layout = QVBoxLayout(self)
+        self.stepper = CalibrationStepper()
+        outer_layout.addWidget(self.stepper)
+
+        # Only the explanation scrolls; the actions below stay in view.
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setFrameShape(QFrame.Shape.NoFrame)
         self.scroll_area.setHorizontalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff
         )
-        scroll_content = QWidget()
-        scroll_layout = QVBoxLayout(scroll_content)
-        scroll_layout.setContentsMargins(0, 0, 0, 0)
-        self.scroll_area.setWidget(scroll_content)
-        outer_layout.addWidget(self.scroll_area, 1)
-
-        stage_group = QGroupBox(tr("Calibration stages"))
-        stage_layout = QVBoxLayout(stage_group)
-        stage_help = QLabel(
-            tr("The highlighted row is the only pose being recorded.")
-        )
-        stage_help.setWordWrap(True)
-        stage_layout.addWidget(stage_help)
-        self.stage_list = QListWidget()
-        self.stage_list.setMaximumHeight(190)
-        self.stage_list.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self.stage_list.setSelectionMode(
-            QAbstractItemView.SelectionMode.NoSelection
-        )
-        stage_layout.addWidget(self.stage_list)
-        scroll_layout.addWidget(stage_group)
-
         content = QWidget()
         layout = QVBoxLayout(content)
-        self.step_counter = QLabel()
-        self.role_label = SemanticLabel(strong=True)
-        self.role_label.setWordWrap(True)
-        self.title_label = QLabel()
-        apply_text_role(self.title_label, TextRole.TITLE)
-        self.reference_image = CalibrationStageImage()
+        layout.setContentsMargins(0, 0, 0, 0)
+        self.scroll_area.setWidget(content)
+        outer_layout.addWidget(self.scroll_area, 1)
+
+        self.role_label = SemanticLabel(
+            strong=True, role=TextRole.HEADING
+        )
+        self.reference = CalibrationReference()
+        self.reference_image = self.reference.image
         self.instructions_label = QLabel()
         self.instructions_label.setWordWrap(True)
-        self.instructions_label.setMinimumHeight(70)
+        # Photo on one half, instructions on the other.
+        reference_row = QHBoxLayout()
+        reference_row.setSpacing(SPACE_MD)
+        reference_row.addWidget(self.reference, 1)
+        reference_row.addWidget(
+            self.instructions_label, 1, Qt.AlignmentFlag.AlignTop
+        )
         self.phase_label = QLabel()
         apply_text_role(self.phase_label, TextRole.HEADING)
         self.quality_label = QLabel(tr("Waiting for clear landmarks..."))
+        self.quality_label.setWordWrap(True)
         self.progress = QProgressBar()
         self.progress.setRange(0, 100)
         self.progress.setValue(0)
-        layout.addWidget(self.step_counter)
+        self.progress.setAccessibleName(tr("Recording progress"))
         layout.addWidget(self.role_label)
-        layout.addWidget(self.title_label)
-        layout.addWidget(self.reference_image)
-        layout.addWidget(self.instructions_label)
+        layout.addLayout(reference_row)
         layout.addWidget(self.phase_label)
         layout.addWidget(self.quality_label)
         layout.addWidget(self.progress)
@@ -506,10 +709,13 @@ class CalibrationDialog(QDialog):
         layout.addWidget(safety)
         layout.addStretch()
 
+        outer_layout.addWidget(Separator())
         controls = QHBoxLayout()
         self.start_button = QPushButton(tr("Start sample"))
         self.skip_button = QPushButton(tr("Skip this example"))
         self.cancel_button = QPushButton(tr("Cancel"))
+        self.skip_button.setAutoDefault(False)
+        self.cancel_button.setAutoDefault(False)
         self.start_button.clicked.connect(self._start_sample)
         self.skip_button.clicked.connect(self._skip_step)
         self.cancel_button.clicked.connect(self.reject)
@@ -517,14 +723,18 @@ class CalibrationDialog(QDialog):
         controls.addWidget(self.skip_button)
         controls.addStretch()
         controls.addWidget(self.cancel_button)
-        layout.addLayout(controls)
-        scroll_layout.addWidget(content, 1)
+        outer_layout.addLayout(controls)
+        QWidget.setTabOrder(self.stepper, self.start_button)
+        QWidget.setTabOrder(self.start_button, self.skip_button)
+        QWidget.setTabOrder(self.skip_button, self.cancel_button)
 
         self.timer = QTimer(self)
         self.timer.setInterval(100)
         self.timer.timeout.connect(self._tick)
         self.timer.start()
         self._show_step()
+        # Land on the first action, not on the stepper.
+        self.start_button.setFocus()
 
     def done(self, result: int) -> None:
         self._finished = True
@@ -546,107 +756,76 @@ class CalibrationDialog(QDialog):
 
     def _show_step(self) -> None:
         step = self.steps[self._step_index]
-        self.step_counter.setText(
-            tr(
-                "Step {current} of {total}",
-                current=self._step_index + 1,
-                total=len(self.steps),
-            )
-        )
         if step.category is None:
-            self.role_label.setText(
-                tr(
-                    "GOOD BASELINE — sit in the comfortable posture you want "
-                    "Vulture to treat as your normal reference."
-                )
-            )
+            self.role_label.setText(tr("Your comfortable baseline"))
             self.role_label.set_semantic_tone("good", strong=True)
-            role_name = tr("GOOD BASELINE")
         else:
             self.role_label.setText(
                 tr(
-                    "UNWANTED POSTURE EXAMPLE — demonstrate only: {posture}. "
-                    "Do not combine it with a different unwanted pose.",
-                    posture=tr(step.title),
+                    "Example: {posture} ({requirement})",
+                    posture=tr(POSTURE_TITLES[step.category.value]),
+                    requirement=(
+                        tr("required") if step.required else tr("optional")
+                    ),
                 )
             )
             self.role_label.set_semantic_tone("unwanted", strong=True)
-            role_name = tr(step.title).upper()
-        self.title_label.setText(tr(step.title))
-        self.reference_image.set_step(step)
+        self.reference.set_step(step)
         self.instructions_label.setText(tr(step.instructions))
-        self.phase_label.setText(
-            tr("READY — {role}", role=role_name)
-        )
+        self.phase_label.setText(tr("Ready when you are"))
         self.progress.setValue(0)
         self.start_button.setText(tr("Start sample"))
+        self._assign_mnemonics()
         self.start_button.setEnabled(True)
         self.skip_button.setEnabled(not step.required)
         self.feedback_label.clear()
         self.feedback_label.hide()
         self._phase = "idle"
         self._current_samples = []
-        self._refresh_stage_list()
-
-    def _refresh_stage_list(self) -> None:
-        self.stage_list.clear()
-        for index, step in enumerate(self.steps):
-            status = self._stage_status[index]
-            if (
-                index == self._step_index
-                and self._step_index < len(self.steps)
-                and status == "retry"
-            ):
-                marker = "!"
-                status_text = tr("RETRY")
-            elif (
-                index == self._step_index
-                and self._step_index < len(self.steps)
-            ):
-                marker = "▶"
-                status_text = tr("CURRENT")
-            elif status == "recorded":
-                marker = "✓"
-                status_text = tr("RECORDED")
-            elif status == "skipped":
-                marker = "–"
-                status_text = tr("SKIPPED")
-            elif status == "retry":
-                marker = "!"
-                status_text = tr("RETRY")
-            else:
-                marker = "○"
-                status_text = tr("PENDING")
-            role = tr("GOOD") if step.category is None else tr("UNWANTED")
-            requirement = tr("required") if step.required else tr("optional")
-            item = QListWidgetItem(
-                tr(
-                    "{marker} {index}. {posture}\n"
-                    "   {role} • {requirement} • {status}",
-                    marker=marker,
-                    index=index + 1,
-                    posture=tr(step.title),
-                    role=role,
-                    requirement=requirement,
-                    status=status_text,
-                )
+        self._refresh_stepper()
+        self._announce(
+            tr(
+                "Step {current} of {total}: {title}",
+                current=self._step_index + 1,
+                total=len(self.steps),
+                title=tr(step.title),
             )
-            if status == "retry":
-                item.setBackground(QColor("#fed7d7"))
-                item.setForeground(QColor("#742a2a"))
-            elif (
-                index == self._step_index
-                and self._step_index < len(self.steps)
-            ):
-                item.setBackground(QColor("#3182ce"))
-                item.setForeground(QColor("white"))
-            elif status == "recorded":
-                item.setBackground(QColor("#c6f6d5"))
-                item.setForeground(QColor("#22543d"))
-            elif status == "skipped":
-                item.setBackground(QColor("#e2e8f0"))
-                item.setForeground(QColor("#4a5568"))
-            self.stage_list.addItem(item)
+        )
+
+    def _assign_mnemonics(self) -> None:
+        assign_mnemonics(
+            self.start_button, self.skip_button, self.cancel_button
+        )
+
+    def _refresh_stepper(self) -> None:
+        self.stepper.set_state(
+            [step.title for step in self.steps],
+            self._stage_status,
+            self._step_index,
+        )
+
+    def _announce(self, message: str) -> None:
+        """Tell assistive technology about a state the user cannot see."""
+        announce(self.phase_label, message)
+
+    def _play_cue(self, cue: str) -> None:
+        """A soft tone for moments the user cannot watch; silent on failure."""
+        if not self._sound_cues:
+            return
+        try:
+            effect = self._cue_effects.get(cue)
+            if effect is None:
+                effect = QSoundEffect(self)
+                effect.setSource(
+                    QUrl.fromLocalFile(
+                        str(resource_path("sounds", SOUND_CUE_FILES[cue]))
+                    )
+                )
+                effect.setVolume(SOUND_CUE_VOLUME)
+                self._cue_effects[cue] = effect
+            effect.play()
+        except Exception:  # audio is a nicety, never a reason to fail
+            self._sound_cues = False
 
     def _start_sample(self) -> None:
         if self._phase != "idle":
@@ -656,9 +835,10 @@ class CalibrationDialog(QDialog):
         self._deadline = time.monotonic() + 3.0
         self.start_button.setEnabled(False)
         self.skip_button.setEnabled(False)
-        self.phase_label.setText(
-            tr("GET READY — {role}", role=self._current_role_name())
-        )
+        self.feedback_label.hide()
+        self.phase_label.setText(tr("Get ready…"))
+        self._play_cue("countdown")
+        self._announce(tr("Get ready. Recording starts in 3 seconds."))
 
     def _skip_step(self) -> None:
         step = self.steps[self._step_index]
@@ -690,12 +870,9 @@ class CalibrationDialog(QDialog):
                 step = self.steps[self._step_index]
                 self._phase = "capturing"
                 self._deadline = time.monotonic() + step.capture_seconds
-                self.phase_label.setText(
-                    tr(
-                        "RECORDING NOW — {role}",
-                        role=self._current_role_name(),
-                    )
-                )
+                self.phase_label.setText(tr("Recording… hold still"))
+                self._play_cue("start")
+                self._announce(tr("Recording. Hold still."))
             return
 
         if self._phase == "capturing":
@@ -716,31 +893,35 @@ class CalibrationDialog(QDialog):
     def _finish_sample(self) -> None:
         step = self.steps[self._step_index]
         minimum_samples = 30 if step.category is None else 15
+        self._play_cue("end")
         if len(self._current_samples) < minimum_samples:
             self._phase = "idle"
             self._stage_status[self._step_index] = "retry"
             self.progress.setValue(0)
             self.start_button.setText(tr("Retry sample"))
+            self._assign_mnemonics()
             self.start_button.setEnabled(True)
             self.skip_button.setEnabled(not step.required)
-            self.phase_label.setText(
-                tr("RETRY — {role}", role=self._current_role_name())
-            )
-            self.quality_label.setText(
-                (
-                    tr(
-                        "Not enough clear frames were visible. Reposition the "
-                        "camera and retry this required stage."
-                    )
-                    if step.required
-                    else tr(
-                        "Not enough clear frames were visible. Reposition the "
-                        "camera or skip this optional example."
-                    )
+            self.phase_label.setText(tr("Let's try that again"))
+            # The idle tick keeps rewriting quality_label, so the reason
+            # lives in the feedback panel where it stays readable.
+            message = (
+                tr(
+                    "Not enough clear frames were visible. Reposition the "
+                    "camera and retry this required stage."
+                )
+                if step.required
+                else tr(
+                    "Not enough clear frames were visible. Reposition the "
+                    "camera or skip this optional example."
                 )
             )
-            self._refresh_stage_list()
+            self.feedback_label.setText(message)
+            self.feedback_label.show()
+            self._announce(tr("Recording finished.") + " " + message)
+            self._refresh_stepper()
             return
+        self._announce(tr("Recording finished."))
         self._samples[step.key] = list(self._current_samples)
         self._stage_status[self._step_index] = "recorded"
         self._advance()
@@ -750,7 +931,7 @@ class CalibrationDialog(QDialog):
         if self._step_index < len(self.steps):
             self._show_step()
             return
-        self._refresh_stage_list()
+        self._refresh_stepper()
         self._fit_profile()
 
     def _fit_profile(self) -> None:
@@ -830,11 +1011,3 @@ class CalibrationDialog(QDialog):
                 )
         if not self._finished:
             self.accept()
-
-    def _current_role_name(self) -> str:
-        step = self.steps[self._step_index]
-        return (
-            tr("GOOD BASELINE")
-            if step.category is None
-            else tr(step.title).upper()
-        )

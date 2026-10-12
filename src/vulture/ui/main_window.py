@@ -124,6 +124,8 @@ class MainWindow(
         self._last_valid_tracking_at: float | None = None
         self._tracking_gap_started_at: float | None = None
         self._state = TrackerState.STOPPED
+        self._status_message = ""
+        self._break_due_announced = False
         self._history_error: str | None = None
         self._history_disabled_for_session = bool(
             runtime_state

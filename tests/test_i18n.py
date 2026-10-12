@@ -82,7 +82,7 @@ def _translation_keys() -> set[str]:
             ):
                 for keyword in node.keywords:
                     if (
-                        keyword.arg in {"title", "instructions"}
+                        keyword.arg in {"title", "instructions", "image_caption"}
                         and isinstance(keyword.value, ast.Constant)
                         and isinstance(keyword.value.value, str)
                     ):
@@ -263,7 +263,7 @@ def test_main_window_saves_and_requests_language_reload(
 def test_spanish_translation_is_active() -> None:
     try:
         set_language(InterfaceLanguage.SPANISH)
-        assert tr("Settings") == "Configuración"
+        assert tr("&Settings") == "&Configuración"
     finally:
         set_language(InterfaceLanguage.ENGLISH)
 
@@ -363,6 +363,19 @@ def test_long_localized_toolbar_uses_native_overflow(
     window.break_timer.stop()
     window.history_timer.stop()
     window._exercise_postpone_timer.stop()
+    # Camera commands stay hidden until a setup exists, so overflow only
+    # happens once the full localized command row is visible.
+    setup = SetupProfile(
+        name="Schreibtisch",
+        camera=CameraDescriptor(
+            stable_id="desk",
+            display_name="Desk camera",
+            locator=0,
+        ),
+    )
+    window.data.setups = [setup]
+    window.data.active_setup_id = setup.id
+    window._refresh_setup_combo()
     window.resize(760, 650)
     window.show()
     application.processEvents()

@@ -15,8 +15,6 @@ class SecondaryWindowPresenter:
         self,
         key: str,
         window: QDialog,
-        *,
-        modality: Qt.WindowModality = Qt.WindowModality.NonModal,
     ) -> QDialog:
         if key in self._windows:
             raise RuntimeError(
@@ -28,7 +26,6 @@ class SecondaryWindowPresenter:
             window.resize(saved_size)
         self._fit_to_screen(window)
         self._position_beside_owner(window)
-        window.setWindowModality(modality)
         window.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
         window.finished.connect(
             lambda _result, active_window=window: self._release(

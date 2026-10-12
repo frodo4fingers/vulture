@@ -4,8 +4,11 @@ from math import ceil
 
 from PySide6.QtCore import QEvent, Qt
 from PySide6.QtGui import (
+    QAccessible,
+    QAccessibleAnnouncementEvent,
     QColor,
     QIcon,
+    QKeySequence,
     QPainter,
     QPalette,
     QPixmap,
@@ -25,11 +28,20 @@ from vulture.models import PostureCategory, TrackerState
 
 from .theme import (
     CARD_PADDING,
+    EXERCISE_BADGE_COLOR,
+    HAIRLINE,
+    LINK_COLORS,
     LIST_INDENT,
     RADIUS_MD,
+    SEMANTIC_PANEL_COLORS,
     SPACE_XS,
+    STATE_COLOR_VALUES,
+    STATE_DARK_FOREGROUND_STATES,
+    STATE_FOREGROUND_DARK,
+    STATE_FOREGROUND_LIGHT,
     TextRole,
     apply_text_role,
+    scheme_name,
 )
 
 
@@ -44,37 +56,31 @@ SUMMARY_POSTURES = (
 POSTURE_TITLES = dict(SUMMARY_POSTURES)
 
 STATE_COLORS = {
-    TrackerState.STOPPED: "#718096",
-    TrackerState.CALIBRATING: "#3182ce",
-    TrackerState.GOOD: "#2f855a",
-    TrackerState.WARNING: "#d69e2e",
-    TrackerState.ALERT: "#c53030",
-    TrackerState.LOW_CONFIDENCE: "#718096",
-    TrackerState.CAMERA_UNAVAILABLE: "#718096",
-    TrackerState.UNCALIBRATED: "#805ad5",
+    state: STATE_COLOR_VALUES[state.value] for state in TrackerState
 }
 STATE_FOREGROUND_COLORS = {
-    state: "#f7fafc" for state in TrackerState
+    state: (
+        STATE_FOREGROUND_DARK
+        if state.value in STATE_DARK_FOREGROUND_STATES
+        else STATE_FOREGROUND_LIGHT
+    )
+    for state in TrackerState
 }
-STATE_FOREGROUND_COLORS[TrackerState.WARNING] = "#1a202c"
 
-# Marker drawn on the tray and taskbar icon while a movement is waiting to do.
-EXERCISE_BADGE_COLOR = "#ecc94b"
 
-SEMANTIC_PANEL_COLORS = {
-    "light": {
-        "info": ("#edf2f7", "#1a202c", "#cbd5e0"),
-        "safety": ("#fff5f5", "#742a2a", "#feb2b2"),
-        "good": ("#f0fff4", "#22543d", "#9ae6b4"),
-        "unwanted": ("#fffaf0", "#7b341e", "#fbd38d"),
-    },
-    "dark": {
-        "info": ("#202832", "#edf2f7", "#465463"),
-        "safety": ("#351f24", "#ffd9de", "#8f4d59"),
-        "good": ("#183326", "#d9f7e5", "#397b55"),
-        "unwanted": ("#392d17", "#ffe6b8", "#8d6a2c"),
-    },
-}
+def announce(widget: QWidget, message: str) -> None:
+    """Have a screen reader speak ``message`` without moving focus."""
+    event = QAccessibleAnnouncementEvent(widget, message)
+    event.setPoliteness(QAccessible.AnnouncementPoliteness.Polite)
+    QAccessible.updateAccessibility(event)
+
+
+def shortcut_hint(text: str, shortcut: QKeySequence) -> str:
+    """``text`` followed by its shortcut, for tooltips."""
+    if shortcut.isEmpty():
+        return text
+    native = shortcut.toString(QKeySequence.SequenceFormat.NativeText)
+    return f"{text} ({native})"
 
 
 def semantic_panel_style(
@@ -82,19 +88,11 @@ def semantic_panel_style(
     *,
     strong: bool = False,
 ) -> str:
-    window_color = QApplication.palette().color(
-        QPalette.ColorRole.Window
-    )
-    palette_name = (
-        "dark"
-        if window_color.lightness() < 128
-        else "light"
-    )
-    background, foreground, border = SEMANTIC_PANEL_COLORS[palette_name][tone]
-    weight = "; font-weight: 700" if strong else ""
+    background, foreground, border = SEMANTIC_PANEL_COLORS[scheme_name()][tone]
+    weight = "; font-weight: 600" if strong else ""
     return (
         f"background-color: {background}; color: {foreground}; "
-        f"border: 1px solid {border}; border-radius: {RADIUS_MD}px; "
+        f"border: {HAIRLINE}px solid {border}; border-radius: {RADIUS_MD}px; "
         f"padding: {CARD_PADDING}px"
         f"{weight}"
     )
@@ -224,12 +222,11 @@ def rich_text_document_style(link: QColor | None = None) -> str:
 def set_accessible_link_palette(browser: QTextBrowser) -> None:
     palette = browser.palette()
     base = palette.color(QPalette.ColorRole.Base)
-    if base.lightness() < 128:
-        link = QColor("#90cdf4")
-        visited_link = QColor("#d6bcfa")
-    else:
-        link = QColor("#2b6cb0")
-        visited_link = QColor("#6b46c1")
+    link_hex, visited_hex = LINK_COLORS[
+        "dark" if base.lightness() < 128 else "light"
+    ]
+    link = QColor(link_hex)
+    visited_link = QColor(visited_hex)
     palette.setColor(QPalette.ColorRole.Link, link)
     palette.setColor(QPalette.ColorRole.LinkVisited, visited_link)
     browser.setPalette(palette)

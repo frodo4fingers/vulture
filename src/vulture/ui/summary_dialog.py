@@ -23,7 +23,6 @@ from PySide6.QtWidgets import (
 )
 
 from vulture.history import (
-    BASELINE_POSTURE,
     DailyPostureSummary,
     HistoryStorageError,
 )
@@ -35,7 +34,13 @@ from .common import (
     SemanticLabel,
     format_duration,
 )
-from .theme import TextRole, apply_text_role
+from .theme import (
+    SPACE_SM,
+    SPACE_XS,
+    TextRole,
+    apply_text_role,
+    role_font,
+)
 from .summary import (
     REMINDER_STAGE_TITLES,
     PostureAreaChart,
@@ -44,7 +49,11 @@ from .summary import (
     RollingWeekData,
     SummaryMetric,
     build_rolling_week_data,
+    ui_locale,
 )
+
+# Days probed (newest first) to learn whether any history exists at all.
+HISTORY_PROBE_DAYS = 365
 
 
 class WorkdaySummaryDialog(QDialog):
@@ -69,10 +78,11 @@ class WorkdaySummaryDialog(QDialog):
         self.resize(780, 640)
 
         layout = QVBoxLayout(self)
-        layout.setSpacing(8)
+        layout.setSpacing(SPACE_SM)
         top_row = QHBoxLayout()
         top_row.addWidget(QLabel(tr("Date")))
         self.date_edit = QDateEdit(QDate.currentDate())
+        self.date_edit.setLocale(ui_locale())
         self.date_edit.setCalendarPopup(True)
         self.date_edit.setMaximumDate(QDate.currentDate())
         self.date_edit.setMinimumDate(QDate.currentDate().addDays(-365))
@@ -85,15 +95,15 @@ class WorkdaySummaryDialog(QDialog):
         top_row.addStretch()
         layout.addLayout(top_row)
 
+        # Only the unusual state gets a notice; recording on is the default.
         self.recording_label = SemanticLabel(
-            tr("Daily history recording is enabled.")
-            if recording_enabled
-            else tr(
+            tr(
                 "Daily history recording is disabled; saved days remain "
                 "viewable."
             ),
             tone="info",
         )
+        self.recording_label.setVisible(not recording_enabled)
         layout.addWidget(self.recording_label)
 
         self.period_tabs = QTabWidget()
@@ -103,14 +113,14 @@ class WorkdaySummaryDialog(QDialog):
 
         self.day_page = QWidget()
         day_layout = QVBoxLayout(self.day_page)
-        day_layout.setContentsMargins(8, 8, 8, 8)
-        day_layout.setSpacing(8)
+        day_layout.setContentsMargins(SPACE_SM, SPACE_SM, SPACE_SM, SPACE_SM)
+        day_layout.setSpacing(SPACE_SM)
 
         self.daily_metrics_container = QWidget()
         daily_metrics_layout = QGridLayout(self.daily_metrics_container)
         daily_metrics_layout.setContentsMargins(0, 0, 0, 0)
-        daily_metrics_layout.setHorizontalSpacing(8)
-        daily_metrics_layout.setVerticalSpacing(8)
+        daily_metrics_layout.setHorizontalSpacing(SPACE_SM)
+        daily_metrics_layout.setVerticalSpacing(SPACE_SM)
         self.daily_tracked_metric = SummaryMetric(
             tr("Tracked posture time")
         )
@@ -153,7 +163,7 @@ class WorkdaySummaryDialog(QDialog):
 
         self.totals_group = QGroupBox(tr("Tracked posture time"))
         totals_layout = QGridLayout(self.totals_group)
-        totals_layout.setVerticalSpacing(6)
+        totals_layout.setVerticalSpacing(SPACE_XS)
         self.total_bars: dict[str, QProgressBar] = {}
         self.total_labels: dict[str, QLabel] = {}
         for row, (posture, title) in enumerate(SUMMARY_POSTURES):
@@ -172,8 +182,9 @@ class WorkdaySummaryDialog(QDialog):
             self.total_bars[posture] = bar
             self.total_labels[posture] = value_label
         totals_layout.setColumnStretch(1, 1)
-        day_layout.addWidget(self.totals_group)
 
+        # The timeline chart leads and takes the spare height; the posture
+        # split below it is secondary.
         self.chart_group = QGroupBox(
             tr("Posture over time (15-minute intervals)")
         )
@@ -181,6 +192,7 @@ class WorkdaySummaryDialog(QDialog):
         self.posture_chart = PostureAreaChart()
         chart_layout.addWidget(self.posture_chart)
         day_layout.addWidget(self.chart_group, 1)
+        day_layout.addWidget(self.totals_group)
         self.day_tab_index = self.period_tabs.addTab(
             self.day_page,
             tr("Day overview"),
@@ -188,7 +200,9 @@ class WorkdaySummaryDialog(QDialog):
 
         self.timeline_page = QWidget()
         timeline_page_layout = QVBoxLayout(self.timeline_page)
-        timeline_page_layout.setContentsMargins(8, 8, 8, 8)
+        timeline_page_layout.setContentsMargins(
+            SPACE_SM, SPACE_SM, SPACE_SM, SPACE_SM
+        )
         self.timeline_group = QGroupBox(tr("Timeline"))
         timeline_layout = QVBoxLayout(self.timeline_group)
         self.timeline = QTableWidget(0, 5)
@@ -223,19 +237,19 @@ class WorkdaySummaryDialog(QDialog):
 
         self.week_page = QWidget()
         week_layout = QVBoxLayout(self.week_page)
-        week_layout.setContentsMargins(6, 6, 6, 6)
-        week_layout.setSpacing(6)
+        week_layout.setContentsMargins(SPACE_SM, SPACE_SM, SPACE_SM, SPACE_SM)
+        week_layout.setSpacing(SPACE_SM)
         self.weekly_range_label = QLabel()
-        apply_text_role(self.weekly_range_label, TextRole.TITLE)
+        apply_text_role(self.weekly_range_label, TextRole.HEADING)
         week_layout.addWidget(self.weekly_range_label)
 
+        # One compact row. "Within baseline" is no longer a headline number.
         self.weekly_metrics_container = QWidget()
         weekly_metrics_layout = QGridLayout(
             self.weekly_metrics_container
         )
         weekly_metrics_layout.setContentsMargins(0, 0, 0, 0)
-        weekly_metrics_layout.setHorizontalSpacing(8)
-        weekly_metrics_layout.setVerticalSpacing(8)
+        weekly_metrics_layout.setHorizontalSpacing(SPACE_SM)
         self.weekly_tracked_metric = SummaryMetric(
             tr("Tracked posture time")
         )
@@ -243,29 +257,15 @@ class WorkdaySummaryDialog(QDialog):
             tr("Notifications")
         )
         self.weekly_days_metric = SummaryMetric(tr("Days with data"))
-        self.weekly_baseline_metric = SummaryMetric(tr("Within baseline"))
-        weekly_metrics_layout.addWidget(
-            self.weekly_tracked_metric,
-            0,
-            0,
-        )
-        weekly_metrics_layout.addWidget(
-            self.weekly_notifications_metric,
-            0,
-            1,
-        )
-        weekly_metrics_layout.addWidget(
-            self.weekly_days_metric,
-            1,
-            0,
-        )
-        weekly_metrics_layout.addWidget(
-            self.weekly_baseline_metric,
-            1,
-            1,
-        )
-        weekly_metrics_layout.setColumnStretch(0, 1)
-        weekly_metrics_layout.setColumnStretch(1, 1)
+        for column, metric in enumerate(
+            (
+                self.weekly_tracked_metric,
+                self.weekly_notifications_metric,
+                self.weekly_days_metric,
+            )
+        ):
+            weekly_metrics_layout.addWidget(metric, 0, column)
+            weekly_metrics_layout.setColumnStretch(column, 1)
         week_layout.addWidget(self.weekly_metrics_container)
 
         self.weekly_chart_label = QLabel(tr("Posture across 7 days"))
@@ -277,12 +277,11 @@ class WorkdaySummaryDialog(QDialog):
         self.weekly_table_label = QLabel(tr("Daily totals"))
         apply_text_role(self.weekly_table_label, TextRole.HEADING)
         week_layout.addWidget(self.weekly_table_label)
-        self.weekly_table = QTableWidget(0, 4)
+        self.weekly_table = QTableWidget(0, 3)
         self.weekly_table.setHorizontalHeaderLabels(
             [
                 tr("Date"),
                 tr("Tracked posture time"),
-                tr("Within baseline"),
                 tr("Notifications"),
             ]
         )
@@ -302,7 +301,7 @@ class WorkdaySummaryDialog(QDialog):
             0,
             QHeaderView.ResizeMode.Stretch,
         )
-        for column in range(1, 4):
+        for column in range(1, 3):
             weekly_header.setSectionResizeMode(
                 column,
                 QHeaderView.ResizeMode.ResizeToContents,
@@ -350,7 +349,33 @@ class WorkdaySummaryDialog(QDialog):
         self.refresh_timer.timeout.connect(self._refresh_today)
         self.refresh_timer.start()
         self._selected_day_has_data = False
+        self._any_history = self._probe_history()
         self.refresh()
+        # Start on the tabs, not in the date field with a segment selected.
+        self.period_tabs.setFocus()
+
+    def _probe_history(self) -> bool:
+        """Whether any day in the retention window holds history.
+
+        ponytail: history.py has no "is empty" query, so this walks the days
+        back until one has data. Add a store-level count if it gets slow.
+        """
+        today = datetime.now().astimezone().date()
+        try:
+            return any(
+                (summary := self._summary_provider(
+                    today - timedelta(days=offset)
+                )).tracked_seconds
+                or summary.episodes
+                or summary.reminder_count
+                for offset in range(HISTORY_PROBE_DAYS + 1)
+            )
+        except HistoryStorageError:
+            return True  # unknown: leave deletion available
+
+    def _sync_delete_all_button(self) -> None:
+        if self._pending_delete is None:
+            self.delete_all_button.setEnabled(self._any_history)
 
     def changeEvent(self, event: QEvent) -> None:
         super().changeEvent(event)
@@ -380,7 +405,7 @@ class WorkdaySummaryDialog(QDialog):
 
     @staticmethod
     def _localized_date(value: date, pattern: str) -> str:
-        return QLocale().toString(
+        return ui_locale().toString(
             QDate(value.year, value.month, value.day),
             pattern,
         )
@@ -463,8 +488,10 @@ class WorkdaySummaryDialog(QDialog):
             self.delete_day_button.setEnabled(self._selected_day_has_data)
         self.daily_tracked_metric.set_value(format_duration(tracked))
         self.daily_notifications_metric.set_value(
-            QLocale().toString(summary.reminder_count)
+            ui_locale().toString(summary.reminder_count)
         )
+        self._any_history = self._any_history or self._selected_day_has_data
+        self._sync_delete_all_button()
         for posture, _title in SUMMARY_POSTURES:
             duration = summary.totals.get(posture, 0.0)
             percentage = duration / tracked * 100 if tracked > 0 else 0.0
@@ -473,7 +500,7 @@ class WorkdaySummaryDialog(QDialog):
                 tr(
                     "{duration}  ({percentage}%)",
                     duration=format_duration(duration),
-                    percentage=QLocale().toString(percentage, "f", 1),
+                    percentage=ui_locale().toString(percentage, "f", 1),
                 )
             )
 
@@ -531,21 +558,13 @@ class WorkdaySummaryDialog(QDialog):
             format_duration(summary.tracked_seconds)
         )
         self.weekly_notifications_metric.set_value(
-            QLocale().toString(summary.reminder_count)
+            ui_locale().toString(summary.reminder_count)
         )
         self.weekly_days_metric.set_value(
             tr("{count} of 7", count=summary.days_with_data)
         )
-        baseline_percentage = (
-            summary.totals[BASELINE_POSTURE]
-            / summary.tracked_seconds
-            * 100
-            if summary.tracked_seconds > 0
-            else 0.0
-        )
-        self.weekly_baseline_metric.set_value(
-            f"{QLocale().toString(baseline_percentage, 'f', 1)}%"
-        )
+        self._any_history = self._any_history or summary.days_with_data > 0
+        self._sync_delete_all_button()
         self.weekly_chart.set_summary(summary)
 
         self.weekly_table.setRowCount(7)
@@ -557,21 +576,10 @@ class WorkdaySummaryDialog(QDialog):
                 strict=True,
             )
         ):
-            tracked = sum(totals.values())
-            baseline_share = (
-                totals[BASELINE_POSTURE] / tracked * 100
-                if tracked > 0
-                else None
-            )
             values = (
                 self._localized_date(day, "ddd, d MMM"),
-                format_duration(tracked),
-                (
-                    f"{QLocale().toString(baseline_share, 'f', 1)}%"
-                    if baseline_share is not None
-                    else "-"
-                ),
-                QLocale().toString(reminders),
+                format_duration(sum(totals.values())),
+                ui_locale().toString(reminders),
             )
             for column, value in enumerate(values):
                 item = QTableWidgetItem(value)
@@ -581,9 +589,7 @@ class WorkdaySummaryDialog(QDialog):
                         | Qt.AlignmentFlag.AlignVCenter
                     )
                 if day == summary.end_date:
-                    font = item.font()
-                    font.setBold(True)
-                    item.setFont(font)
+                    item.setFont(role_font(TextRole.BODY_STRONG))
                 self.weekly_table.setItem(row, column, item)
         self.weekly_table.resizeRowsToContents()
 
@@ -637,7 +643,7 @@ class WorkdaySummaryDialog(QDialog):
         self.cancel_delete_button.hide()
         self.confirm_delete_button.hide()
         self.delete_day_button.setEnabled(self._selected_day_has_data)
-        self.delete_all_button.setEnabled(True)
+        self.delete_all_button.setEnabled(self._any_history)
 
     def _confirm_history_delete(self) -> None:
         pending = self._pending_delete
@@ -649,6 +655,7 @@ class WorkdaySummaryDialog(QDialog):
                 self._delete_day_callback(selected_date)
             elif action == "all":
                 self._delete_all_callback()
+            self._any_history = self._probe_history()
             self.refresh()
             self._cancel_history_delete()
         except HistoryStorageError as error:

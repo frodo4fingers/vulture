@@ -4,6 +4,36 @@ Notable user-visible changes are recorded here.
 
 ## Unreleased
 
+### Added
+
+- Movement breaks use a break mode: the camera workspace steps aside and the
+  movement fills the window in a centred column. A movement that arrives in
+  the background does not resize the window or take keyboard focus.
+- Movements show a round checklist for set-based doses, and a "Watch once,
+  then go" heading and large countdown for standing walk-away movements.
+- A calibration option to play sound cues, under **Settings → General**.
+- Screen-reader announcements during calibration recording.
+
+### Changed
+
+- Settings is split into Posture, Breaks, Privacy & data, and General tabs.
+  Break shuffle lists sit behind **Customize…**.
+- Add setup, calibration, rest breaks, movement guidance, and notices open in
+  the right-side panel beside the live preview. Settings and Evidence and
+  safety open in separate windows instead.
+- The reference photo in calibration is cropped to head and shoulders beside
+  the instructions, and the actions stay pinned at the bottom.
+- **Release camera** is now **Pause camera**. **Recalibrate step** is now
+  **Redo a calibration step**. Camera actions are hidden until a setup exists.
+- The status panel shows a coloured dot beside the state name.
+- The colour palette is calm. Posture states no longer use alarm red, captions
+  are no smaller than body text, and clickable controls are at least 28 px tall.
+- Movement demonstration videos are silent and loop. The first movement break
+  shows the full global safety text once, and each movement shows its own
+  safety line.
+- **Done** shows a short acknowledgement. No button is the default, so Enter
+  cannot complete a break.
+
 ## 0.6.0 - 2026-08-19
 
 ### Added

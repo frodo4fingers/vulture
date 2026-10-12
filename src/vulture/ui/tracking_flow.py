@@ -32,6 +32,7 @@ from vulture.models import (
 )
 from vulture.tracking import PostureAssessment, PostureEvaluator
 
+from .common import announce
 from .exercises import (
     EXERCISE_POSTPONE_MINUTES,
     ExerciseDialog,
@@ -65,7 +66,7 @@ class TrackingFlowMixin:
 
     def _set_tracking_controls(self) -> None:
         text = (
-            tr("Release camera")
+            tr("Pause camera")
             if self._tracking_enabled
             else tr("Resume tracking")
         )
@@ -77,15 +78,15 @@ class TrackingFlowMixin:
         self._latest_image = None
         self.preview.clear()
         self.preview.setText(
-            tr("Camera released — available to meeting apps")
+            tr("Camera paused — available to meeting apps")
         )
         self.preview.setAccessibleName(
-            tr("Camera released — available to meeting apps")
+            tr("Camera paused — available to meeting apps")
         )
         self._set_state(
             TrackerState.STOPPED,
             tr(
-                "Camera released. Other apps can use it. Resume tracking when "
+                "Camera paused. Other apps can use it. Resume tracking when "
                 "your meeting ends."
             ),
         )
@@ -179,7 +180,7 @@ class TrackingFlowMixin:
                 TrackerState.CAMERA_UNAVAILABLE,
                 tr(
                     "Camera processing has stopped. Reconnect the camera or "
-                    "release and resume tracking."
+                    "pause and resume tracking."
                 ),
             )
         elif self._camera_liveness_stage < 1:
@@ -425,9 +426,13 @@ class TrackingFlowMixin:
         if next_break is None:
             self.next_break_label.setText(tr("Break reminders are off"))
             self.break_countdown.setText("--:--")
+            self.break_countdown.setAccessibleName(
+                tr("Time until next break: {time}", time="--:--")
+            )
             self.break_countdown_caption.setText(
                 tr("Enable them in Settings")
             )
+            self._break_due_announced = False
             return
         channel, remaining_seconds = next_break
         self.next_break_label.setText(break_channel_name(channel))
@@ -440,11 +445,21 @@ class TrackingFlowMixin:
             else f"{minutes}:{seconds:02d}"
         )
         self.break_countdown.setText(countdown)
-        self.break_countdown_caption.setText(
-            tr("due now")
-            if total_seconds == 0
-            else tr("until next break")
+        # A label's accessible name replaces its text, so the name carries
+        # the time too.
+        self.break_countdown.setAccessibleName(
+            tr("Time until next break: {time}", time=countdown)
         )
+        due = total_seconds == 0
+        self.break_countdown_caption.setText(
+            tr("due now") if due else tr("until next break")
+        )
+        if due and not self._break_due_announced:
+            announce(
+                self.break_countdown,
+                f"{self.next_break_label.text()}: {tr('due now')}",
+            )
+        self._break_due_announced = due
 
     def _check_sedentary_break(self) -> None:
         self._check_break_reminders()
@@ -552,7 +567,9 @@ class TrackingFlowMixin:
         reset_channels: tuple[BreakChannel, ...] = (
             BreakChannel.MOVEMENT,
         ),
+        activate: bool = False,
     ) -> None:
+        """Offer a movement; only a user's own request takes focus."""
         if self._language_reload_preparing or self._exercise_dialog_open:
             return
         if self._pending_exercise is not None:
@@ -563,7 +580,7 @@ class TrackingFlowMixin:
                 )
             )
             self._reset_requested_break_tracking(reset_channels)
-            self._present_exercise()
+            self._present_exercise(activate=activate)
             return
         exercise, remaining = self.selector.choose_from_bag(
             self.data.exercise_preferences,
@@ -597,14 +614,17 @@ class TrackingFlowMixin:
         self.escalator.mark_exercise_offered(self.data, exercise.id)
         self._save_data()
         self._apply_icon()
-        self._present_exercise()
+        self._present_exercise(activate=activate)
         self._reset_requested_break_tracking(reset_channels)
 
-    def _present_exercise(self) -> None:
+    def _present_exercise(self, *, activate: bool = False) -> None:
         if self._language_reload_preparing or self._calibration_flow_active:
             return
         if self._exercise_dialog is not None:
-            self._focus_exercise_dialog(self._exercise_dialog)
+            self._focus_exercise_dialog(
+                self._exercise_dialog,
+                activate=activate,
+            )
             return
         exercise = self._pending_exercise
         if exercise is None:
@@ -620,11 +640,23 @@ class TrackingFlowMixin:
             alternative_choices=self._alternative_break_choices(
                 current_exercise_id=exercise.id,
             ),
+            show_full_safety=not self.data.full_safety_shown,
         )
         dialog.finished.connect(self._exercise_dialog_finished)
         self._exercise_dialog = dialog
         self._capture_window_state_before_exercise()
-        self._show_side_panel(dialog)
+        self._show_side_panel(dialog, activate=activate)
+        if not activate:
+            # A break that arrives on its own is announced; one the user
+            # asked for already has their attention.
+            announce(
+                self.side_panel_title,
+                f"{tr('Time for a short break')}. "
+                f"{self.side_panel_title.text()}",
+            )
+        if not self.data.full_safety_shown:
+            self.data.full_safety_shown = True
+            self._save_data()
 
     def _capture_window_state_before_exercise(self) -> None:
         if not self.isVisible():
@@ -649,8 +681,13 @@ class TrackingFlowMixin:
         elif state == "minimized":
             self.showMinimized()
 
-    def _focus_exercise_dialog(self, dialog: "ExerciseDialog") -> None:
-        self._focus_side_panel(dialog)
+    def _focus_exercise_dialog(
+        self,
+        dialog: "ExerciseDialog",
+        *,
+        activate: bool = False,
+    ) -> None:
+        self._focus_side_panel(dialog, activate=activate)
 
     def _schedule_exercise_postpone(self) -> None:
         if self._pending_exercise is None:
@@ -674,7 +711,8 @@ class TrackingFlowMixin:
         self._present_exercise()
 
     def _open_pending_exercise(self) -> None:
-        self._present_exercise()
+        # Tray menu or tray icon: the user asked for it, so it may take focus.
+        self._present_exercise(activate=True)
 
     def _exercise_dialog_finished(self, _result: int) -> None:
         dialog = self._exercise_dialog
