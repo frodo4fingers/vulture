@@ -64,6 +64,7 @@ from .theme import (
     media_surface_style,
     muted_color,
     scheme_name,
+    set_primary,
 )
 
 
@@ -425,6 +426,7 @@ class SetupDialog(QDialog):
         buttons.rejected.connect(self.reject)
         save_button = buttons.button(QDialogButtonBox.StandardButton.Save)
         save_button.setEnabled(bool(self._cameras))
+        set_primary(save_button, True)
         layout.addWidget(buttons)
         # Content hugs the top; spare height stays below the buttons.
         layout.addStretch(1)
@@ -535,12 +537,12 @@ class CalibrationStepSelectionDialog(QDialog):
         self.confirm_button = buttons.button(
             QDialogButtonBox.StandardButton.Ok
         )
-        self.confirm_button.setText(tr("Redo this step"))
         buttons.accepted.connect(self._confirm_selection)
         buttons.rejected.connect(self.reject)
         layout.addStretch(1)
         layout.addWidget(buttons)
         cancel_button = buttons.button(QDialogButtonBox.StandardButton.Cancel)
+        self._cancel_button = cancel_button
         QWidget.setTabOrder(self.step_combo, self.confirm_button)
         QWidget.setTabOrder(self.confirm_button, cancel_button)
         self._update_description()
@@ -548,7 +550,7 @@ class CalibrationStepSelectionDialog(QDialog):
     def _update_description(self) -> None:
         self._baseline_confirmation_pending = False
         self.baseline_warning.hide()
-        self.confirm_button.setText(tr("Redo this step"))
+        self._set_confirm_text(tr("Redo this step"))
         step = self._current_step()
         if step is None:
             self.reference.hide()
@@ -578,9 +580,13 @@ class CalibrationStepSelectionDialog(QDialog):
         ):
             self._baseline_confirmation_pending = True
             self.baseline_warning.show()
-            self.confirm_button.setText(tr("Recalibrate good baseline"))
+            self._set_confirm_text(tr("Recalibrate good baseline"))
             return
         self.accept()
+
+    def _set_confirm_text(self, text: str) -> None:
+        self.confirm_button.setText(text)
+        assign_mnemonics(self.confirm_button, self._cancel_button)
 
     def selected_step(self) -> CalibrationStep:
         step = self._current_step()
@@ -724,6 +730,7 @@ class CalibrationDialog(QDialog):
         self.cancel_button = QPushButton(tr("Cancel"))
         self.skip_button.setAutoDefault(False)
         self.cancel_button.setAutoDefault(False)
+        set_primary(self.start_button, True)
         self.start_button.clicked.connect(self._start_sample)
         self.skip_button.clicked.connect(self._skip_step)
         self.cancel_button.clicked.connect(self.reject)

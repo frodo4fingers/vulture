@@ -14,6 +14,7 @@ from vulture.ui.exercises import (
     EvidenceDialog,
     ExerciseDialog,
     ExerciseOutcome,
+    general_safety,
 )
 
 CHOICES = (ManualBreakChoice.STAND, ManualBreakChoice.GUIDED_MOVEMENT)
@@ -158,7 +159,7 @@ def test_announces_only_start_minute_and_zero(
 
 def test_global_safety_never_twice(application) -> None:
     dialog = _exercise("shoulder-roll", show_full_safety=True)
-    global_safety = dialog.catalog.global_safety
+    global_safety = general_safety(dialog.catalog, dialog.exercise)
     assert global_safety in dialog.safety.text()
     assert dialog.global_safety.isHidden()
     dialog._show_global_safety_inline(False)

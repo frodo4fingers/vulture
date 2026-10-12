@@ -151,7 +151,7 @@ def test_no_breaks_message_on_a_day_with_posture_data(
     )
 
     assert not dialog.no_breaks_label.isHidden()
-    assert dialog.no_breaks_label.text() == "No breaks logged yet today"
+    assert dialog.no_breaks_label.text() == "No breaks yet today — the next one is on its way."
     assert dialog.daily_breaks_metric.isHidden()
     assert dialog.daily_nudges_metric.value_label.text() == "1"
     dialog.close()

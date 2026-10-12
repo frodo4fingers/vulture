@@ -64,8 +64,8 @@ from .theme import (
 
 SUMMARY_OTHER_POSTURES = "other_tracked_postures"
 SUMMARY_CHART_BUCKET_SECONDS = 15 * 60
-# Charts get real height; a day is up to a full work day of 15-minute columns.
-SUMMARY_DAY_CHART_MIN_HEIGHT = 260
+# Charts stay readable but secondary: the break tiles own the first view.
+SUMMARY_DAY_CHART_MIN_HEIGHT = 200
 SUMMARY_WEEK_CHART_MIN_HEIGHT = 220
 # Above this many columns only whole hours are labelled on the time axis.
 SUMMARY_LABEL_EVERY_BUCKET_LIMIT = 12
@@ -102,6 +102,7 @@ class RollingWeekData:
     days_with_data: int
     daily_breaks: tuple[int, ...] = ()
     break_count: int = 0
+    minutes_moved: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -177,6 +178,45 @@ def break_summary_text(stats: DailyBreakStats) -> str:
     )
 
 
+def break_headline(count: int, minutes: int, period: str) -> str:
+    """One sentence for the break tiles; period is today, day or week."""
+    if period == "today":
+        if count == 1:
+            return tr(
+                "{breaks} break, {minutes} min moved today.",
+                breaks=count,
+                minutes=minutes,
+            )
+        return tr(
+            "{breaks} breaks, {minutes} min moved today.",
+            breaks=count,
+            minutes=minutes,
+        )
+    if period == "week":
+        if count == 1:
+            return tr(
+                "{breaks} break, {minutes} min moved this week.",
+                breaks=count,
+                minutes=minutes,
+            )
+        return tr(
+            "{breaks} breaks, {minutes} min moved this week.",
+            breaks=count,
+            minutes=minutes,
+        )
+    if count == 1:
+        return tr(
+            "{breaks} break, {minutes} min moved that day.",
+            breaks=count,
+            minutes=minutes,
+        )
+    return tr(
+        "{breaks} breaks, {minutes} min moved that day.",
+        breaks=count,
+        minutes=minutes,
+    )
+
+
 def build_rolling_week_data(
     end_date: date,
     summaries: tuple[DailyPostureSummary, ...],
@@ -223,6 +263,10 @@ def build_rolling_week_data(
         ),
         daily_breaks=daily_breaks,
         break_count=sum(daily_breaks),
+        minutes_moved=sum(
+            daily_break_stats(summary).minutes_moved
+            for summary in summaries
+        ),
     )
 
 
@@ -344,6 +388,7 @@ class SummaryMetric(QFrame):
         parent: QWidget | None = None,
         *,
         secondary: bool = False,
+        display: bool = False,
     ) -> None:
         super().__init__(parent)
         self._caption = caption
@@ -357,7 +402,11 @@ class SummaryMetric(QFrame):
         self.value_label = QLabel()
         apply_text_role(
             self.value_label,
-            TextRole.BODY_STRONG if secondary else TextRole.HEADING,
+            TextRole.DISPLAY
+            if display
+            else TextRole.BODY_STRONG
+            if secondary
+            else TextRole.HEADING,
         )
         layout.addWidget(self.value_label)
         self.caption_label = CaptionLabel(caption)
@@ -366,8 +415,7 @@ class SummaryMetric(QFrame):
 
     def set_value(self, value: str) -> None:
         self.value_label.setText(value)
-        self.setAccessibleName(self._caption)
-        self.setAccessibleDescription(value)
+        self.setAccessibleName(f"{self._caption}: {value}")
 
     def changeEvent(self, event: QEvent) -> None:
         super().changeEvent(event)
@@ -644,7 +692,7 @@ class PostureAreaChart(_StackedColumnChart):
         # upright once the columns are too narrow for "00:00".
         self._set_label_axis(x_axis, "00:00", bucket_count)
         y_axis = QValueAxis()
-        y_axis.setTitleText(tr("Tracked minutes"))
+        y_axis.setTitleText(tr("Minutes"))
         y_axis.setRange(0, SUMMARY_CHART_BUCKET_SECONDS / 60)
         y_axis.setTickCount(4)
         y_axis.setLabelFormat("%.0f")

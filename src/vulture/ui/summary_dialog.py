@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 from datetime import date, datetime, timedelta, timezone
 
@@ -48,10 +49,35 @@ from .summary import (
     RollingWeekChart,
     RollingWeekData,
     SummaryMetric,
+    break_headline,
     build_rolling_week_data,
     daily_break_stats,
     ui_locale,
 )
+
+
+def _short_date_format() -> str:
+    """Locale short date format with a four-digit year."""
+    return re.sub(
+        r"(?<!y)yy(?!y)",
+        "yyyy",
+        ui_locale().dateFormat(QLocale.FormatType.ShortFormat),
+    )
+
+
+def _place_tiles(
+    layout: QGridLayout,
+    row: int,
+    tiles: list[tuple[SummaryMetric, bool]],
+) -> None:
+    """Show the flagged tiles packed left to right, hide the rest."""
+    for tile, _show in tiles:
+        layout.removeWidget(tile)
+    shown = [tile for tile, show in tiles if show]
+    for tile, show in tiles:
+        tile.setVisible(show)
+    for column, tile in enumerate(shown):
+        layout.addWidget(tile, row, column)
 
 
 class WorkdaySummaryDialog(QDialog):
@@ -74,7 +100,7 @@ class WorkdaySummaryDialog(QDialog):
         self._delete_all_callback = delete_all
         self._setup_names = setup_names
         self._pending_delete: tuple[str, date | None] | None = None
-        self.setWindowTitle(tr("Workday posture summary"))
+        self.setWindowTitle(tr("Workday summary"))
         self.setMinimumSize(480, 420)
         self.resize(780, 640)
 
@@ -84,6 +110,7 @@ class WorkdaySummaryDialog(QDialog):
         top_row.addWidget(QLabel(tr("Date")))
         self.date_edit = QDateEdit(QDate.currentDate())
         self.date_edit.setLocale(ui_locale())
+        self.date_edit.setDisplayFormat(_short_date_format())
         self.date_edit.setCalendarPopup(True)
         self.date_edit.setMaximumDate(QDate.currentDate())
         self.date_edit.setMinimumDate(QDate.currentDate().addDays(-365))
@@ -92,6 +119,7 @@ class WorkdaySummaryDialog(QDialog):
         top_row.addWidget(self.date_edit)
         refresh_button = QPushButton(tr("Refresh"))
         refresh_button.clicked.connect(self.refresh)
+        refresh_button.setAutoDefault(False)
         top_row.addWidget(refresh_button)
         top_row.addStretch()
         layout.addLayout(top_row)
@@ -123,9 +151,19 @@ class WorkdaySummaryDialog(QDialog):
         daily_metrics_layout.setHorizontalSpacing(SPACE_SM)
         daily_metrics_layout.setVerticalSpacing(SPACE_SM)
         # Breaks lead; nudges and tracked time are the quieter second row.
-        self.daily_breaks_metric = SummaryMetric(tr("Breaks"))
-        self.daily_moved_metric = SummaryMetric(tr("Minutes moved"))
-        self.daily_eye_metric = SummaryMetric(tr("Eye breaks"))
+        self.daily_headline = QLabel()
+        self.daily_headline.setWordWrap(True)
+        apply_text_role(self.daily_headline, TextRole.HEADING)
+        daily_metrics_layout.addWidget(self.daily_headline, 0, 0, 1, 3)
+        self.daily_breaks_metric = SummaryMetric(
+            tr("Breaks"), self.daily_metrics_container, display=True
+        )
+        self.daily_moved_metric = SummaryMetric(
+            tr("Minutes moved"), self.daily_metrics_container, display=True
+        )
+        self.daily_eye_metric = SummaryMetric(
+            tr("Eye breaks"), self.daily_metrics_container
+        )
         self.no_breaks_label = QLabel()
         self.no_breaks_label.setWordWrap(True)
         self.daily_nudges_metric = SummaryMetric(
@@ -134,17 +172,9 @@ class WorkdaySummaryDialog(QDialog):
         self.daily_tracked_metric = SummaryMetric(
             tr("Tracked posture time"), secondary=True
         )
-        for column, metric in enumerate(
-            (
-                self.daily_breaks_metric,
-                self.daily_moved_metric,
-                self.daily_eye_metric,
-            )
-        ):
-            daily_metrics_layout.addWidget(metric, 0, column)
-        daily_metrics_layout.addWidget(self.no_breaks_label, 0, 0, 1, 3)
-        daily_metrics_layout.addWidget(self.daily_nudges_metric, 1, 0)
-        daily_metrics_layout.addWidget(self.daily_tracked_metric, 1, 1)
+        daily_metrics_layout.addWidget(self.no_breaks_label, 1, 0, 1, 3)
+        daily_metrics_layout.addWidget(self.daily_nudges_metric, 2, 0)
+        daily_metrics_layout.addWidget(self.daily_tracked_metric, 2, 1)
         for column in range(3):
             daily_metrics_layout.setColumnStretch(column, 1)
         day_layout.addWidget(self.daily_metrics_container)
@@ -262,21 +292,41 @@ class WorkdaySummaryDialog(QDialog):
         )
         weekly_metrics_layout.setContentsMargins(0, 0, 0, 0)
         weekly_metrics_layout.setHorizontalSpacing(SPACE_SM)
-        self.weekly_breaks_metric = SummaryMetric(tr("Breaks"))
-        self.weekly_tracked_metric = SummaryMetric(
-            tr("Tracked posture time")
+        weekly_metrics_layout.setVerticalSpacing(SPACE_SM)
+        self.weekly_headline = QLabel()
+        self.weekly_headline.setWordWrap(True)
+        apply_text_role(self.weekly_headline, TextRole.HEADING)
+        weekly_metrics_layout.addWidget(self.weekly_headline, 0, 0, 1, 3)
+        self.weekly_breaks_metric = SummaryMetric(
+            tr("Breaks"), self.weekly_metrics_container, display=True
         )
-        self.weekly_nudges_metric = SummaryMetric(tr("Nudges"))
-        self.weekly_days_metric = SummaryMetric(tr("Days with data"))
+        self.weekly_moved_metric = SummaryMetric(
+            tr("Minutes moved"), self.weekly_metrics_container, display=True
+        )
+        self.weekly_no_breaks_label = QLabel(
+            tr("No breaks recorded this week yet.")
+        )
+        self.weekly_no_breaks_label.setWordWrap(True)
+        weekly_metrics_layout.addWidget(
+            self.weekly_no_breaks_label, 1, 0, 1, 3
+        )
+        self.weekly_tracked_metric = SummaryMetric(
+            tr("Tracked posture time"), secondary=True
+        )
+        self.weekly_nudges_metric = SummaryMetric(
+            tr("Nudges"), secondary=True
+        )
+        self.weekly_days_metric = SummaryMetric(
+            tr("Days with data"), secondary=True
+        )
         for column, metric in enumerate(
             (
-                self.weekly_breaks_metric,
                 self.weekly_tracked_metric,
                 self.weekly_nudges_metric,
                 self.weekly_days_metric,
             )
         ):
-            weekly_metrics_layout.addWidget(metric, 0, column)
+            weekly_metrics_layout.addWidget(metric, 2, column)
             weekly_metrics_layout.setColumnStretch(column, 1)
         week_layout.addWidget(self.weekly_metrics_container)
 
@@ -333,6 +383,10 @@ class WorkdaySummaryDialog(QDialog):
         self.delete_day_button.clicked.connect(self._delete_selected_day)
         self.delete_all_button = QPushButton(tr("Delete all history"))
         self.delete_all_button.clicked.connect(self._delete_all_history)
+        # No default frame: deletion stays visually behind the data.
+        for button in (self.delete_day_button, self.delete_all_button):
+            button.setAutoDefault(False)
+            button.setDefault(False)
         # The irreversible action sits apart, at the far edge.
         controls.addWidget(self.delete_day_button)
         controls.addStretch()
@@ -354,6 +408,9 @@ class WorkdaySummaryDialog(QDialog):
             self._confirm_history_delete
         )
         self.confirm_delete_button.hide()
+        for button in (self.cancel_delete_button, self.confirm_delete_button):
+            button.setAutoDefault(False)
+            button.setDefault(False)
         confirmation_controls.addWidget(self.cancel_delete_button)
         confirmation_controls.addWidget(self.confirm_delete_button)
         layout.addLayout(confirmation_controls)
@@ -487,16 +544,28 @@ class WorkdaySummaryDialog(QDialog):
 
         stats = daily_break_stats(summary)
         locale = ui_locale()
-        for metric in (
-            self.daily_breaks_metric,
-            self.daily_moved_metric,
-            self.daily_eye_metric,
-        ):
-            metric.setVisible(stats.count > 0)
+        is_today = summary.local_date == datetime.now().astimezone().date()
+        _place_tiles(
+            self.daily_metrics_container.layout(),
+            1,
+            [
+                (self.daily_breaks_metric, stats.count > 0),
+                (self.daily_moved_metric, stats.minutes_moved > 0),
+                (self.daily_eye_metric, stats.eye_breaks > 0),
+            ],
+        )
+        self.daily_headline.setVisible(stats.count > 0)
+        self.daily_headline.setText(
+            break_headline(
+                stats.count,
+                stats.minutes_moved,
+                "today" if is_today else "day",
+            )
+        )
         self.no_breaks_label.setVisible(stats.count == 0)
         self.no_breaks_label.setText(
-            tr("No breaks logged yet today")
-            if summary.local_date == datetime.now().astimezone().date()
+            tr("No breaks yet today — the next one is on its way.")
+            if is_today
             else tr("No breaks logged this day")
         )
         self.daily_breaks_metric.set_value(locale.toString(stats.count))
@@ -564,16 +633,34 @@ class WorkdaySummaryDialog(QDialog):
                 "From {start} to {end}",
                 start=self._localized_date(
                     summary.start_date,
-                    QLocale.FormatType.ShortFormat,
+                    _short_date_format(),
                 ),
                 end=self._localized_date(
                     summary.end_date,
-                    QLocale.FormatType.ShortFormat,
+                    _short_date_format(),
                 ),
             )
         )
+        _place_tiles(
+            self.weekly_metrics_container.layout(),
+            1,
+            [
+                (self.weekly_breaks_metric, summary.break_count > 0),
+                (self.weekly_moved_metric, summary.minutes_moved > 0),
+            ],
+        )
+        self.weekly_headline.setVisible(summary.break_count > 0)
+        self.weekly_headline.setText(
+            break_headline(
+                summary.break_count, summary.minutes_moved, "week"
+            )
+        )
+        self.weekly_no_breaks_label.setVisible(summary.break_count == 0)
         self.weekly_breaks_metric.set_value(
             ui_locale().toString(summary.break_count)
+        )
+        self.weekly_moved_metric.set_value(
+            ui_locale().toString(summary.minutes_moved)
         )
         self.weekly_tracked_metric.set_value(
             format_duration(summary.tracked_seconds)

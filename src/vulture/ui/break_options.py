@@ -24,7 +24,6 @@ from vulture.breaks import (
 )
 from vulture.i18n import tr
 
-from . import theme
 from .common import SemanticLabel, format_duration
 from .common import announce as speak
 from .theme import (
@@ -35,24 +34,15 @@ from .theme import (
     Separator,
     TextRole,
     role_font,
+    set_primary,
 )
 
 
-COMPLETION_ACK_MS = 1500
+COMPLETION_ACK_MS = 3500
 # The countdown must be readable from across the room.
 COUNTDOWN_SCALE = 2.5
 # One spoken reminder before the end, never a per-second readout.
 ANNOUNCE_REMAINING_SECONDS = 60
-
-def set_primary(button: QPushButton, primary: bool) -> None:
-    """Visually emphasise ``button`` without making it a default button.
-
-    Qt has no "primary button" without a default button, and a default
-    button lets a stray Enter complete a break, so colour marks it instead.
-    """
-    button.setAutoDefault(False)
-    button.setDefault(False)
-    button.setStyleSheet(theme.primary_button_style() if primary else "")
 
 
 def assign_mnemonics(*buttons: QAbstractButton | QAction) -> None:
@@ -91,6 +81,8 @@ def format_countdown(seconds: float) -> str:
 def completion_message(breaks_today: int | None) -> str:
     if breaks_today is None:
         return tr("Nice work — break done.")
+    if breaks_today == 1:
+        return tr("Nice work — first break today.")
     return tr("Nice work — that's {count} breaks today.", count=breaks_today)
 
 

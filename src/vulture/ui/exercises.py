@@ -182,6 +182,22 @@ class MediaFrame(QFrame):
         )
 
 
+def general_safety(catalog: ExerciseCatalog, exercise: Exercise) -> str:
+    """The catalog's general safety text, fitted to ``exercise``.
+
+    The catalog writes it as: chair and floor, how to move, what to avoid,
+    when to stop. The chair sentence only suits seated exercises, and the
+    stop sentence repeats the per-exercise caution shown next to it.
+    """
+    sentences = re.split(r"(?<=[.!?])\s+", catalog.global_safety.strip())
+    if len(sentences) < 3:
+        return catalog.global_safety
+    sentences = sentences[:-1]
+    if "seated" not in exercise.tags:
+        sentences = sentences[1:]
+    return " ".join(sentences)
+
+
 class ExerciseOutcome:
     COMPLETED = "completed"
     POSTPONED = "postponed"
@@ -327,6 +343,7 @@ class ExerciseDialog(BreakPanel):
         if duration and not self.walk_away:
             layout.addWidget(self.countdown_block)
 
+        self._general_safety = general_safety(catalog, exercise)
         self._short_safety_text = tr(
             "<b>Safety:</b> {safety}", safety=exercise.safety
         )
@@ -358,7 +375,7 @@ class ExerciseDialog(BreakPanel):
         details_layout = QVBoxLayout(self.details_panel)
         details_layout.setContentsMargins(0, 0, 0, 0)
         details_layout.setSpacing(CONTROL_SPACING)
-        self.global_safety = QLabel(catalog.global_safety)
+        self.global_safety = QLabel(self._general_safety)
         self.global_safety.setWordWrap(True)
         apply_text_role(self.global_safety, TextRole.CAPTION)
         details_layout.addWidget(self.global_safety)
@@ -453,7 +470,7 @@ class ExerciseDialog(BreakPanel):
         """Show the general policy once: inline, or under the disclosure."""
         text = self._short_safety_text
         if inline:
-            text += f"<br><br>{self.catalog.global_safety}"
+            text += f"<br><br>{self._general_safety}"
         self.safety.setText(text)
         self.global_safety.setVisible(not inline)
 

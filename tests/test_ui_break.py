@@ -13,6 +13,7 @@ from vulture.ui.exercises import (
     ExerciseOutcome,
     dose_duration_seconds,
     dose_set_count,
+    general_safety,
 )
 
 
@@ -115,7 +116,9 @@ def test_global_safety_only_in_details_unless_requested(
     catalog = load_exercise_catalog()
     quiet = _dialog("shoulder-roll")
     full = _dialog("shoulder-roll", show_full_safety=True)
-    assert catalog.global_safety in quiet.global_safety.text()
+    exercise = next(e for e in catalog.exercises if e.id == "shoulder-roll")
+    general = general_safety(catalog, exercise)
+    assert general in quiet.global_safety.text()
     assert not quiet.global_safety.isVisible()
     from vulture.ui.common import SemanticLabel
 
@@ -124,8 +127,8 @@ def test_global_safety_only_in_details_unless_requested(
             label.text() for label in dialog.findChildren(SemanticLabel)
         )
 
-    assert catalog.global_safety not in inline_text(quiet)
-    assert catalog.global_safety in inline_text(full)
+    assert general not in inline_text(quiet)
+    assert general in inline_text(full)
 
 
 def test_done_shows_acknowledgement_then_closes(

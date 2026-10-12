@@ -49,6 +49,7 @@ from .theme import (
     card_style,
     flat_action_style,
     media_surface_style,
+    set_primary,
 )
 
 
@@ -229,9 +230,7 @@ class ShellMixin:
         self.break_timer_group.setAccessibleName(tr("Next break"))
         self.move_now_button = QPushButton(tr("&Move now"))
         self.move_now_button.setAutoDefault(False)
-        self.move_now_button.clicked.connect(
-            lambda: self._offer_exercise(activate=True)
-        )
+        self.move_now_button.clicked.connect(self._move_now)
         self.break_timer_group.add_header_action(self.move_now_button)
 
         break_timer_layout = QGridLayout()
@@ -350,7 +349,7 @@ class ShellMixin:
         first_run_copy.setWordWrap(True)
         first_run_layout.addWidget(first_run_copy)
         self.first_run_add_button = QPushButton(tr("&Add camera setup"))
-        self.first_run_add_button.setDefault(True)
+        set_primary(self.first_run_add_button, True)
         self.first_run_add_button.clicked.connect(self._add_setup)
         first_run_actions = QHBoxLayout()
         first_run_actions.setContentsMargins(0, SPACE_XS, 0, 0)
@@ -464,7 +463,8 @@ class ShellMixin:
         )
         # Esc does what the header button does: close, or "Later" for a
         # movement. It is live only while a panel is open, and does nothing
-        # while a break timer runs (Stop early is the way out then).
+        # while a break timer runs (Stop early is the way out then). In
+        # break mode the header button is hidden and Esc is the shortcut.
         self._dismiss_shortcut = QShortcut(
             QKeySequence(QKeySequence.StandardKey.Cancel), self
         )
@@ -609,6 +609,9 @@ class ShellMixin:
         )
         self.status_group.setVisible(has_setup)
         self.privacy_note.setVisible(not has_setup)
+        self.footer_disclaimer.setVisible(
+            not has_setup and self._side_panel is None
+        )
         self.setup_combo.setEnabled(has_setup and controls_enabled)
         self.first_run_add_button.setEnabled(controls_enabled)
         if not has_setup and controls_enabled:
@@ -1117,7 +1120,7 @@ class ShellMixin:
             _preview_min_size(_PREVIEW_MIN_WIDTH)
         )
         self.camera_workspace.show()
-        self.footer_disclaimer.show()
+        self.footer_disclaimer.setVisible(not self.data.setups)
         self.side_panel_host.hide()
         self.side_panel_frame.hide()
         self.side_panel_title.clear()
@@ -1197,18 +1200,16 @@ class ShellMixin:
         return None if remaining is None else (panel, remaining)
 
     def _sync_break_panel_controls(self) -> None:
-        """Hide Move now during a break, and Later/Close while it is timed.
+        """Hide Move now and the header action while a break is showing.
 
-        Mid-break the only exit is the panel's own Stop early, so a stray
-        Esc or header click cannot postpone a walk that is under way.
+        A break panel has its own exits (Not now, Stop early) and Esc, so
+        it offers one way out rather than two. Mid-break Esc does nothing
+        either, so a stray key cannot postpone a walk that is under way.
         """
         panel = self._side_panel
-        self.move_now_button.setVisible(
-            panel is None or not _wants_break_mode(panel)
-        )
-        self.side_panel_close_button.setVisible(
-            self._running_break_panel() is None
-        )
+        in_break_mode = panel is not None and _wants_break_mode(panel)
+        self.move_now_button.setVisible(not in_break_mode)
+        self.side_panel_close_button.setVisible(not in_break_mode)
 
     def _dismiss_side_panel_by_user(self) -> None:
         if self._running_break_panel() is not None:

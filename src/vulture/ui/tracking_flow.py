@@ -429,6 +429,14 @@ class TrackingFlowMixin:
         ]
         return min(candidates, key=lambda item: item[1]) if candidates else None
 
+    def _move_now(self) -> None:
+        """The card's button: rest the eyes when that is next, else move."""
+        next_break = self._next_break()
+        if next_break is not None and next_break[0] is BreakChannel.EYE:
+            self._present_manual_break(ManualBreakChoice.EYE_REST)
+            return
+        self._offer_exercise(activate=True)
+
     def _update_break_countdown(self) -> None:
         self._sync_break_panel_controls()
         running = self._running_break_panel()
@@ -441,6 +449,11 @@ class TrackingFlowMixin:
             self.break_countdown_caption.setText(tr("remaining"))
             return
         next_break = self._next_break()
+        self.move_now_button.setText(
+            tr("&Rest eyes now")
+            if next_break is not None and next_break[0] is BreakChannel.EYE
+            else tr("&Move now")
+        )
         if next_break is None:
             self.next_break_label.setText(tr("Break reminders are off"))
             self.break_countdown.setText("--:--")

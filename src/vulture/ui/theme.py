@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QProxyStyle,
+    QPushButton,
     QStyle,
     QStyleOption,
     QVBoxLayout,
@@ -401,12 +402,24 @@ def primary_button_style() -> str:
     )
 
 
+def set_primary(button: QPushButton, primary: bool) -> None:
+    """Visually emphasise ``button`` without making it a default button.
+
+    Qt has no "primary button" without a default button, and a default
+    button lets a stray Enter complete a break, so colour marks it instead.
+    """
+    button.setAutoDefault(False)
+    button.setDefault(False)
+    button.setStyleSheet(primary_button_style() if primary else "")
+
+
 def flat_action_style() -> str:
-    """A text action that shows its button shape only when it is in play.
+    """A secondary text action drawn as an outlined button.
 
     For the toolbar Settings button and the panel header Later and Close:
-    quiet at rest, a surface and hairline on hover, and a ring on keyboard
-    focus.
+    a hairline in the muted text colour (>= 3:1 on the window) at rest, a
+    surface on hover, and a ring on keyboard focus. The resting margin takes
+    the ring's extra width so focus never moves the label.
     """
     palette = QApplication.palette()
     window = palette.color(QPalette.ColorRole.Window)
@@ -414,20 +427,16 @@ def flat_action_style() -> str:
     hover_fill = surface_color(palette).name()
     base = {
         "background_color": "transparent",
-        "border": f"{FOCUS_RING_WIDTH}px solid transparent",
+        "border": f"{HAIRLINE}px solid {muted_color(palette).name()}",
         "border_radius": f"{RADIUS_SM}px",
+        "margin": f"{FOCUS_RING_WIDTH - HAIRLINE}px",
         "min_height": f"{CONTROL_MIN_HEIGHT - 2 * FOCUS_RING_WIDTH}px",
         "padding": f"0 {SPACE_SM}px",
     }
     return " ".join(
         [
             _button_rule("", **base),
-            _button_rule(
-                ":hover",
-                background_color=hover_fill,
-                border=f"{FOCUS_RING_WIDTH}px solid "
-                f"{border_color(palette).name()}",
-            ),
+            _button_rule(":hover", background_color=hover_fill),
             _button_rule(
                 ":pressed",
                 background_color=_mix(window, text, 0.12).name(),
@@ -435,6 +444,7 @@ def flat_action_style() -> str:
             _button_rule(
                 ":focus",
                 border=f"{FOCUS_RING_WIDTH}px solid {text.name()}",
+                margin="0",
             ),
             _button_rule(
                 ":disabled",

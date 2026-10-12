@@ -38,6 +38,7 @@ from .theme import (
     Separator,
     TextRole,
     apply_text_role,
+    set_primary,
 )
 
 
@@ -547,6 +548,9 @@ class SettingsDialog(QDialog):
         )
         buttons.accepted.connect(self._validate_and_accept)
         buttons.rejected.connect(self.reject)
+        set_primary(
+            buttons.button(QDialogButtonBox.StandardButton.Save), True
+        )
         outer_layout.addWidget(buttons)
         # Tab order follows the visual order, one chain across every tab:
         # widgets on hidden pages are skipped.

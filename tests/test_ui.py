@@ -945,7 +945,7 @@ def test_baseline_recalibration_requires_inline_confirmation(
 
     assert accepted == []
     assert dialog.baseline_warning.isVisible()
-    assert dialog.confirm_button.text() == "Recalibrate good baseline"
+    assert dialog.confirm_button.text() == "&Recalibrate good baseline"
 
     QTest.mouseClick(dialog.confirm_button, Qt.MouseButton.LeftButton)
     application.processEvents()
@@ -2486,6 +2486,12 @@ def test_move_now_opens_a_shuffled_exercise(
     tmp_path: Path,
 ) -> None:
     window = _make_window(tmp_path)
+    # The eye break is next by default and would open the eye-rest panel.
+    window.data.break_preferences = BreakPreferences(
+        eye_reminders_enabled=False
+    )
+    window._update_break_countdown()
+    assert window.move_now_button.text() == "&Move now"
 
     window.move_now_button.click()
     application.processEvents()
