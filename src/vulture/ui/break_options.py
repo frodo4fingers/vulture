@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 import time
 
-from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtCore import QEvent, QObject, Qt, QTimer, Signal
 from PySide6.QtGui import QAccessible, QAction
 from PySide6.QtWidgets import (
     QAbstractButton,
@@ -39,6 +39,10 @@ from .theme import (
 
 
 COMPLETION_ACK_MS = 3500
+# A stopped-early break counts from 30 s, or a quarter of its suggested time
+# when that is shorter, so a 20-second eye break still counts.
+STOP_EARLY_FLOOR_SECONDS = 30
+STOP_EARLY_FLOOR_SHARE = 0.25
 # The countdown must be readable from across the room.
 COUNTDOWN_SCALE = 2.5
 # One spoken reminder before the end, never a per-second readout.
@@ -164,6 +168,8 @@ class BreakPanel(QDialog):
             role=TextRole.HEADING,
         )
         self.completion_note.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # A click on the acknowledgement closes the panel early.
+        self.completion_note.installEventFilter(self)
         self.completion_note.hide()
 
         self._timer = QTimer(self)
@@ -205,7 +211,12 @@ class BreakPanel(QDialog):
         *,
         offer_later: bool,
     ) -> None:
-        layout.addWidget(self.completion_note)
+        # The acknowledgement takes the countdown's place when there is one.
+        index = layout.indexOf(self.countdown_block)
+        if index >= 0:
+            layout.insertWidget(index + 1, self.completion_note)
+        else:
+            layout.addWidget(self.completion_note)
         layout.addWidget(Separator())
         self.actions = QWidget()
         row = QHBoxLayout(self.actions)
@@ -259,8 +270,16 @@ class BreakPanel(QDialog):
 
     # The contract the shell reads for its "On a break" card.
     def remaining_seconds(self) -> int | None:
-        """Whole seconds left on a running timer, or None before Start."""
-        if self._duration is None or self._started_at is None:
+        """Whole seconds left on a running timer, or None before Start.
+
+        Also None during the acknowledgement: the break is over, so Esc
+        reaches the panel and closes it early.
+        """
+        if (
+            self._duration is None
+            or self._started_at is None
+            or self._ack_timer.isActive()
+        ):
             return None
         return math.ceil(self._remaining())
 
@@ -332,21 +351,37 @@ class BreakPanel(QDialog):
             self.completed_seconds = float(self._duration or 0)
             return
         elapsed = time.monotonic() - self._started_at
-        self.completed_seconds = (
-            min(elapsed, float(self._duration)) if self._duration else elapsed
+        if not self._duration:
+            self.completed_seconds = elapsed
+            return
+        floor = min(
+            STOP_EARLY_FLOOR_SECONDS, STOP_EARLY_FLOOR_SHARE * self._duration
         )
+        if elapsed < floor:
+            # Too short to count: nothing is recorded, the reminder resets
+            # like a skip.
+            self.outcome = RestBreakOutcome.DISMISSED  # same for movements
+            return
+        self.completed_seconds = min(elapsed, float(self._duration))
 
     def _finish(self) -> None:
         """Acknowledge the finished break calmly, then close.
 
         The outcome is recorded immediately so closing the panel during the
-        acknowledgement still logs the break as done. A static message keeps
+        acknowledgement still logs the break as done. The note replaces the
+        countdown; Esc or a click on it closes early. A static message keeps
         this free of animation, so there is nothing to reduce.
         """
         if self._ack_timer.isActive():
             return
         self._record_completion()
+        if self.outcome != RestBreakOutcome.COMPLETED:
+            self.completion_note.setText(
+                tr("No problem — the next one comes soon.")
+            )
+            self.completion_note.set_semantic_tone("info")
         self.actions.setEnabled(False)
+        self.countdown_block.hide()
         self.completion_note.show()
         announce(self.completion_note, self.completion_note.text())
         self._ack_timer.start()
@@ -354,6 +389,23 @@ class BreakPanel(QDialog):
     def _complete(self) -> None:
         self._record_completion()
         self.accept()
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:
+        if (
+            watched is self.completion_note
+            and event.type() == QEvent.Type.MouseButtonRelease
+            and self._ack_timer.isActive()
+        ):
+            self.accept()
+            return True
+        return super().eventFilter(watched, event)
+
+    def reject(self) -> None:
+        # Esc during the acknowledgement closes early, keeping the outcome.
+        if self._ack_timer.isActive():
+            self.accept()
+            return
+        super().reject()
 
     def done(self, result: int) -> None:
         self._timer.stop()

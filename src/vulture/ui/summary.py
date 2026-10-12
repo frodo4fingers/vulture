@@ -65,10 +65,8 @@ from .theme import (
 SUMMARY_OTHER_POSTURES = "other_tracked_postures"
 SUMMARY_CHART_BUCKET_SECONDS = 15 * 60
 # Charts stay readable but secondary: the break tiles own the first view.
-SUMMARY_DAY_CHART_MIN_HEIGHT = 200
+SUMMARY_DAY_CHART_MIN_HEIGHT = 260
 SUMMARY_WEEK_CHART_MIN_HEIGHT = 220
-# Above this many columns only whole hours are labelled on the time axis.
-SUMMARY_LABEL_EVERY_BUCKET_LIMIT = 12
 _UI_LOCALE_NAMES = {
     InterfaceLanguage.ENGLISH: "en_US",
     InterfaceLanguage.GERMAN: "de_DE",
@@ -653,10 +651,9 @@ class PostureAreaChart(_StackedColumnChart):
         ]
         # QBarCategoryAxis drops duplicate categories, so unlabelled columns
         # get a unique run of spaces instead of an empty string.
-        every_bucket = bucket_count <= SUMMARY_LABEL_EVERY_BUCKET_LIMIT
         categories = [
-            _clock_label(start)
-            if every_bucket or round(start * 60) % 60 == 0
+            f"{round(start * 60) // 60:02d}"
+            if round(start * 60) % 60 == 0
             else " " * (index + 1)
             for index, start in enumerate(bucket_starts)
         ]
@@ -688,9 +685,8 @@ class PostureAreaChart(_StackedColumnChart):
         x_axis = QBarCategoryAxis()
         x_axis.setTitleText(tr("Time of day"))
         x_axis.append(categories)
-        # Labels are clipped to one column's width, so they only turn
-        # upright once the columns are too narrow for "00:00".
-        self._set_label_axis(x_axis, "00:00", bucket_count)
+        # Whole-hour labels stay horizontal: rotated ones clipped to "⋮".
+        x_axis.setLabelsAngle(0)
         y_axis = QValueAxis()
         y_axis.setTitleText(tr("Minutes"))
         y_axis.setRange(0, SUMMARY_CHART_BUCKET_SECONDS / 60)

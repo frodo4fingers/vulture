@@ -379,9 +379,9 @@ class WorkdaySummaryDialog(QDialog):
         )
 
         controls = QHBoxLayout()
-        self.delete_day_button = QPushButton(tr("Delete selected day"))
+        self.delete_day_button = QPushButton(tr("&Delete selected day"))
         self.delete_day_button.clicked.connect(self._delete_selected_day)
-        self.delete_all_button = QPushButton(tr("Delete all history"))
+        self.delete_all_button = QPushButton(tr("Delete all &history"))
         self.delete_all_button.clicked.connect(self._delete_all_history)
         # No default frame: deletion stays visually behind the data.
         for button in (self.delete_day_button, self.delete_all_button):
@@ -398,12 +398,12 @@ class WorkdaySummaryDialog(QDialog):
         layout.addWidget(self.delete_confirmation)
         confirmation_controls = QHBoxLayout()
         confirmation_controls.addStretch()
-        self.cancel_delete_button = QPushButton(tr("Cancel"))
+        self.cancel_delete_button = QPushButton(tr("&Cancel"))
         self.cancel_delete_button.clicked.connect(
             self._cancel_history_delete
         )
         self.cancel_delete_button.hide()
-        self.confirm_delete_button = QPushButton(tr("Delete this day"))
+        self.confirm_delete_button = QPushButton(tr("Delete &this day"))
         self.confirm_delete_button.clicked.connect(
             self._confirm_history_delete
         )
@@ -736,12 +736,12 @@ class WorkdaySummaryDialog(QDialog):
 
     def _show_delete_confirmation(self) -> None:
         self.delete_confirmation.show()
-        self.cancel_delete_button.setText(tr("Cancel"))
+        self.cancel_delete_button.setText(tr("&Cancel"))
         self.cancel_delete_button.show()
         self.confirm_delete_button.setText(
-            tr("Delete all history")
+            tr("Delete all &history")
             if self._pending_delete == ("all", None)
-            else tr("Delete selected day")
+            else tr("&Delete selected day")
         )
         self.confirm_delete_button.show()
         self.delete_day_button.setEnabled(False)

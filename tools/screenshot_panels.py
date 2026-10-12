@@ -73,6 +73,7 @@ DARK_ROLES = {
     QPalette.ColorRole.Mid: "#4a535e",
     QPalette.ColorRole.PlaceholderText: "#aab1b9",
 }
+DARK_DISABLED_TEXT = "#6b737d"
 
 
 def parse_size(value: str) -> tuple[int, int]:
@@ -108,6 +109,15 @@ def dark_palette(base: QPalette) -> QPalette:
     palette = QPalette(base)
     for role, value in DARK_ROLES.items():
         palette.setColor(role, QColor(value))
+    # setColor fills every group; an OS dark palette dims disabled text.
+    for role in (
+        QPalette.ColorRole.WindowText,
+        QPalette.ColorRole.Text,
+        QPalette.ColorRole.ButtonText,
+    ):
+        palette.setColor(
+            QPalette.ColorGroup.Disabled, role, QColor(DARK_DISABLED_TEXT)
+        )
     return palette
 
 

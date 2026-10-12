@@ -56,6 +56,7 @@ from .theme import (
     SPACE_XS,
     TextRole,
     apply_text_role,
+    flat_action_style,
     role_font,
 )
 
@@ -186,13 +187,16 @@ def general_safety(catalog: ExerciseCatalog, exercise: Exercise) -> str:
     """The catalog's general safety text, fitted to ``exercise``.
 
     The catalog writes it as: chair and floor, how to move, what to avoid,
-    when to stop. The chair sentence only suits seated exercises, and the
-    stop sentence repeats the per-exercise caution shown next to it.
+    when to stop. The chair sentence only suits seated exercises, the
+    bounce/force sentence does not fit walking ("aerobic"), and the stop
+    sentence repeats the per-exercise caution shown next to it.
     """
     sentences = re.split(r"(?<=[.!?])\s+", catalog.global_safety.strip())
     if len(sentences) < 3:
         return catalog.global_safety
     sentences = sentences[:-1]
+    if "aerobic" in exercise.tags and len(sentences) == 3:
+        sentences = sentences[:-1]
     if "seated" not in exercise.tags:
         sentences = sentences[1:]
     return " ".join(sentences)
@@ -264,7 +268,7 @@ class ExerciseDialog(BreakPanel):
         self._thumbnail: MediaFrame | None = None
         frame: MediaFrame | None = None
         self.playback_button = QToolButton()
-        self.playback_button.setAutoRaise(True)
+        self.playback_button.setStyleSheet(flat_action_style())
         self.playback_button.clicked.connect(self._toggle_playback)
         if media is not None:
             self.video = ExerciseMedia()

@@ -214,8 +214,8 @@ A cool, low-chroma working palette. A single deep blue carries the action, warm 
 
 Margins and gaps come from one 4/8/12/16/24 scale: window margin, section spacing and card padding are 12px, control spacing is 8px, nested indent is 24px, and list indent is 12px. The main window stacks the Next break card, the camera workspace (a dark media well), the privacy note, and a footer row (Workday summary, Evidence and safety, and the "not a medical device" caption). Settings is a top-right flat action.
 
-- **Side panel** (minimum 380px, with the workspace kept at least 340px): short flows next to the live preview. Esc closes it, or acts as "Later" for a movement.
-- **Break mode**: movement and rest breaks hide the camera workspace and centre one column of at most 760px. The header has the title and a flat "Later". Then come the countdown, the steps and media, the safety note, and the footer: one primary action on the left and a "Not now" menu on the right, above a hairline.
+- **Side panel** (minimum 380px, with the workspace kept at least 340px): short flows next to the live preview. Esc closes it, or acts as "Later" for a movement. A form panel such as Add setup has one exit: the header Close (or Esc).
+- **Break mode**: movement and rest breaks hide the camera workspace and centre one column of at most 760px. The header has only the title (its flat action is hidden); exits are "Not now", Stop early while timing, and Esc. Then come the countdown, the steps and media, the safety note, and the footer: one primary action on the left and a "Not now" menu on the right, above a hairline.
 - **Separate windows**: Settings (tabs, scrollable pages), Workday summary (Day overview / Timeline / 7-day report tabs; break metric tiles come before posture), and Evidence (rich text, opening at 640x600).
 - Media keeps a 16:9 ratio with a 150px minimum height. Exercise video letterboxes rather than making the panel scroll.
 - Labels of mixed sizes in a row share one baseline (align_first_baseline).

@@ -418,22 +418,18 @@ class SetupDialog(QDialog):
         self.feedback_label.hide()
         layout.addWidget(self.feedback_label)
 
-        buttons = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Save
-            | QDialogButtonBox.StandardButton.Cancel
-        )
+        # Hosted in the shell's side panel, whose header Close and Esc are
+        # the one exit, so the form has no Cancel.
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Save)
         buttons.accepted.connect(self._validate_and_accept)
-        buttons.rejected.connect(self.reject)
         save_button = buttons.button(QDialogButtonBox.StandardButton.Save)
         save_button.setEnabled(bool(self._cameras))
         set_primary(save_button, True)
         layout.addWidget(buttons)
         # Content hugs the top; spare height stays below the buttons.
         layout.addStretch(1)
-        cancel_button = buttons.button(QDialogButtonBox.StandardButton.Cancel)
         QWidget.setTabOrder(self.name_edit, self.camera_combo)
         QWidget.setTabOrder(self.camera_combo, save_button)
-        QWidget.setTabOrder(save_button, cancel_button)
 
     def _validate_and_accept(self) -> None:
         if not self.name_edit.text().strip():
@@ -537,6 +533,7 @@ class CalibrationStepSelectionDialog(QDialog):
         self.confirm_button = buttons.button(
             QDialogButtonBox.StandardButton.Ok
         )
+        set_primary(self.confirm_button, True)
         buttons.accepted.connect(self._confirm_selection)
         buttons.rejected.connect(self.reject)
         layout.addStretch(1)
