@@ -471,12 +471,7 @@ class CalibrationStepSelectionDialog(QDialog):
         layout = QVBoxLayout(self)
 
         explanation = QLabel(
-            tr(
-                "Choose one calibration stage to record again. A posture "
-                "example first checks the saved good baseline. Replacing "
-                "the good baseline clears every posture example "
-                "because those examples were learned relative to it."
-            )
+            tr("Choose one calibration step to record again.")
         )
         explanation.setWordWrap(True)
         layout.addWidget(explanation)
@@ -514,9 +509,10 @@ class CalibrationStepSelectionDialog(QDialog):
         layout.addLayout(reference_row)
         self.baseline_warning = SemanticLabel(
             tr(
-                "Replacing the good baseline removes every learned "
-                "posture example for this setup. You will need "
-                "to recalibrate those steps individually. Continue?"
+                "Replacing the comfortable baseline removes every learned "
+                "posture example for this setup, because they were learned "
+                "relative to it. You will need to recalibrate those steps "
+                "individually. Continue?"
             ),
             tone="safety",
         )
@@ -555,12 +551,8 @@ class CalibrationStepSelectionDialog(QDialog):
             return
         self.reference.set_step(step)
         detail = tr(step.instructions)
-        if step.category is None:
-            detail += "\n\n" + tr(
-                "Replacing the good baseline removes all learned posture "
-                "examples."
-            )
-        else:
+        # The baseline's consequence is stated once, by baseline_warning.
+        if step.category is not None:
             detail += "\n\n" + tr(
                 "Only this posture example will be replaced; the other "
                 "examples stay unchanged."
@@ -577,7 +569,7 @@ class CalibrationStepSelectionDialog(QDialog):
         ):
             self._baseline_confirmation_pending = True
             self.baseline_warning.show()
-            self._set_confirm_text(tr("Recalibrate good baseline"))
+            self._set_confirm_text(tr("Recalibrate comfortable baseline"))
             return
         self.accept()
 
@@ -656,7 +648,7 @@ class CalibrationDialog(QDialog):
         if base_profile is not None:
             window_title = tr("Recalibrate posture step")
         elif len(self.steps) == 1 and self.steps[0].category is None:
-            window_title = tr("Recalibrate good baseline")
+            window_title = tr("Recalibrate comfortable baseline")
         else:
             window_title = tr("Calibrate this setup")
         self.setWindowTitle(window_title)

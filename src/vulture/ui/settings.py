@@ -159,7 +159,7 @@ class SettingsDialog(QDialog):
             0, 30, policy.posture_transition_buffer_seconds, tr(" seconds")
         )
         self.repeat_count = _spin(
-            2, 20, policy.repeated_reminders_for_break, tr(" reminders")
+            2, 20, policy.repeated_reminders_for_break, tr(" nudges")
         )
         self.repeat_window = _spin(
             5, 120, policy.repeated_reminder_window_minutes, tr(" minutes")
@@ -199,7 +199,7 @@ class SettingsDialog(QDialog):
             tr("Su&ggest an exercise after"),
             _hinted(
                 self.repeat_count,
-                tr("Repeated reminders add up to an exercise suggestion."),
+                tr("Repeated nudges add up to an exercise suggestion."),
             ),
             self.repeat_count,
         )
@@ -208,30 +208,11 @@ class SettingsDialog(QDialog):
             tr("&Counted over the last"),
             _hinted(
                 self.repeat_window,
-                tr("Older reminders stop counting."),
+                tr("Older nudges stop counting."),
             ),
             self.repeat_window,
         )
         layout.addLayout(alert_form)
-
-        layout.addWidget(Separator())
-        exercise_label = QLabel(tr("Exercise accessibility"))
-        apply_text_role(exercise_label, TextRole.BODY_STRONG)
-        layout.addWidget(exercise_label)
-        self.seated_only = _check(
-            tr("Only show seated movements"), preferences.seated_only
-        )
-        self.allow_balance = _check(
-            tr("Allow movements that require standing balance"),
-            preferences.allow_balance_exercises,
-        )
-        self.allow_strength = _check(
-            tr("Allow light strength movements such as sit-to-stand"),
-            preferences.allow_strength_exercises,
-        )
-        layout.addWidget(self.seated_only)
-        layout.addWidget(self.allow_balance)
-        layout.addWidget(self.allow_strength)
         layout.addStretch(1)
 
         # Breaks
@@ -432,6 +413,31 @@ class SettingsDialog(QDialog):
         )
         layout.addWidget(self.reset_controls)
 
+        layout.addWidget(Separator())
+        exercise_label = QLabel(tr("Exercise accessibility"))
+        apply_text_role(exercise_label, TextRole.BODY_STRONG)
+        layout.addWidget(exercise_label)
+        self.seated_only = _check(
+            tr("Only show seated movements"), preferences.seated_only
+        )
+        self.allow_balance = _check(
+            tr("Allow movements that require standing balance"),
+            preferences.allow_balance_exercises,
+        )
+        self.allow_strength = _check(
+            tr("Allow light strength movements such as sit-to-stand"),
+            preferences.allow_strength_exercises,
+        )
+        # Seated-only already rules out standing balance; the saved choice
+        # stays for when seated-only is turned off again.
+        self.seated_only.toggled.connect(
+            lambda seated: self.allow_balance.setEnabled(not seated)
+        )
+        self.allow_balance.setEnabled(not preferences.seated_only)
+        layout.addWidget(self.seated_only)
+        layout.addWidget(self.allow_balance)
+        layout.addWidget(self.allow_strength)
+
         evidence_note = CaptionLabel(
             tr(
                 "Short, frequent movement breaks have stronger support "
@@ -561,9 +567,6 @@ class SettingsDialog(QDialog):
             self.transition_buffer_seconds,
             self.repeat_count,
             self.repeat_window,
-            self.seated_only,
-            self.allow_balance,
-            self.allow_strength,
             self.break_reminders_enabled,
             self.movement_reminders_enabled,
             self.movement_interval_minutes,
@@ -592,6 +595,9 @@ class SettingsDialog(QDialog):
             self.suggest_breathing_reset,
             self.suggest_offscreen_reset,
             self.suggest_reset_guided_exercise,
+            self.seated_only,
+            self.allow_balance,
+            self.allow_strength,
             evidence_toggle,
             self.save_history,
             self.history_retention_days,

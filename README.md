@@ -327,7 +327,7 @@ Use **Redo a calibration step** in the main window's toolbar or the tray menu to
 record any one visible stage again. The stage chooser and capture guide open
 inside the main window to the right of the live camera preview, so position and framing remain
 visible throughout. For an unwanted posture, Vulture first asks for a short
-sample of the saved good baseline to confirm that the camera and seat still
+sample of the saved comfortable baseline to confirm that the camera and seat still
 match, then replaces only the selected posture; the other examples remain
 unchanged. Replacing the comfortable baseline is also available as a
 single-stage flow, but it clears all unwanted posture examples because they

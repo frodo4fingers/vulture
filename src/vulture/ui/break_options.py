@@ -30,15 +30,20 @@ from .theme import (
     REST_PANEL_MIN_SIZE,
     SECTION_SPACING,
     SPACE_SM,
+    SPACE_XS,
     CaptionLabel,
     Separator,
     TextRole,
+    progress_bar_style,
     role_font,
     set_primary,
 )
 
 
 COMPLETION_ACK_MS = 3500
+# Longer notes stay longer: about 250 ms a word, plus a second to notice.
+ACK_MS_PER_WORD = 250
+ACK_MS_TO_NOTICE = 1000
 # A stopped-early break counts from 30 s, or a quarter of its suggested time
 # when that is shorter, so a 20-second eye break still counts.
 STOP_EARLY_FLOOR_SECONDS = 30
@@ -80,6 +85,12 @@ def format_countdown(seconds: float) -> str:
     total_seconds = max(0, int(seconds + 0.999))
     minutes, remaining_seconds = divmod(total_seconds, 60)
     return f"{minutes}:{remaining_seconds:02d}"
+
+
+def ack_interval_ms(text: str) -> int:
+    """How long the acknowledgement stays: never less than the default."""
+    reading = ACK_MS_TO_NOTICE + ACK_MS_PER_WORD * len(text.split())
+    return max(COMPLETION_ACK_MS, reading)
 
 
 def completion_message(breaks_today: int | None) -> str:
@@ -199,9 +210,11 @@ class BreakPanel(QDialog):
         self.progress.setValue(0)
         self.progress.setTextVisible(False)
         self.progress.setFixedHeight(SPACE_SM)
+        self.progress.setStyleSheet(progress_bar_style())
         self.progress.setAccessibleName(tr("Break progress"))
         # An empty bar before Start reads as a stalled task.
         self.progress.hide()
+        block.addSpacing(SPACE_XS)
         block.addWidget(self.progress)
 
     def _add_footer(
@@ -391,7 +404,7 @@ class BreakPanel(QDialog):
         self.countdown_block.hide()
         self.completion_note.show()
         announce(self.completion_note, self.completion_note.text())
-        self._ack_timer.start()
+        self._ack_timer.start(ack_interval_ms(self.completion_note.text()))
 
     def _complete(self) -> None:
         self._record_completion()

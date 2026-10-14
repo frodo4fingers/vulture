@@ -918,7 +918,9 @@ def test_calibration_step_selection_includes_baseline_and_postures(
 
     assert dialog.step_combo.count() == len(CALIBRATION_STEPS)
     assert dialog.selected_step().category is None
-    assert "removes all learned" in dialog.description.text()
+    # The wipe is stated once, by the confirmation card.
+    assert "removes" not in dialog.description.text()
+    assert "removes every learned" in dialog.baseline_warning.text()
     baseline_cache_key = dialog.reference_image.pixmap().cacheKey()
     assert dialog.reference_image.accessibleName() == "Comfortable baseline"
 
@@ -945,7 +947,7 @@ def test_baseline_recalibration_requires_inline_confirmation(
 
     assert accepted == []
     assert dialog.baseline_warning.isVisible()
-    assert dialog.confirm_button.text() == "&Recalibrate good baseline"
+    assert dialog.confirm_button.text() == "&Recalibrate comfortable baseline"
 
     QTest.mouseClick(dialog.confirm_button, Qt.MouseButton.LeftButton)
     application.processEvents()
@@ -966,7 +968,7 @@ def test_good_baseline_can_be_recalibrated_as_one_stage(
     assert dialog.result() == QDialog.DialogCode.Accepted
     assert dialog.profile is not None
     assert dialog.profile.categories == {}
-    assert dialog.windowTitle() == "Recalibrate good baseline"
+    assert dialog.windowTitle() == "Recalibrate comfortable baseline"
 
     dialog.close()
     application.processEvents()

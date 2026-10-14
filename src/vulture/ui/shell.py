@@ -669,7 +669,7 @@ class ShellMixin:
             camera_reason
             if not camera_controls_enabled
             else tr("Complete a full calibration for this setup first."),
-            tr("Record the good baseline or one posture example again."),
+            tr("Record the comfortable baseline or one posture example again."),
         )
         self.calibrate_action.setEnabled(camera_controls_enabled)
         self.recalibrate_step_action.setEnabled(can_recalibrate_step)

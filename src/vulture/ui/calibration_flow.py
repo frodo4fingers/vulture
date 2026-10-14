@@ -255,9 +255,9 @@ class CalibrationFlowMixin:
                     )
                 ],
                 base_profile=None,
-                tracking_message=tr("Recalibrating good baseline."),
+                tracking_message=tr("Recalibrating comfortable baseline."),
                 success_message=tr(
-                    "Good baseline saved. Recalibrate posture examples "
+                    "Comfortable baseline saved. Recalibrate posture examples "
                     "as needed."
                 ),
                 save_failure_message=tr(
@@ -286,7 +286,7 @@ class CalibrationFlowMixin:
         )
         baseline_step = CalibrationStep(
             key="good",
-            title="Confirm saved good baseline",
+            title="Confirm saved comfortable baseline",
             instructions=(
                 "Return to the comfortable good posture used for this "
                 "setup. This confirms that the camera and seat still "

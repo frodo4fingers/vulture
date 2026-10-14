@@ -413,6 +413,23 @@ def set_primary(button: QPushButton, primary: bool) -> None:
     button.setStyleSheet(primary_button_style() if primary else "")
 
 
+def progress_bar_style() -> str:
+    """A thin bar whose empty track stays visible in light and dark."""
+    palette = QApplication.palette()
+    highlight = palette.color(QPalette.ColorRole.Highlight).name()
+    return (
+        "QProgressBar {"
+        "border: none;"
+        f"background-color: {border_color(palette).name()};"
+        f"border-radius: {RADIUS_SM}px;"
+        "}"
+        "QProgressBar::chunk {"
+        f"background-color: {highlight};"
+        f"border-radius: {RADIUS_SM}px;"
+        "}"
+    )
+
+
 def flat_action_style() -> str:
     """A secondary text action drawn as an outlined button.
 
