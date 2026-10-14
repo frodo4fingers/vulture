@@ -162,7 +162,7 @@
       ],
       "target_areas": ["ganzer Körper", "Beine"],
       "tags": ["standing", "balance", "aerobic"],
-      "safety": "Lassen Sie diese Bewegung aus, wenn Sie sich beim Gehen unsicher fühlen. Beenden Sie sie bei Schmerzen, Schwindel, Beschwerden im Brustkorb oder ungewöhnlicher Atemnot.",
+      "safety": "Hören Sie auf, wenn Sie sich beim Gehen unsicher fühlen oder bei Schmerzen, Schwindel, Beschwerden im Brustkorb oder ungewöhnlicher Atemnot.",
       "contraindication_flags": ["unsicheres Gehen", "akute Verletzung der unteren Extremität", "medizinische Einschränkung des Gehens"],
       "source_ids": ["osha-work-process", "who-2020", "loh-2020"],
       "evidence_note": "Die fünfminütige Dauer folgt den OSHA-Hinweisen zu stündlichen Pausen bei Computerarbeit. Die WHO und die systematische Übersichtsarbeit unterstützen den Ersatz von Sitzzeit durch Bewegung, legen dieses genaue Intervall jedoch nicht als medizinische Verordnung fest.",

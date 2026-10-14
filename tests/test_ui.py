@@ -233,9 +233,9 @@ def test_workday_summary_renders_stacked_posture_chart(
     assert isinstance(dialog.posture_chart, PostureAreaChart)
     assert isinstance(dialog.weekly_chart, RollingWeekChart)
     assert dialog.period_tabs.count() == 3
-    # One stacked-column series with one bar set per posture; the legend
-    # is on so colour is never the only cue.
-    assert dialog.posture_chart.chart().legend().isVisible() is True
+    # One stacked-column series with one bar set per posture; the list
+    # below the chart, not a legend, names each colour.
+    assert dialog.posture_chart.chart().legend().isVisible() is False
     assert len(dialog.posture_chart.chart().series()) == 1
     assert isinstance(
         dialog.posture_chart.chart().series()[0], QStackedBarSeries

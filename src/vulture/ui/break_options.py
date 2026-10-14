@@ -227,7 +227,7 @@ class BreakPanel(QDialog):
         self.done_button = QPushButton(tr("Done"))
         self.done_button.clicked.connect(self._finish)
         self.stop_button = QPushButton(tr("Stop early"))
-        self.stop_button.setToolTip(tr("Counts the time you took"))
+        self.stop_button.setToolTip(tr("Ends the break now. A very short break is not counted."))
         self.stop_button.clicked.connect(self._finish)
         self.not_now_button = QPushButton(tr("Not now"))
         self.not_now_menu = QMenu(self.not_now_button)

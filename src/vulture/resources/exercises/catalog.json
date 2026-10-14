@@ -162,7 +162,7 @@
       ],
       "target_areas": ["whole body", "legs"],
       "tags": ["standing", "balance", "aerobic"],
-      "safety": "Skip this movement if you feel unsteady. Stop for pain, dizziness, chest discomfort, or unusual breathlessness.",
+      "safety": "Stop if you feel unsteady, or for pain, dizziness, chest discomfort, or unusual breathlessness.",
       "contraindication_flags": ["unsteady walking", "acute lower-limb injury", "medical restriction on walking"],
       "source_ids": ["osha-work-process", "who-2020", "loh-2020"],
       "evidence_note": "The five-minute dose follows OSHA's hourly computer-task break guidance. WHO and the systematic review support replacing sedentary time with movement, but do not establish this exact interval as a medical prescription.",

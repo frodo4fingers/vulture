@@ -697,9 +697,8 @@ class PostureAreaChart(_StackedColumnChart):
         chart.addAxis(y_axis, Qt.AlignmentFlag.AlignLeft)
         series.attachAxis(x_axis)
         series.attachAxis(y_axis)
-        chart.legend().setVisible(True)
-        chart.legend().setAlignment(Qt.AlignmentFlag.AlignBottom)
-        self._watch_legend()
+        # No legend: the "Tracked posture time" list right below names each
+        # colour, and a legend would vanish whenever the dialog is short.
         description = tr(
             "Tracked from {start} to {end}. {details}",
             start=_clock_label(area_data.start_hour),

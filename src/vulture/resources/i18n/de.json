@@ -401,7 +401,7 @@
   "Breaks per day: {details}.": "Pausen pro Tag: {details}.",
   "Breaks: {count}; minutes moved: {minutes}; eye breaks: {eye}.": "Pausen: {count}; bewegte Minuten: {minutes}; Augenpausen: {eye}.",
   "Could not save a break event: {error}": "Ein Pausenereignis konnte nicht gespeichert werden: {error}",
-  "Counts the time you took": "Zählt die Zeit, die Sie sich genommen haben",
+  "Ends the break now. A very short break is not counted.": "Beendet die Pause jetzt. Eine sehr kurze Pause wird nicht gezählt.",
   "Eye breaks": "Augenpausen",
   "Minutes moved": "Bewegte Minuten",
   "Next, Vulture guides you through a short calibration for this camera.": "Als Nächstes führt Vulture Sie durch eine kurze Kalibrierung für diese Kamera.",

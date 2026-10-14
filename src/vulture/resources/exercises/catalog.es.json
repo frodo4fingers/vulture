@@ -162,7 +162,7 @@
       ],
       "target_areas": ["todo el cuerpo", "piernas"],
       "tags": ["standing", "balance", "aerobic"],
-      "safety": "Omita este movimiento si siente inestabilidad al caminar. Deténgase si presenta dolor, mareo, molestias en el pecho o falta de aire inusual.",
+      "safety": "Deténgase si siente inestabilidad al caminar o si presenta dolor, mareo, molestias en el pecho o falta de aire inusual.",
       "contraindication_flags": ["marcha inestable", "lesión aguda de las extremidades inferiores", "restricción médica para caminar"],
       "source_ids": ["osha-work-process", "who-2020", "loh-2020"],
       "evidence_note": "La duración de cinco minutos sigue la orientación de OSHA sobre las pausas horarias en las tareas informáticas. La OMS y la revisión sistemática respaldan sustituir el tiempo sedentario por movimiento, pero no establecen este intervalo exacto como prescripción médica.",

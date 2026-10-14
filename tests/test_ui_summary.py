@@ -86,14 +86,14 @@ def test_ui_locale_follows_the_interface_language() -> None:
     assert ui_locale().name() == "de_DE"
 
 
-def test_day_chart_is_stacked_columns_with_legend_and_text_summary(
+def test_day_chart_is_stacked_columns_without_legend_with_text_summary(
     application: QApplication,
 ) -> None:
     dialog = _dialog(_summary(30))
     chart = dialog.posture_chart
 
     assert [posture for posture, _bars in chart._bar_sets] == [BASELINE_POSTURE]
-    assert chart.chart().legend().isVisible()
+    assert not chart.chart().legend().isVisible()
     assert "Within baseline" in chart.accessibleDescription()
     assert chart.accessibleDescription() != "Tracked posture time"
     dialog.close()
