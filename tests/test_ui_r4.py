@@ -33,7 +33,10 @@ from vulture.ui.summary import SUMMARY_DAY_CHART_MIN_HEIGHT, PostureAreaChart
 from vulture.ui.summary_dialog import WorkdaySummaryDialog
 from vulture.ui.theme import flat_action_style
 
-NO_PROBLEM = "No problem — the next one comes soon."
+NO_PROBLEM = (
+    "No problem — breaks under 30 seconds aren't counted. "
+    "The next one comes soon."
+)
 
 
 @pytest.fixture(scope="module")

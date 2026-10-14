@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QAbstractItemView,
     QDateEdit,
     QDialog,
+    QFrame,
     QGridLayout,
     QGroupBox,
     QHeaderView,
@@ -16,6 +17,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QProgressBar,
     QPushButton,
+    QScrollArea,
     QTabWidget,
     QTableWidget,
     QTableWidgetItem,
@@ -63,6 +65,16 @@ def _short_date_format() -> str:
         "yyyy",
         ui_locale().dateFormat(QLocale.FormatType.ShortFormat),
     )
+
+
+def _scrolling(page: QWidget) -> QScrollArea:
+    """Host ``page`` at its natural height; it scrolls in a short window."""
+    scroll = QScrollArea()
+    scroll.setWidgetResizable(True)
+    scroll.setFrameShape(QFrame.Shape.NoFrame)
+    scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+    scroll.setWidget(page)
+    return scroll
 
 
 def _place_tiles(
@@ -236,7 +248,7 @@ class WorkdaySummaryDialog(QDialog):
         day_layout.addWidget(self.chart_group, 1)
         day_layout.addWidget(self.totals_group)
         self.day_tab_index = self.period_tabs.addTab(
-            self.day_page,
+            _scrolling(self.day_page),
             tr("Day overview"),
         )
 
@@ -374,7 +386,7 @@ class WorkdaySummaryDialog(QDialog):
         self.weekly_table.setAccessibleName(tr("Rolling 7-day posture report"))
         week_layout.addWidget(self.weekly_table)
         self.week_tab_index = self.period_tabs.addTab(
-            self.week_page,
+            _scrolling(self.week_page),
             tr("7-day report"),
         )
 

@@ -78,7 +78,7 @@
   "&Delete selected day": "&Ausgewählten Tag löschen",
   "Delete all &history": "Gesamten &Verlauf löschen",
   "Delete &this day": "Diesen &Tag löschen",
-  "No problem — the next one comes soon.": "Kein Problem — die nächste kommt bald.",
+  "No problem — breaks under {seconds} seconds aren't counted. The next one comes soon.": "Kein Problem — Pausen unter {seconds} Sekunden werden nicht gezählt. Die nächste kommt bald.",
   "Delete all saved posture episodes and reminders for {date}?": "Alle gespeicherten Haltungsepisoden und Erinnerungen für {date} löschen?",
   "Delete all workday history": "Gesamten Arbeitstagverlauf löschen",
   "Delete every saved posture episode and reminder? This cannot be undone.": "Alle gespeicherten Haltungsepisoden und Erinnerungen löschen? Dies kann nicht rückgängig gemacht werden.",

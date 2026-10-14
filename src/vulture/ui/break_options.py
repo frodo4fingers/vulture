@@ -344,6 +344,12 @@ class BreakPanel(QDialog):
         announce(self.countdown, tr("Suggested time complete"))
         self._time_up()
 
+    def _stop_early_floor(self) -> float:
+        return min(
+            STOP_EARLY_FLOOR_SECONDS,
+            STOP_EARLY_FLOOR_SHARE * (self._duration or 0),
+        )
+
     def _record_completion(self) -> None:
         self._timer.stop()
         self.outcome = RestBreakOutcome.COMPLETED  # same value for movements
@@ -354,10 +360,7 @@ class BreakPanel(QDialog):
         if not self._duration:
             self.completed_seconds = elapsed
             return
-        floor = min(
-            STOP_EARLY_FLOOR_SECONDS, STOP_EARLY_FLOOR_SHARE * self._duration
-        )
-        if elapsed < floor:
+        if elapsed < self._stop_early_floor():
             # Too short to count: nothing is recorded, the reminder resets
             # like a skip.
             self.outcome = RestBreakOutcome.DISMISSED  # same for movements
@@ -377,7 +380,11 @@ class BreakPanel(QDialog):
         self._record_completion()
         if self.outcome != RestBreakOutcome.COMPLETED:
             self.completion_note.setText(
-                tr("No problem — the next one comes soon.")
+                tr(
+                    "No problem — breaks under {seconds} seconds aren't "
+                    "counted. The next one comes soon.",
+                    seconds=math.ceil(self._stop_early_floor()),
+                )
             )
             self.completion_note.set_semantic_tone("info")
         self.actions.setEnabled(False)

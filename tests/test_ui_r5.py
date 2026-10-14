@@ -1,12 +1,17 @@
 from __future__ import annotations
 
-import pytest
-from PySide6.QtWidgets import QApplication
+from datetime import date
 
-from tests.test_ui_r4 import _rest
+import pytest
+from PySide6.QtWidgets import QApplication, QScrollArea
+
+from tests.test_ui_r4 import _rest, _stopped_after, clock  # noqa: F401
+from vulture.breaks import ManualBreakChoice
 from vulture.exercises import load_exercise_catalog
 from vulture.i18n import set_language
+from vulture.history import DailyPostureSummary
 from vulture.models import InterfaceLanguage
+from vulture.ui.summary_dialog import WorkdaySummaryDialog
 
 
 @pytest.fixture(scope="module")
@@ -46,4 +51,39 @@ def test_stop_early_tooltip_admits_short_breaks_do_not_count(
     assert dialog.stop_button.toolTip() == (
         "Ends the break now. A very short break is not counted."
     )
+    dialog.close()
+
+
+def test_short_stop_note_names_the_eye_break_floor(
+    application: QApplication, clock: list[float]
+) -> None:
+    dialog = _rest(ManualBreakChoice.EYE_REST)  # 20 s: the floor is 5 s
+    _stopped_after(dialog, clock, 2)
+    assert dialog.completion_note.text() == (
+        "No problem — breaks under 5 seconds aren't counted. "
+        "The next one comes soon."
+    )
+    dialog.close()
+
+
+def test_day_and_week_tabs_scroll_instead_of_squeezing(
+    application: QApplication,
+) -> None:
+    summary = DailyPostureSummary(
+        local_date=date(2026, 7, 20),
+        totals={},
+        tracked_seconds=0,
+        reminder_count=0,
+        episodes=[],
+    )
+    dialog = WorkdaySummaryDialog(
+        lambda _day: summary, lambda _day: None, lambda: None, {}, True
+    )
+    for index, page in (
+        (dialog.day_tab_index, dialog.day_page),
+        (dialog.week_tab_index, dialog.week_page),
+    ):
+        host = dialog.period_tabs.widget(index)
+        assert isinstance(host, QScrollArea)
+        assert host.widget() is page
     dialog.close()
