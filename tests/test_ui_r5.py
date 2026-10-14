@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date
 
 import pytest
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication, QScrollArea
 
 from tests.test_ui_r4 import _rest, _stopped_after, clock  # noqa: F401
@@ -86,4 +87,40 @@ def test_day_and_week_tabs_scroll_instead_of_squeezing(
         host = dialog.period_tabs.widget(index)
         assert isinstance(host, QScrollArea)
         assert host.widget() is page
+    dialog.close()
+
+
+def test_summary_opens_tall_and_week_table_never_scrolls_itself(
+    application: QApplication,
+) -> None:
+    summary = DailyPostureSummary(
+        local_date=date(2026, 7, 20),
+        totals={},
+        tracked_seconds=0,
+        reminder_count=0,
+        episodes=[],
+    )
+    dialog = WorkdaySummaryDialog(
+        lambda _day: summary, lambda _day: None, lambda: None, {}, True
+    )
+    assert dialog.height() > 640
+
+    table = dialog.weekly_table
+    assert table.verticalScrollBarPolicy() == Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+    seven_rows = (
+        table.horizontalHeader().sizeHint().height()
+        + 7 * table.verticalHeader().defaultSectionSize()
+    )
+    assert table.height() >= seven_rows
+
+    # A larger font grows the rows; the table must grow with them.
+    table.setRowCount(7)
+    for row in range(7):
+        table.setRowHeight(row, 40)
+    dialog._fit_weekly_table()
+    assert table.height() == (
+        table.horizontalHeader().sizeHint().height()
+        + 7 * 40
+        + 2 * table.frameWidth()
+    )
     dialog.close()

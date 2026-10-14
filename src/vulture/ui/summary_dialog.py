@@ -58,6 +58,9 @@ from .summary import (
 )
 
 
+SUMMARY_DIALOG_HEIGHT = 760
+
+
 def _short_date_format() -> str:
     """Locale short date format with a four-digit year."""
     return re.sub(
@@ -114,7 +117,9 @@ class WorkdaySummaryDialog(QDialog):
         self._pending_delete: tuple[str, date | None] | None = None
         self.setWindowTitle(tr("Workday summary"))
         self.setMinimumSize(480, 420)
-        self.resize(780, 640)
+        # Tall enough for the whole Day overview, colour key included; the
+        # presenter clamps it to the screen and the tab scrolls below that.
+        self.resize(780, SUMMARY_DIALOG_HEIGHT)
 
         layout = QVBoxLayout(self)
         layout.setSpacing(SPACE_SM)
@@ -381,8 +386,11 @@ class WorkdaySummaryDialog(QDialog):
                 column,
                 QHeaderView.ResizeMode.ResizeToContents,
             )
-        self.weekly_table.setMinimumHeight(150)
-        self.weekly_table.setMaximumHeight(164)
+        # Seven rows always fit, so the tab's scroll area is the only scroller.
+        self.weekly_table.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        self._fit_weekly_table()
         self.weekly_table.setAccessibleName(tr("Rolling 7-day posture report"))
         week_layout.addWidget(self.weekly_table)
         self.week_tab_index = self.period_tabs.addTab(
@@ -471,6 +479,20 @@ class WorkdaySummaryDialog(QDialog):
     def selected_date(self) -> date:
         selected = self.date_edit.date()
         return date(selected.year(), selected.month(), selected.day())
+
+    def _fit_weekly_table(self) -> None:
+        """Size the table to its rows; larger fonts grow rows past 18 px."""
+        table = self.weekly_table
+        rows = (
+            sum(table.rowHeight(row) for row in range(table.rowCount()))
+            if table.rowCount()
+            else 7 * table.verticalHeader().defaultSectionSize()
+        )
+        table.setFixedHeight(
+            table.horizontalHeader().sizeHint().height()
+            + rows
+            + 2 * table.frameWidth()
+        )
 
     @staticmethod
     def _localized_date(value: date, pattern: str) -> str:
@@ -714,6 +736,7 @@ class WorkdaySummaryDialog(QDialog):
                     item.setFont(role_font(TextRole.BODY_STRONG))
                 self.weekly_table.setItem(row, column, item)
         self.weekly_table.resizeRowsToContents()
+        self._fit_weekly_table()
 
     def _refresh_today(self) -> None:
         if self.selected_date() == datetime.now().astimezone().date():
