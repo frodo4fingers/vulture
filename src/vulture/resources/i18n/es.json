@@ -305,7 +305,7 @@
   "Water reminders are neutral convenience cues rather than intake targets, and tea or coffee prompts are reasons to step away rather than recommendations to consume caffeine. The breathing and greenery options are based on promising individual trials, not established treatments.": "Los recordatorios de agua son indicaciones prácticas neutrales, no objetivos de consumo. Las sugerencias de té o café son motivos para alejarse, no recomendaciones de consumir cafeína. Las opciones de respiración y vegetación se basan en ensayos individuales prometedores, no en tratamientos establecidos.",
   "{message} For your eyes: {eye_message}": "{message} Para la vista: {eye_message}",
   " nudges": " avisos",
-  "&Add camera setup": "Añadir configuración de &cámara",
+  "&Add camera setup": "&Añadir configuración de cámara",
   "&Add setup": "&Añadir configuración",
   "&Calibrate": "Ca&librar",
   "&Counted over the last": "&Contar en los últimos",

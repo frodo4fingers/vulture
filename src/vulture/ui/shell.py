@@ -3,6 +3,7 @@ from __future__ import annotations
 from PySide6.QtCore import QEvent, QSize, Qt, QTimer
 from PySide6.QtGui import QAction, QGuiApplication, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
+    QAbstractButton,
     QApplication,
     QComboBox,
     QDialog,
@@ -98,6 +99,35 @@ def _set_shortcuts(action: QAction, *keys: QKeySequence) -> None:
     action.setShortcuts(
         [*keys, *([mnemonic] if not mnemonic.isEmpty() else [])]
     )
+
+
+def _claimed_mnemonics(window: QWidget, exclude: QWidget) -> str:
+    """Alt letters the window answers to outside ``exclude``.
+
+    Toolbar actions count by their shortcut, not their button, so a key
+    stays claimed when the toolbar hides the button in its overflow menu.
+    """
+    texts = [
+        action.text()
+        for action in window.findChildren(QAction)
+        if action.isVisible()
+        and action.isEnabled()
+        and QKeySequence.mnemonic(action.text()) in action.shortcuts()
+    ]
+    texts += [
+        button.text()
+        for button in window.findChildren(QAbstractButton)
+        if button.isVisibleTo(window) and not exclude.isAncestorOf(button)
+    ]
+    texts += [
+        label.text()
+        for label in window.findChildren(QLabel)
+        if label.buddy() is not None
+        and label.isVisibleTo(window)
+        and not exclude.isAncestorOf(label)
+    ]
+    letters = (QKeySequence.mnemonic(text).toString() for text in texts)
+    return "".join(letter[-1:] for letter in letters)
 
 
 def _wants_break_mode(panel: QDialog) -> bool:
@@ -958,6 +988,10 @@ class ShellMixin:
         self.side_panel_frame.show()
         self.side_panel_host.show()
         panel.show()
+        # The panel picked its keys alone; steer them clear of this window's.
+        avoid = getattr(panel, "avoid_mnemonics", None)
+        if avoid is not None:
+            avoid(_claimed_mnemonics(self, panel))
         central_layout = self.centralWidget().layout()
         if central_layout is not None:
             central_layout.activate()

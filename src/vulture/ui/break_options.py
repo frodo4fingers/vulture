@@ -284,6 +284,16 @@ class BreakPanel(QDialog):
         )
         assign_mnemonics(*menu_actions)
 
+    def avoid_mnemonics(self, taken: str) -> None:
+        """Re-pick the button keys, skipping letters the host window uses."""
+        assign_mnemonics(
+            self.start_button,
+            self.done_button,
+            self.stop_button,
+            self.not_now_button,
+            taken=taken,
+        )
+
     # The contract the shell reads for its "On a break" card.
     def remaining_seconds(self) -> int | None:
         """Whole seconds left on a running timer, or None before Start.
