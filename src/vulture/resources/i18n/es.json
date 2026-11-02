@@ -277,7 +277,6 @@
   "Short, frequent movement breaks have stronger support than any exact schedule, and light walking has stronger acute evidence than standing alone. The 20-20-20 eye rule is widely recommended, but its exact timing has limited trial evidence. Water and longer-reset intervals are convenience defaults, not intake or treatment prescriptions.": "Las pausas de movimiento breves y frecuentes cuentan con mayor respaldo que un horario exacto, y caminar suavemente tiene más evidencia aguda que permanecer de pie. La regla visual 20-20-20 se recomienda ampliamente, pero su frecuencia exacta cuenta con evidencia limitada en ensayos. Los intervalos de agua y descanso prolongado son valores prácticos, no prescripciones de consumo ni tratamiento.",
   "Stand for about {minutes} minutes. Shift your weight or take a few easy steps if that feels comfortable.": "Permanezca de pie durante unos {minutes} minutos. Cambie el peso de lado o dé unos pasos suaves si le resulta cómodo.",
   "Stand up": "Ponerse de pie",
-  "Suggested length": "Duración sugerida",
   "Suggested time complete": "Tiempo sugerido completado",
   "Time until next break": "Tiempo hasta la próxima pausa",
   "Time for a movement break": "Hora de hacer una pausa de movimiento",
@@ -342,7 +341,6 @@
   "Last 7 days. {details}": "Últimos 7 días. {details}",
   "Later": "Más tarde",
   "Let's try that again": "Volvamos a intentarlo",
-  "Look &away for": "Apartar la &vista durante",
   "Looking for you": "Buscándole",
   "Nice work — break done.": "Muy bien: pausa completada.",
   "Not calibrated yet": "Aún sin calibrar",
@@ -434,5 +432,14 @@
   "Looking for you in the camera...": "Buscándole en la imagen de la cámara...",
   "The camera could not see you clearly enough. Adjust the camera or your position, then record this step again.": "La cámara no pudo verle con suficiente claridad. Ajuste la cámara o su posición y vuelva a registrar este paso.",
   "The camera could not see you clearly enough. Adjust the camera or your position, then record again or skip this optional example.": "La cámara no pudo verle con suficiente claridad. Ajuste la cámara o su posición y registre de nuevo, o bien omita este ejemplo opcional.",
-  "Make sure your face and shoulders are in view, with light in front of you.": "Asegúrese de que su cara y sus hombros se vean, con la luz delante de usted."
+  "Make sure your face and shoulders are in view, with light in front of you.": "Asegúrese de que su cara y sus hombros se vean, con la luz delante de usted.",
+  "for": "durante",
+  "Movement break length": "Duración de la pausa de movimiento",
+  "Eye break length": "Duración de la pausa visual",
+  "Water break length": "Duración de la pausa para beber agua",
+  "Longer reset length": "Duración del descanso prolongado",
+  "Movement break interval": "Intervalo de las pausas de movimiento",
+  "Eye break interval": "Intervalo de las pausas visuales",
+  "Water break interval": "Intervalo de las pausas para beber agua",
+  "Longer reset interval": "Intervalo de los descansos prolongados"
 }

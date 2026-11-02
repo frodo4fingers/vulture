@@ -193,7 +193,7 @@ def test_settings_form_labels_are_bound_to_their_controls(
     for spin in (
         dialog.warning_seconds,
         dialog.movement_interval_minutes,
-        dialog.eye_duration_seconds,
+        dialog.eye_interval_minutes,
         dialog.history_retention_days,
         dialog.language_combo,
     ):

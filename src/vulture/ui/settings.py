@@ -1,14 +1,18 @@
 from __future__ import annotations
 
+import re
+
 from pydantic import ValidationError
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QAbstractButton,
     QCheckBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
     QFormLayout,
     QFrame,
+    QHBoxLayout,
     QLabel,
     QScrollArea,
     QSizePolicy,
@@ -28,6 +32,7 @@ from vulture.models import (
     InterfaceLanguage,
 )
 
+from .break_options import assign_mnemonics
 from .common import SemanticLabel
 from .notices import details_caption
 from .theme import (
@@ -106,6 +111,28 @@ def _row(
     form.addRow(label, field)
 
 
+def _break_row(
+    form: QFormLayout,
+    interval: QSpinBox,
+    length: QSpinBox,
+    interval_name: str,
+    length_name: str,
+) -> None:
+    """One "Every [interval] for [length]" row for a break type."""
+    holder = QWidget()
+    layout = QHBoxLayout(holder)
+    layout.setContentsMargins(0, 0, 0, 0)
+    layout.setSpacing(CONTROL_SPACING)
+    layout.addWidget(interval)
+    layout.addWidget(QLabel(tr("for")))
+    layout.addWidget(length)
+    layout.addStretch(1)
+    # Four rows share the "Every" label, so each spin box names its break.
+    interval.setAccessibleName(interval_name)
+    length.setAccessibleName(length_name)
+    _row(form, tr("Every"), holder, control=interval)
+
+
 def _align_columns(*forms: QFormLayout) -> None:
     """Give every label and spin box in ``forms`` one shared width each."""
     labels = []
@@ -116,9 +143,10 @@ def _align_columns(*forms: QFormLayout) -> None:
                 labels.append(item.widget())
             if item := form.itemAt(row, QFormLayout.ItemRole.FieldRole):
                 field = item.widget()
-                spin = field.findChild(QSpinBox) or field
-                if isinstance(spin, QSpinBox):
-                    spins.append(spin)
+                if isinstance(field, QSpinBox):
+                    spins.append(field)
+                else:
+                    spins.extend(field.findChildren(QSpinBox))
     width = max(label.sizeHint().width() for label in labels)
     for label in labels:
         label.setMinimumWidth(width)
@@ -291,11 +319,12 @@ class SettingsDialog(QDialog):
         self.away_reset_minutes = _spin(
             1, 30, break_preferences.away_reset_minutes, tr(" minutes")
         )
-        _row(movement_form, tr("Every"), self.movement_interval_minutes)
-        _row(
+        _break_row(
             movement_form,
-            tr("Suggested length"),
+            self.movement_interval_minutes,
             self.movement_duration_minutes,
+            tr("Movement break interval"),
+            tr("Movement break length"),
         )
         movement_layout.addLayout(movement_form)
         walking_label = (
@@ -342,8 +371,13 @@ class SettingsDialog(QDialog):
         self.eye_duration_seconds = _spin(
             10, 120, break_preferences.eye_duration_seconds, tr(" seconds")
         )
-        _row(eye_form, tr("Every"), self.eye_interval_minutes)
-        _row(eye_form, tr("Look &away for"), self.eye_duration_seconds)
+        _break_row(
+            eye_form,
+            self.eye_interval_minutes,
+            self.eye_duration_seconds,
+            tr("Eye break interval"),
+            tr("Eye break length"),
+        )
         eye_layout.addLayout(eye_form)
         self.suggest_nature_view = _check(
             tr("Look toward distant greenery when available"),
@@ -385,11 +419,12 @@ class SettingsDialog(QDialog):
             15, 180, break_preferences.hydration_duration_seconds,
             tr(" seconds"),
         )
-        _row(hydration_form, tr("Every"), self.hydration_interval_minutes)
-        _row(
+        _break_row(
             hydration_form,
-            tr("Suggested length"),
+            self.hydration_interval_minutes,
             self.hydration_duration_seconds,
+            tr("Water break interval"),
+            tr("Water break length"),
         )
         hydration_layout.addLayout(hydration_form)
         layout.addWidget(self.hydration_controls)
@@ -413,11 +448,12 @@ class SettingsDialog(QDialog):
         self.reset_duration_minutes = _spin(
             1, 15, break_preferences.reset_duration_minutes, tr(" minutes")
         )
-        _row(reset_form, tr("Every"), self.reset_interval_minutes)
-        _row(
+        _break_row(
             reset_form,
-            tr("Suggested length"),
+            self.reset_interval_minutes,
             self.reset_duration_minutes,
+            tr("Longer reset interval"),
+            tr("Longer reset length"),
         )
         reset_layout.addLayout(reset_form)
         _align_columns(movement_form, eye_form, hydration_form, reset_form)
@@ -610,6 +646,7 @@ class SettingsDialog(QDialog):
             buttons.button(QDialogButtonBox.StandardButton.Save), True
         )
         outer_layout.addWidget(buttons)
+        self._assign_break_mnemonics(buttons)
         # Tab order follows the visual order, one chain across every tab:
         # widgets on hidden pages are skipped.
         order = [
@@ -666,6 +703,30 @@ class SettingsDialog(QDialog):
         self._history_preferences = history_preferences
         self._language = language
         self._startup_setting_available = startup_setting_available
+
+    def _assign_break_mnemonics(self, buttons: QDialogButtonBox) -> None:
+        """Alt keys for the Breaks headings, clear of every other one.
+
+        Labels, buttons and Save/Cancel anywhere in the dialog may already
+        carry an ``&`` key, and Alt keys are dialog-wide.
+        """
+        headings = (
+            self.break_reminders_enabled,
+            self.movement_reminders_enabled,
+            self.eye_reminders_enabled,
+            self.hydration_reminders_enabled,
+            self.reset_reminders_enabled,
+        )
+        taken = "".join(
+            key
+            for widget in (
+                *self.findChildren(QLabel),
+                *self.findChildren(QAbstractButton),
+            )
+            if widget not in headings
+            for key in re.findall(r"(?<!&)&(\w)", widget.text())
+        )
+        assign_mnemonics(*headings, taken=taken)
 
     def _sync_exercise_options(self) -> None:
         free = not self.seated_only.isChecked()

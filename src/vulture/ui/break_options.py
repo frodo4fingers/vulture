@@ -54,13 +54,16 @@ COUNTDOWN_SCALE = 2.5
 ANNOUNCE_REMAINING_SECONDS = 60
 
 
-def assign_mnemonics(*buttons: QAbstractButton | QAction) -> None:
+def assign_mnemonics(
+    *buttons: QAbstractButton | QAction, taken: str = ""
+) -> None:
     """Give each button or menu action an ``&`` mnemonic no sibling uses.
 
     Picks the first letter not taken yet, so translated labels get unique
-    keys without every language needing its own hand-placed ``&``.
+    keys without every language needing its own hand-placed ``&``. Letters
+    in ``taken`` belong to widgets outside this call and are skipped.
     """
-    used: set[str] = set()
+    used = set(taken.lower())
     for button in buttons:
         text = button.text().replace("&", "")
         for index, char in enumerate(text):
