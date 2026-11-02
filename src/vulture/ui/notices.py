@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QDialog, QVBoxLayout, QWidget
 
 from .common import SemanticLabel
-from .theme import SECTION_SPACING
+from .theme import SECTION_SPACING, CaptionLabel
 
 
 class NoticeDialog(QDialog):
@@ -13,6 +14,7 @@ class NoticeDialog(QDialog):
         message: str,
         *,
         critical: bool = False,
+        details: str | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -26,4 +28,11 @@ class NoticeDialog(QDialog):
             tone="safety" if critical else "info",
         )
         layout.addWidget(message_label)
+        if details:
+            self.details_label = CaptionLabel(details)
+            self.details_label.setWordWrap(True)
+            self.details_label.setTextInteractionFlags(
+                Qt.TextInteractionFlag.TextSelectableByMouse
+            )
+            layout.addWidget(self.details_label)
         layout.addStretch()

@@ -105,6 +105,19 @@ def _row(
     form.addRow(label, field)
 
 
+def _align_label_columns(*forms: QFormLayout) -> None:
+    """Give every row label in ``forms`` the widest label's width."""
+    labels = [
+        item.widget()
+        for form in forms
+        for row in range(form.rowCount())
+        if (item := form.itemAt(row, QFormLayout.ItemRole.LabelRole))
+    ]
+    width = max(label.sizeHint().width() for label in labels)
+    for label in labels:
+        label.setMinimumWidth(width)
+
+
 def _disclosure(text: str, body: QWidget) -> QToolButton:
     """A "Customize..." toggle that reveals ``body``."""
     button = QToolButton()
@@ -396,6 +409,9 @@ class SettingsDialog(QDialog):
             self.reset_duration_minutes,
         )
         reset_layout.addLayout(reset_form)
+        _align_label_columns(
+            movement_form, eye_form, hydration_form, reset_form
+        )
         self.suggest_tea_or_coffee = _check(
             tr("Make tea or coffee"), break_preferences.suggest_tea_or_coffee
         )

@@ -1178,9 +1178,11 @@ class ShellMixin:
         ):
             return
         if self._pending_notice is not None:
-            title, message, critical = self._pending_notice
+            title, message, critical, details = self._pending_notice
             self._pending_notice = None
-            self._show_notice(title, message, critical=critical)
+            self._show_notice(
+                title, message, critical=critical, details=details
+            )
             return
         if (
             allow_exercise

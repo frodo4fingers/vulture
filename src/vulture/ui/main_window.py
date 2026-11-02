@@ -99,7 +99,7 @@ class MainWindow(
         self._evidence_dialog: EvidenceDialog | None = None
         self._summary_dialog: WorkdaySummaryDialog | None = None
         self._notice_dialog: NoticeDialog | None = None
-        self._pending_notice: tuple[str, str, bool] | None = None
+        self._pending_notice: tuple[str, str, bool, str | None] | None = None
         self._pending_exercise: Exercise | None = None
         self._pending_exercise_reset_channels: tuple[
             BreakChannel,

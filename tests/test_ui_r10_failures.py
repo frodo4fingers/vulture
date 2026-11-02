@@ -47,7 +47,9 @@ def test_show_failure_shows_calm_text_with_details(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     shown: list[QMessageBox] = []
-    monkeypatch.setattr(QMessageBox, "exec", lambda self: shown.append(self) or 0)
+    monkeypatch.setattr(
+        QMessageBox, "exec", lambda self: shown.append(self) or 0
+    )
 
     application_main._show_failure(
         None,
@@ -62,3 +64,24 @@ def test_show_failure_shows_calm_text_with_details(
     assert box.text() == "Vulture could not load its saved data or resources."
     assert box.detailedText() == "disk full"
     assert box.icon() == QMessageBox.Icon.Critical
+
+
+def test_show_failure_honours_icon_parameter(
+    application: QApplication,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    shown: list[QMessageBox] = []
+    monkeypatch.setattr(
+        QMessageBox, "exec", lambda self: shown.append(self) or 0
+    )
+
+    application_main._show_failure(
+        None,
+        "Could not change language",
+        "The language could not be changed.",
+        "bad translation",
+        icon=QMessageBox.Icon.Information,
+    )
+
+    assert len(shown) == 1
+    assert shown[0].icon() == QMessageBox.Icon.Information

@@ -1068,12 +1068,9 @@ class TrackingFlowMixin:
             return
         self._show_notice(
             tr("Workday history unavailable"),
-            tr(
-                "{error}\n\nPosture tracking continues without saving "
-                "summaries.",
-                error=self._history_error,
-            ),
+            tr("Posture tracking continues without saving summaries."),
             critical=True,
+            details=self._history_error,
         )
 
     def _history_summary_for_date(

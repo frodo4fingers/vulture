@@ -88,9 +88,9 @@ class ApplicationFlowMixin:
         if self.history_store is None:
             self._show_notice(
                 tr("Workday history unavailable"),
-                self._history_error
-                or tr("The local history database is unavailable."),
+                tr("The local history database is unavailable."),
                 critical=True,
+                details=self._history_error,
             )
             return
         if self._summary_dialog is not None:
@@ -165,8 +165,12 @@ class ApplicationFlowMixin:
         except HistoryStorageError as error:
             self._show_notice(
                 tr("Could not close workday history"),
-                str(error),
+                tr(
+                    "Workday history could not be closed cleanly. Your saved "
+                    "days are kept."
+                ),
                 critical=True,
+                details=str(error),
             )
             return False
         self.history_recorder = None
@@ -282,9 +286,9 @@ class ApplicationFlowMixin:
                     tr("Could not update startup setting"),
                     tr(
                         "Vulture could not update whether it starts when you "
-                        "sign in: {error}",
-                        error=error,
+                        "sign in."
                     ),
+                    details=str(error),
                 )
                 return
         (
@@ -322,9 +326,9 @@ class ApplicationFlowMixin:
                         tr(
                             "The other settings were not saved, and Vulture "
                             "could not restore the previous system startup "
-                            "setting: {error}",
-                            error=error,
+                            "setting."
                         ),
+                        details=str(error),
                         critical=True,
                     )
             return
@@ -385,18 +389,20 @@ class ApplicationFlowMixin:
         message: str,
         *,
         critical: bool = False,
+        details: str | None = None,
     ) -> None:
         if self._language_reload_preparing:
             return
         if self._notice_dialog is not None:
             self._notice_dialog.reject()
         if self._side_panel is not None or self._calibration_flow_active:
-            self._pending_notice = (title, message, critical)
+            self._pending_notice = (title, message, critical, details)
             return
         dialog = NoticeDialog(
             title,
             message,
             critical=critical,
+            details=details,
         )
         dialog.finished.connect(self._notice_dialog_finished)
         self._notice_dialog = dialog
@@ -479,8 +485,12 @@ class ApplicationFlowMixin:
         except StorageError as error:
             self._show_notice(
                 tr("Could not save settings"),
-                str(error),
+                tr(
+                    "Your latest changes could not be saved. Try again in a "
+                    "moment."
+                ),
                 critical=True,
+                details=str(error),
             )
             return False
 

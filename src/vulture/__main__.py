@@ -191,9 +191,11 @@ def _show_failure(
     title: str,
     text: str,
     details: str,
+    *,
+    icon: QMessageBox.Icon = QMessageBox.Icon.Critical,
 ) -> None:
     box = QMessageBox(
-        QMessageBox.Icon.Critical,
+        icon,
         title,
         text,
         QMessageBox.StandardButton.Ok,
@@ -272,6 +274,7 @@ def main() -> int:
                     "language is kept."
                 ),
                 str(error),
+                icon=QMessageBox.Icon.Information,
             )
             return
         previous_window = window

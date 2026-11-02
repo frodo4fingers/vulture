@@ -167,8 +167,8 @@ class CalibrationFitter:
         if len(usable_good) < self.minimum_good_samples:
             raise CalibrationError(
                 tr(
-                    "Need at least {minimum} clear good-posture samples; "
-                    "received {received}.",
+                    "Need at least {minimum} clear comfortable-baseline "
+                    "samples; received {received}.",
                     minimum=self.minimum_good_samples,
                     received=len(usable_good),
                 )

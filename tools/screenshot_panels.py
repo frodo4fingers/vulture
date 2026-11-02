@@ -60,7 +60,6 @@ from vulture.ui.theme import install_control_metrics  # noqa: E402
 DEFAULT_SIZES = ((1280, 760), (1024, 640))
 THEMES = ("light", "dark")
 SETTLE_MS = 600
-STANDALONE_DIALOG_SIZE = (480, 720)
 
 DARK_ROLES = {
     QPalette.ColorRole.Window: "#171a1f",
@@ -321,7 +320,6 @@ class Session:
         def action() -> None:
             nonlocal dialog
             dialog = make()
-            dialog.resize(*STANDALONE_DIALOG_SIZE)
             dialog.show()
 
         self.run_state(index, state, action, separate_window=True)
