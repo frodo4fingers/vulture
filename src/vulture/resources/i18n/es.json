@@ -27,7 +27,7 @@
   "Calibration step": "Etapa de calibración",
   "Camera": "Cámara",
   "Camera access is denied. {help}": "Se ha denegado el acceso a la cámara. {help}",
-  "Camera analysis failed: {error}": "Error en el análisis de la cámara: {error}",
+  "Camera analysis stopped unexpectedly.": "El análisis de la cámara se detuvo inesperadamente.",
   "Camera frames are delayed. Waiting for tracking to resume.": "Los fotogramas de la cámara se están retrasando. Esperando a que se reanude el seguimiento.",
   "Camera is ready. Calibrate this physical setup before tracking.": "La cámara está lista. Calibre esta configuración física antes de iniciar el seguimiento.",
   "Camera preview": "Vista previa de la cámara",
@@ -65,7 +65,7 @@
   "Could not save settings": "No se pudo guardar la configuración",
   "Could not save settings to {path}: {error}": "No se pudo guardar la configuración en {path}: {error}",
   "Could not start a posture history episode: {error}": "No se pudo iniciar un episodio en el historial de posturas: {error}",
-  "Could not start {camera}: {error}. {help}": "No se pudo iniciar {camera}: {error}. {help}",
+  "Could not start {camera}. {help}": "No se pudo iniciar {camera}. {help}",
   "Could not update posture history: {error}": "No se pudo actualizar el historial de posturas: {error}",
   "Could not update startup setting": "No se pudo actualizar la configuración de inicio",
   "Could not use {camera}: {detail} {help}": "No se pudo usar {camera}: {detail} {help}",
@@ -430,5 +430,7 @@
   "The language could not be changed. The previous language is kept.": "No se pudo cambiar el idioma. Se mantiene el idioma anterior.",
   "Strength movements also need standing balance. Both stay off while seated-only is on.": "Los movimientos de fuerza también requieren equilibrio de pie. Ambos permanecen desactivados mientras solo se sugieran movimientos sentados.",
   "Workday history could not be closed cleanly. Your saved days are kept.": "El historial de la jornada no se pudo cerrar correctamente. Sus días guardados se conservan.",
-  "Your latest changes could not be saved. Try again in a moment.": "No se pudieron guardar sus últimos cambios. Inténtelo de nuevo en un momento."
+  "Your latest changes could not be saved. Try again in a moment.": "No se pudieron guardar sus últimos cambios. Inténtelo de nuevo en un momento.",
+  "Could not use {camera}. {help}": "No se pudo usar {camera}. {help}",
+  "The workday summary could not be loaded right now.": "El resumen de la jornada no se pudo cargar en este momento."
 }

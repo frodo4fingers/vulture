@@ -267,7 +267,7 @@ class TrackingFlowMixin:
             ),
         )
 
-    def _on_camera_error(self, message: str) -> None:
+    def _on_camera_error(self, message: str, details: str = "") -> None:
         if self._language_reload_preparing:
             return
         if self.sender() is not self.camera_thread:
@@ -279,7 +279,12 @@ class TrackingFlowMixin:
         if self._calibration_window is not None:
             self._calibration_window.reject()
         elif self.isVisible():
-            self._show_notice(tr("Camera unavailable"), message, critical=True)
+            self._show_notice(
+                tr("Camera unavailable"),
+                message,
+                critical=True,
+                details=details or None,
+            )
 
     def _apply_assessment(self, assessment: PostureAssessment) -> None:
         message = assessment.message

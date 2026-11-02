@@ -390,7 +390,9 @@ def test_opencv_read_failure_is_reported_and_releases_capture(
     )
     camera_thread = CameraThread(descriptor)
     errors = []
-    camera_thread.camera_error.connect(errors.append)
+    camera_thread.camera_error.connect(
+        lambda message, _details: errors.append(message)
+    )
     detector = RecordingDetector()
     capture_arguments = []
 
@@ -559,7 +561,9 @@ def test_denied_camera_permission_fails_before_capture() -> None:
     camera_thread = CameraThread(descriptor)
     camera_thread.camera_permission_denied = True
     errors = []
-    camera_thread.camera_error.connect(errors.append)
+    camera_thread.camera_error.connect(
+        lambda message, _details: errors.append(message)
+    )
 
     started = _NativeCameraWorker(camera_thread).start()
 
@@ -576,7 +580,9 @@ def test_native_camera_startup_timeout_is_reported() -> None:
     )
     camera_thread = CameraThread(descriptor)
     errors = []
-    camera_thread.camera_error.connect(errors.append)
+    camera_thread.camera_error.connect(
+        lambda message, _details: errors.append(message)
+    )
     camera_thread._startup_pending = True
 
     camera_thread._on_startup_timeout()

@@ -162,7 +162,7 @@ class MainWindow(
         self._last_history_prune_date = datetime.now().astimezone().date()
 
         self.setWindowTitle("Vulture")
-        self.setMinimumSize(760, 650)
+        self.setMinimumSize(760, 640)
         self._build_ui()
         self._build_tray()
         self._refresh_setup_combo()

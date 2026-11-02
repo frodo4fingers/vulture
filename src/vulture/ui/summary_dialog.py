@@ -529,11 +529,9 @@ class WorkdaySummaryDialog(QDialog):
         self._selected_day_has_data = False
         self.empty_state.set_semantic_tone("safety")
         self.empty_state.setText(
-            tr(
-                "Could not read the workday summary: {error}",
-                error=error,
-            )
+            tr("The workday summary could not be loaded right now.")
         )
+        self.empty_state.setToolTip(str(error))
         self.empty_state_container.show()
         self.daily_metrics_container.hide()
         self.totals_group.hide()
@@ -556,6 +554,7 @@ class WorkdaySummaryDialog(QDialog):
         self.posture_chart.set_summary(summary)
         self.empty_state.set_semantic_tone("info")
         self.empty_state.setText(self._empty_state_text)
+        self.empty_state.setToolTip("")
         has_posture = tracked > 0 or bool(summary.episodes)
         self._selected_day_has_data = has_posture or bool(summary.breaks)
         self.empty_state_container.setVisible(

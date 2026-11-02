@@ -466,11 +466,11 @@ class _OpenCVCameraWorker(_CameraAnalysisWorker):
         except (cv2.error, OSError, RuntimeError, TypeError, ValueError) as error:
             self.owner._report_error(
                 tr(
-                    "Could not start {camera}: {error}. {help}",
+                    "Could not start {camera}. {help}",
                     camera=self.owner.descriptor.display_name,
-                    error=error,
                     help=self.owner._camera_access_help(),
-                )
+                ),
+                str(error),
             )
             return False
 
@@ -494,11 +494,11 @@ class _OpenCVCameraWorker(_CameraAnalysisWorker):
                 ) as error:
                     self.owner._report_error(
                         tr(
-                            "Could not use {camera}: {detail} {help}",
+                            "Could not use {camera}. {help}",
                             camera=self.owner.descriptor.display_name,
-                            detail=str(error),
                             help=self.owner._camera_access_help(),
-                        )
+                        ),
+                        str(error),
                     )
                     return
                 if not ok or bgr_frame is None:
@@ -535,7 +535,8 @@ class _OpenCVCameraWorker(_CameraAnalysisWorker):
                     ValueError,
                 ) as error:
                     self.owner._report_error(
-                        tr("Camera analysis failed: {error}", error=error)
+                        tr("Camera analysis stopped unexpectedly."),
+                        str(error),
                     )
                     return
         finally:
@@ -613,11 +614,11 @@ class _NativeCameraWorker(QObject):
         except (OSError, RuntimeError, TypeError, ValueError) as error:
             self.owner._report_error(
                 tr(
-                    "Could not start {camera}: {error}. {help}",
+                    "Could not start {camera}. {help}",
                     camera=self.owner.descriptor.display_name,
-                    error=error,
                     help=self.owner._camera_access_help(),
-                )
+                ),
+                str(error),
             )
             return False
 
@@ -700,7 +701,7 @@ class _NativeCameraWorker(QObject):
             ValueError,
         ) as error:
             self.owner._report_error(
-                tr("Camera analysis failed: {error}", error=error)
+                tr("Camera analysis stopped unexpectedly."), str(error)
             )
             self.owner.quit()
 
@@ -711,11 +712,11 @@ class _NativeCameraWorker(QObject):
         )
         self.owner._report_error(
             tr(
-                "Could not use {camera}: {detail} {help}",
+                "Could not use {camera}. {help}",
                 camera=self.owner.descriptor.display_name,
-                detail=detail,
                 help=self.owner._camera_access_help(),
-            )
+            ),
+            detail,
         )
         self.owner.quit()
 
@@ -733,7 +734,7 @@ class CameraThread(QThread):
     feature_ready = Signal(object)
     tracking_lost = Signal(object)
     camera_opened = Signal(int, int)
-    camera_error = Signal(str)
+    camera_error = Signal(str, str)
 
     def __init__(
         self,
@@ -781,11 +782,11 @@ class CameraThread(QThread):
         current_time = time.monotonic() if now is None else now
         return max(0.0, current_time - last_output_at)
 
-    def _report_error(self, message: str) -> None:
+    def _report_error(self, message: str, details: str = "") -> None:
         if self.failure_message is not None:
             return
         self.failure_message = message
-        self.camera_error.emit(message)
+        self.camera_error.emit(message, details)
 
     @staticmethod
     def _camera_access_help() -> str:

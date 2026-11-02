@@ -27,7 +27,7 @@
   "Calibration step": "Kalibrierungsstufe",
   "Camera": "Kamera",
   "Camera access is denied. {help}": "Der Kamerazugriff wurde verweigert. {help}",
-  "Camera analysis failed: {error}": "Kameraanalyse fehlgeschlagen: {error}",
+  "Camera analysis stopped unexpectedly.": "Die Kameraanalyse wurde unerwartet beendet.",
   "Camera frames are delayed. Waiting for tracking to resume.": "Kamerabilder sind verzögert. Die Erfassung wird fortgesetzt, sobald wieder Bilder eintreffen.",
   "Camera is ready. Calibrate this physical setup before tracking.": "Die Kamera ist bereit. Kalibrieren Sie diese physische Anordnung vor Beginn der Erfassung.",
   "Camera preview": "Kameravorschau",
@@ -65,7 +65,7 @@
   "Could not save settings": "Einstellungen konnten nicht gespeichert werden",
   "Could not save settings to {path}: {error}": "Die Einstellungen konnten nicht unter {path} gespeichert werden: {error}",
   "Could not start a posture history episode: {error}": "Eine Haltungsepisode konnte nicht im Verlauf angelegt werden: {error}",
-  "Could not start {camera}: {error}. {help}": "{camera} konnte nicht gestartet werden: {error}. {help}",
+  "Could not start {camera}. {help}": "{camera} konnte nicht gestartet werden. {help}",
   "Could not update posture history: {error}": "Der Haltungsverlauf konnte nicht aktualisiert werden: {error}",
   "Could not update startup setting": "Autostart-Einstellung konnte nicht aktualisiert werden",
   "Could not use {camera}: {detail} {help}": "{camera} konnte nicht verwendet werden: {detail} {help}",
@@ -430,5 +430,7 @@
   "The language could not be changed. The previous language is kept.": "Die Sprache konnte nicht geändert werden. Die bisherige Sprache bleibt erhalten.",
   "Strength movements also need standing balance. Both stay off while seated-only is on.": "Kräftigungsbewegungen erfordern auch Gleichgewicht im Stehen. Beide bleiben aus, solange nur Bewegungen im Sitzen vorgeschlagen werden.",
   "Workday history could not be closed cleanly. Your saved days are kept.": "Der Arbeitstagverlauf konnte nicht sauber geschlossen werden. Ihre gespeicherten Tage bleiben erhalten.",
-  "Your latest changes could not be saved. Try again in a moment.": "Ihre letzten Änderungen konnten nicht gespeichert werden. Versuchen Sie es gleich noch einmal."
+  "Your latest changes could not be saved. Try again in a moment.": "Ihre letzten Änderungen konnten nicht gespeichert werden. Versuchen Sie es gleich noch einmal.",
+  "Could not use {camera}. {help}": "{camera} konnte nicht verwendet werden. {help}",
+  "The workday summary could not be loaded right now.": "Die Arbeitstagübersicht konnte gerade nicht geladen werden."
 }

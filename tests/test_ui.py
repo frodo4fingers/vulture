@@ -484,7 +484,7 @@ def test_workday_summary_surfaces_storage_errors(
     dialog.refresh()
 
     assert not dialog.empty_state_container.isHidden()
-    assert "database unavailable" in dialog.empty_state.text()
+    assert "database unavailable" in dialog.empty_state.toolTip()
     assert dialog.totals_group.isHidden()
     assert not dialog.period_tabs.isTabEnabled(dialog.week_tab_index)
     assert not dialog.delete_day_button.isEnabled()
