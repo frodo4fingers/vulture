@@ -16,7 +16,7 @@ from the baseline demonstrated for that camera setup.
 - Multiple named physical setups, including a laptop camera and a separate
   desk camera. Every camera position has its own calibration.
 - A mandatory comfortable-baseline sample and optional examples for
-  head-forward posture, slouch/crouch, sunk shoulders, and lateral lean. The
+  head-forward posture, rounded torso, lowered shoulders, and lateral lean. The
   right-side calibration panel keeps every stage and its status visible while
   leaving the live camera preview unobstructed.
 - A skipped posture example can be learned later, and **Redo a calibration
@@ -336,14 +336,14 @@ never stored. This flow supports the four built-in unwanted-posture categories;
 it does not create arbitrary named categories.
 
 A head-and-shoulders laptop framing cannot credibly score torso slouch, so that
-category will pause when hips are not visible. Sunk shoulders and lateral lean
+category will pause when hips are not visible. Lowered shoulders and lateral lean
 can fall back to calibrated face-and-shoulder geometry when pose ears or hips
 are outside the crop, although visible hips strengthen the side-lean signal. A
 directly front-facing monocular camera has limited depth information; a
 personalized head-forward example may still work through relative head/face
 scale, but it is not a clinical neck-angle measurement.
 
-After upgrading an existing installation, re-record **Sunk shoulders** and
+After upgrading an existing installation, re-record **Lowered shoulders** and
 **Lateral lean** with **Redo a calibration step** so their profiles include the
 upper-body fallbacks. Vulture cannot retrofit old examples because calibration
 frames and landmarks are intentionally never stored.

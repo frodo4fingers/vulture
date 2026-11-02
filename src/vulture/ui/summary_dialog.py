@@ -134,7 +134,7 @@ class WorkdaySummaryDialog(QDialog):
         self.date_edit.dateChanged.connect(lambda _value: self.refresh())
         self.date_edit.setAccessibleName(tr("Date"))
         top_row.addWidget(self.date_edit)
-        refresh_button = QPushButton(tr("Refresh"))
+        refresh_button = QPushButton(tr("&Refresh"))
         refresh_button.clicked.connect(self.refresh)
         refresh_button.setAutoDefault(False)
         top_row.addWidget(refresh_button)

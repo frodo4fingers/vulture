@@ -106,17 +106,17 @@ CALIBRATION_STEPS = [
     ),
     CalibrationStep(
         key=PostureCategory.SLOUCH.value,
-        title="Slouch example",
+        title="Rounded-torso example",
         instructions=(
-            "Optional: comfortably demonstrate your usual collapsed or "
-            "crouched torso position. Do not exaggerate or move into pain."
+            "Optional: comfortably demonstrate your usual rounded torso "
+            "position. Do not exaggerate or move into pain."
         ),
         image_filename="calibration-03-slouch.jpg",
         category=PostureCategory.SLOUCH,
     ),
     CalibrationStep(
         key=PostureCategory.SHOULDERS_SUNK.value,
-        title="Sunk-shoulder example",
+        title="Lowered-shoulder example",
         instructions=(
             "Optional: let your shoulders settle into the low or rounded "
             "position you want detected. Keep the movement gentle."
@@ -539,6 +539,7 @@ class CalibrationStepSelectionDialog(QDialog):
         QWidget.setTabOrder(self.step_combo, self.confirm_button)
         QWidget.setTabOrder(self.confirm_button, cancel_button)
         self._update_description()
+        self._fit_height()
 
     def _update_description(self) -> None:
         self._baseline_confirmation_pending = False
@@ -570,8 +571,14 @@ class CalibrationStepSelectionDialog(QDialog):
             self._baseline_confirmation_pending = True
             self.baseline_warning.show()
             self._set_confirm_text(tr("Recalibrate comfortable baseline"))
+            self._fit_height()
             return
         self.accept()
+
+    def _fit_height(self) -> None:
+        """Grow (never shrink) to the content, e.g. once the warning shows."""
+        needed = self.layout().totalHeightForWidth(self.width())
+        self.resize(self.width(), max(self.height(), needed))
 
     def _set_confirm_text(self, text: str) -> None:
         self.confirm_button.setText(text)

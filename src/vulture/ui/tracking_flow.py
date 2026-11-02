@@ -1052,9 +1052,12 @@ class TrackingFlowMixin:
         self.summary_button.setEnabled(False)
         self.summary_action.setEnabled(False)
         self._show_tray_message(
-            tr("Workday history disabled"),
-            str(error),
-            QSystemTrayIcon.MessageIcon.Warning,
+            tr("Workday history paused"),
+            tr(
+                "History is paused for this session. Posture feedback "
+                "still works."
+            ),
+            QSystemTrayIcon.MessageIcon.Information,
             10_000,
         )
 

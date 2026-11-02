@@ -904,7 +904,7 @@ def test_incremental_calibration_shows_baseline_and_selected_posture(
     dialog._step_index = 1
     dialog._show_step()
 
-    assert dialog.role_label.text() == "Example: Slouch / crouch (required)"
+    assert dialog.role_label.text() == "Example: Rounded torso (required)"
 
     dialog.timer.stop()
     dialog.close()

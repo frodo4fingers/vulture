@@ -21,7 +21,7 @@ from vulture.models import (
 CATEGORY_MESSAGES = {
     PostureCategory.FORWARD_HEAD: "Your head position has drifted from your calibrated baseline.",
     PostureCategory.SLOUCH: "Your torso position has drifted from your calibrated baseline.",
-    PostureCategory.SHOULDERS_SUNK: "Your shoulders have stayed away from your calibrated baseline.",
+    PostureCategory.SHOULDERS_SUNK: "Your shoulders have drifted from your calibrated baseline.",
     PostureCategory.LATERAL_LEAN: "You have been leaning away from your calibrated baseline.",
     PostureCategory.GENERAL_DEVIATION: "You have stayed in one position away from your baseline.",
 }

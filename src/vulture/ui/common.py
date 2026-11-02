@@ -48,8 +48,8 @@ from .theme import (
 SUMMARY_POSTURES = (
     (BASELINE_POSTURE, "Within baseline"),
     (PostureCategory.FORWARD_HEAD.value, "Head forward"),
-    (PostureCategory.SLOUCH.value, "Slouch / crouch"),
-    (PostureCategory.SHOULDERS_SUNK.value, "Shoulders sunk"),
+    (PostureCategory.SLOUCH.value, "Rounded torso"),
+    (PostureCategory.SHOULDERS_SUNK.value, "Lowered shoulders"),
     (PostureCategory.LATERAL_LEAN.value, "Lateral lean"),
     (PostureCategory.GENERAL_DEVIATION.value, "Other drift"),
 )

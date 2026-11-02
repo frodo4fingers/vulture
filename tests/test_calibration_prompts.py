@@ -76,12 +76,12 @@ def test_calibration_photo_prompts_match_visible_stages() -> None:
         ),
         (
             "slouch",
-            "Slouch example",
+            "Rounded-torso example",
             "calibration-03-slouch.jpg",
         ),
         (
             "shoulders_sunk",
-            "Sunk-shoulder example",
+            "Lowered-shoulder example",
             "calibration-04-sunk-shoulders.jpg",
         ),
         (

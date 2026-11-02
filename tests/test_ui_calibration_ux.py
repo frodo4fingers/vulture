@@ -72,7 +72,7 @@ def test_labels_are_calm_sentence_case(application: QApplication) -> None:
     assert dialog.role_label.text() == "Your comfortable baseline"
     dialog._step_index = 2
     dialog._show_step()
-    assert dialog.role_label.text() == "Example: Slouch / crouch (optional)"
+    assert dialog.role_label.text() == "Example: Rounded torso (optional)"
     assert dialog.phase_label.text() == "Ready when you are"
     dialog._finish_sample()
     assert dialog.phase_label.text() == "Let's try that again"

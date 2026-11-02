@@ -18,13 +18,13 @@
     },
     {
       "id": "slouch",
-      "title": "Slouch example",
+      "title": "Rounded-torso example",
       "filename": "calibration-03-slouch.jpg",
       "prompt": "Generate exactly one still image for CALIBRATION STAGE 3 OF 5 — SLOUCH EXAMPLE. Match the comfortable-baseline image exactly in mannequin identity, chair, camera, framing, foot placement, knee placement, and overall left-right balance. Let the pelvis roll gently backward into a modest posterior tilt while remaining centred on both sitting bones. Allow the lumbar and lower thoracic torso to round comfortably, the sternum to settle slightly down and backward, and the visible vertical torso length to shorten. The upper torso may move slightly forward as one continuous relaxed curve; do not create a sharp fold at one spinal level. Let the shoulders follow the rounded torso only as a natural consequence, keeping them level rather than deliberately lowered or strongly protracted. Let the head follow the upper torso enough to stay balanced, without adding a separate neck jut or chin-to-chest pose. Hands remain relaxed on the thighs and move only as required by the shortened torso. CATEGORY ISOLATION: the image must read primarily as a collapsed or crouched trunk. Do not add isolated head-forward translation, deliberate bilateral sunk shoulders, lateral lean, axial rotation, unequal shoulder height, lifted feet, crossed legs, extreme spinal flexion, instability, or pain behaviour. Keep the image language-neutral with no text or graphics."
     },
     {
       "id": "shoulders_sunk",
-      "title": "Sunk-shoulder example",
+      "title": "Lowered-shoulder example",
       "filename": "calibration-04-sunk-shoulders.jpg",
       "prompt": "Generate exactly one still image for CALIBRATION STAGE 4 OF 5 — SUNK-SHOULDER EXAMPLE. Match the comfortable-baseline image exactly in mannequin identity, chair, camera, framing, feet, knees, pelvis, torso height and curve, neck, head, and gaze. Let both shoulders settle symmetrically approximately 3 cm lower and mildly forward or inward compared with the baseline. Show a gentle bilateral lowering and protraction of the shoulder girdle, a slightly narrower upper-chest silhouette, and upper arms that hang from the new shoulder position. Keep left and right changes equal. Preserve the sternum and rib-cage height, keep the torso from collapsing, and keep the head balanced over the torso with no forward translation. Hands remain relaxed on their respective thighs. CATEGORY ISOLATION: only the shoulder girdle changes. Do not round or shorten the torso, roll the pelvis backward, move the head forward, tilt the head, lean sideways, rotate the body, elevate or shrug the shoulders, create a one-sided shoulder drop, arch the back, change foot placement, dislocate the shoulders, or show strain or pain. Keep the image language-neutral with no text or graphics."
     },

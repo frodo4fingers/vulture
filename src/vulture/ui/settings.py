@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QFrame,
     QLabel,
     QScrollArea,
+    QSizePolicy,
     QSpinBox,
     QTabWidget,
     QToolButton,
@@ -52,6 +53,9 @@ def _spin(
     spin.setRange(low, high)
     spin.setValue(round(value))
     spin.setSuffix(suffix)
+    # Fixed width keeps spin boxes compact in forms; hinted rows still grow
+    # so their captions wrap at the form width.
+    spin.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
     return spin
 
 
@@ -153,7 +157,14 @@ class SettingsDialog(QDialog):
             2, 300, policy.warning_after_seconds, tr(" seconds")
         )
         self.alert_seconds = _spin(
-            5, 900, policy.alert_after_seconds, tr(" seconds")
+            max(5, policy.warning_after_seconds + 1),
+            900,
+            policy.alert_after_seconds,
+            tr(" seconds"),
+        )
+        # The notification must come after the nudge: keep its floor live.
+        self.warning_seconds.valueChanged.connect(
+            lambda value: self.alert_seconds.setMinimum(max(5, value + 1))
         )
         self.transition_buffer_seconds = _spin(
             0, 30, policy.posture_transition_buffer_seconds, tr(" seconds")
@@ -454,6 +465,14 @@ class SettingsDialog(QDialog):
         layout.addWidget(self.seated_only)
         layout.addWidget(self.allow_balance)
         layout.addWidget(self.allow_strength)
+        layout.addWidget(
+            CaptionLabel(
+                tr(
+                    "Strength movements also need standing balance. Both "
+                    "stay off while seated-only is on."
+                )
+            )
+        )
         layout.addStretch(1)
 
         for toggle in (

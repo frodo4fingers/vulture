@@ -39,7 +39,12 @@ from PySide6.QtCore import (
 )
 from PySide6.QtGui import QImage
 from PySide6.QtMultimedia import QMediaPlayer, QVideoFrame, QVideoSink
-from PySide6.QtWidgets import QApplication, QMessageBox, QSystemTrayIcon
+from PySide6.QtWidgets import (
+    QApplication,
+    QMessageBox,
+    QSystemTrayIcon,
+    QWidget,
+)
 
 
 def _write_runtime_status(message: str, *, error: bool = False) -> None:
@@ -181,6 +186,23 @@ def check_runtime(*, check_vision_inference: bool = True) -> int:
     return 0
 
 
+def _show_failure(
+    parent: QWidget | None,
+    title: str,
+    text: str,
+    details: str,
+) -> None:
+    box = QMessageBox(
+        QMessageBox.Icon.Critical,
+        title,
+        text,
+        QMessageBox.StandardButton.Ok,
+        parent,
+    )
+    box.setDetailedText(details)
+    box.exec()
+
+
 def _should_start_minimized(argv: Sequence[str]) -> bool:
     return START_MINIMIZED_FLAG in argv
 
@@ -211,9 +233,10 @@ def main() -> int:
             language=data.interface_language
         )
     except (StorageError, RuntimeError) as error:
-        QMessageBox.critical(
+        _show_failure(
             None,
             tr("Vulture could not start"),
+            tr("Vulture could not load its saved data or resources."),
             str(error),
         )
         return 1
@@ -241,9 +264,13 @@ def main() -> int:
         except RuntimeError as error:
             window.data.interface_language = previous_language
             window._save_data()
-            QMessageBox.critical(
+            _show_failure(
                 window,
                 tr("Could not change language"),
+                tr(
+                    "The language could not be changed. The previous "
+                    "language is kept."
+                ),
                 str(error),
             )
             return
