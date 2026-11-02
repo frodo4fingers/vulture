@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
     QDialog,
+    QDialogButtonBox,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -654,3 +655,6 @@ class EvidenceDialog(QDialog):
             )
         )
         layout.addWidget(browser)
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)

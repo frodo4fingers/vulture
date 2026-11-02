@@ -677,10 +677,10 @@ def test_settings_disable_startup_control_when_state_cannot_be_read(
 
     dialog = _open_settings_window(window, application)
     assert not dialog.start_at_login.isEnabled()
-    assert any(
-        "permission denied" in label.text()
-        for label in dialog.findChildren(QLabel)
+    assert dialog.startup_error_label.text() == (
+        "Vulture could not read the system startup setting."
     )
+    assert dialog.startup_error_label.toolTip() == "permission denied"
     dialog.reject()
     application.processEvents()
     _close_test_window(window, application)
@@ -2378,7 +2378,7 @@ def test_calibration_reference_image_keeps_four_by_three_ratio() -> None:
     assert image.sizeHint() == QSize(200, 150)
 
 
-def test_camera_error_closes_calibration_window_without_popup(
+def test_camera_error_closes_calibration_window_and_shows_notice(
     application: QApplication,
     tmp_path: Path,
 ) -> None:
@@ -2397,11 +2397,11 @@ def test_camera_error_closes_calibration_window_without_popup(
     window._on_camera_error("Camera disconnected.")
     application.processEvents()
 
-    assert window._notice_dialog is None
     assert window._state is TrackerState.CAMERA_UNAVAILABLE
     assert not window._calibration_flow_active
     assert window._calibration_window is None
-    assert window.side_panel_frame.isHidden()
+    assert isinstance(window._notice_dialog, NoticeDialog)
+    assert window._notice_dialog is window._side_panel
 
     window.camera_thread = None
     _teardown_window(window, application)

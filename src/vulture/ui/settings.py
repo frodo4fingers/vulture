@@ -105,17 +105,25 @@ def _row(
     form.addRow(label, field)
 
 
-def _align_label_columns(*forms: QFormLayout) -> None:
-    """Give every row label in ``forms`` the widest label's width."""
-    labels = [
-        item.widget()
-        for form in forms
-        for row in range(form.rowCount())
-        if (item := form.itemAt(row, QFormLayout.ItemRole.LabelRole))
-    ]
+def _align_columns(*forms: QFormLayout) -> None:
+    """Give every label and spin box in ``forms`` one shared width each."""
+    labels = []
+    spins = []
+    for form in forms:
+        for row in range(form.rowCount()):
+            if item := form.itemAt(row, QFormLayout.ItemRole.LabelRole):
+                labels.append(item.widget())
+            if item := form.itemAt(row, QFormLayout.ItemRole.FieldRole):
+                field = item.widget()
+                spin = field.findChild(QSpinBox) or field
+                if isinstance(spin, QSpinBox):
+                    spins.append(spin)
     width = max(label.sizeHint().width() for label in labels)
     for label in labels:
         label.setMinimumWidth(width)
+    width = max(spin.sizeHint().width() for spin in spins)
+    for spin in spins:
+        spin.setFixedWidth(width)
 
 
 def _disclosure(text: str, body: QWidget) -> QToolButton:
@@ -151,6 +159,7 @@ class SettingsDialog(QDialog):
         start_at_login_enabled: bool = False,
         startup_setting_available: bool = True,
         startup_setting_error: str | None = None,
+        startup_setting_details: str | None = None,
         calibration_sound_cues: bool = True,
     ) -> None:
         super().__init__(parent, Qt.WindowType.Window)
@@ -409,9 +418,7 @@ class SettingsDialog(QDialog):
             self.reset_duration_minutes,
         )
         reset_layout.addLayout(reset_form)
-        _align_label_columns(
-            movement_form, eye_form, hydration_form, reset_form
-        )
+        _align_columns(movement_form, eye_form, hydration_form, reset_form)
         self.suggest_tea_or_coffee = _check(
             tr("Make tea or coffee"), break_preferences.suggest_tea_or_coffee
         )
@@ -568,9 +575,15 @@ class SettingsDialog(QDialog):
             )
         layout.addWidget(self.start_at_login)
         if startup_setting_error:
-            layout.addWidget(
-                SemanticLabel(startup_setting_error, tone="safety")
+            self.startup_error_label = SemanticLabel(
+                startup_setting_error, tone="safety"
             )
+            if startup_setting_details:
+                self.startup_error_label.setToolTip(startup_setting_details)
+                self.startup_error_label.setAccessibleDescription(
+                    startup_setting_details
+                )
+            layout.addWidget(self.startup_error_label)
         self.calibration_sound_cues = _check(
             tr("Play sound cues during calibration"),
             calibration_sound_cues,

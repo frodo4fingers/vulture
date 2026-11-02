@@ -700,10 +700,14 @@ class CalibrationDialog(QDialog):
         self.progress.setRange(0, 100)
         self.progress.setValue(0)
         self.progress.setAccessibleName(tr("Recording progress"))
+        self.progress_label = CaptionLabel(tr("Recording"))
+        self.progress_label.hide()
+        self.progress.hide()
         layout.addWidget(self.role_label)
         layout.addLayout(reference_row)
         layout.addWidget(self.phase_label)
         layout.addWidget(self.quality_label)
+        layout.addWidget(self.progress_label)
         layout.addWidget(self.progress)
         self.feedback_label = SemanticLabel(tone="safety")
         self.feedback_label.hide()
@@ -785,6 +789,7 @@ class CalibrationDialog(QDialog):
         self.instructions_label.setText(tr(step.instructions))
         self.phase_label.setText(tr("Ready when you are"))
         self.progress.setValue(0)
+        self._show_recording(False)
         self.start_button.setText(tr("Start sample"))
         self._assign_mnemonics()
         self.start_button.setEnabled(True)
@@ -814,6 +819,10 @@ class CalibrationDialog(QDialog):
             self._stage_status,
             self._step_index,
         )
+
+    def _show_recording(self, visible: bool) -> None:
+        self.progress_label.setVisible(visible)
+        self.progress.setVisible(visible)
 
     def _announce(self, message: str) -> None:
         """Tell assistive technology about a state the user cannot see."""
@@ -847,6 +856,7 @@ class CalibrationDialog(QDialog):
         self.start_button.setEnabled(False)
         self.skip_button.setEnabled(False)
         self.feedback_label.hide()
+        self._show_recording(True)
         self.phase_label.setText(tr("Get ready…"))
         self._play_cue("countdown")
         self._announce(tr("Get ready. Recording starts in 3 seconds."))
@@ -861,12 +871,16 @@ class CalibrationDialog(QDialog):
     def _tick(self) -> None:
         quality_percent = round(self._latest_quality * 100)
         if self._phase == "idle":
-            self.quality_label.setText(
-                tr(
-                    "Current tracking quality: {quality}% (70% required)",
-                    quality=quality_percent,
-                )
+            text = tr(
+                "Current tracking quality: {quality}% (70% required)",
+                quality=quality_percent,
             )
+            if quality_percent < 70:
+                text += "\n" + tr(
+                    "Move so your face and shoulders are in view, with "
+                    "light in front of you."
+                )
+            self.quality_label.setText(text)
             return
 
         remaining = self._deadline - time.monotonic()
@@ -909,6 +923,7 @@ class CalibrationDialog(QDialog):
             self._phase = "idle"
             self._stage_status[self._step_index] = "retry"
             self.progress.setValue(0)
+            self._show_recording(False)
             self.start_button.setText(tr("Retry sample"))
             self._assign_mnemonics()
             self.start_button.setEnabled(True)
@@ -947,6 +962,7 @@ class CalibrationDialog(QDialog):
 
     def _fit_profile(self) -> None:
         self._phase = "idle"
+        self._show_recording(False)
         self.timer.stop()
         good_step = next(
             step for step in self.steps if step.category is None

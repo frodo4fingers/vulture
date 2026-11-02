@@ -261,6 +261,8 @@ def format_duration(seconds: float) -> str:
             hours=hours,
             minutes=minutes,
         )
+    if minutes and remaining_seconds == 0:
+        return tr("{minutes}m", minutes=minutes)
     if minutes:
         return tr(
             "{minutes}m {seconds:02d}s",

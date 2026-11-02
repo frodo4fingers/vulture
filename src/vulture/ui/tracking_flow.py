@@ -278,7 +278,7 @@ class TrackingFlowMixin:
         self._set_state(TrackerState.CAMERA_UNAVAILABLE, message)
         if self._calibration_window is not None:
             self._calibration_window.reject()
-        elif self.isVisible():
+        if self.isVisible():
             self._show_notice(
                 tr("Camera unavailable"),
                 message,

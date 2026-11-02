@@ -431,11 +431,11 @@ class _OpenCVCameraWorker(_CameraAnalysisWorker):
             if not self.capture.isOpened():
                 self.owner._report_error(
                     tr(
-                        "Could not use {camera}: {detail} {help}",
+                        "Could not use {camera}. {help}",
                         camera=self.owner.descriptor.display_name,
-                        detail=tr("The camera could not be opened."),
                         help=self.owner._camera_access_help(),
-                    )
+                    ),
+                    tr("The camera could not be opened."),
                 )
                 return False
             self.capture.set(

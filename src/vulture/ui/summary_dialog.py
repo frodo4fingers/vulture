@@ -168,6 +168,8 @@ class WorkdaySummaryDialog(QDialog):
         daily_metrics_layout.setHorizontalSpacing(SPACE_SM)
         daily_metrics_layout.setVerticalSpacing(SPACE_SM)
         # Breaks lead; nudges and tracked time are the quieter second row.
+        # Deliberate: the rows differ in type size and height only; the
+        # shared three-column stretch keeps every tile the same width.
         self.daily_headline = QLabel()
         self.daily_headline.setWordWrap(True)
         apply_text_role(self.daily_headline, TextRole.HEADING)
@@ -532,6 +534,7 @@ class WorkdaySummaryDialog(QDialog):
             tr("The workday summary could not be loaded right now.")
         )
         self.empty_state.setToolTip(str(error))
+        self.empty_state.setAccessibleDescription(str(error))
         self.empty_state_container.show()
         self.daily_metrics_container.hide()
         self.totals_group.hide()
@@ -555,6 +558,7 @@ class WorkdaySummaryDialog(QDialog):
         self.empty_state.set_semantic_tone("info")
         self.empty_state.setText(self._empty_state_text)
         self.empty_state.setToolTip("")
+        self.empty_state.setAccessibleDescription("")
         has_posture = tracked > 0 or bool(summary.episodes)
         self._selected_day_has_data = has_posture or bool(summary.breaks)
         self.empty_state_container.setVisible(

@@ -186,6 +186,7 @@ class ApplicationFlowMixin:
         startup_enabled = False
         startup_setting_available = self.autostart_manager.is_supported
         startup_setting_error: str | None = None
+        startup_setting_details: str | None = None
         if startup_setting_available:
             try:
                 startup_snapshot = self.autostart_manager.snapshot()
@@ -193,10 +194,9 @@ class ApplicationFlowMixin:
             except AutostartError as error:
                 startup_setting_available = False
                 startup_setting_error = tr(
-                    "Vulture could not read the system startup setting: "
-                    "{error}",
-                    error=error,
+                    "Vulture could not read the system startup setting."
                 )
+                startup_setting_details = str(error)
         dialog = SettingsDialog(
             self.data.alert_policy,
             self.data.exercise_preferences,
@@ -206,6 +206,7 @@ class ApplicationFlowMixin:
             start_at_login_enabled=startup_enabled,
             startup_setting_available=startup_setting_available,
             startup_setting_error=startup_setting_error,
+            startup_setting_details=startup_setting_details,
             calibration_sound_cues=self.data.calibration_sound_cues,
             parent=self,
         )
@@ -258,11 +259,8 @@ class ApplicationFlowMixin:
             except AutostartError as error:
                 self._show_notice(
                     tr("Startup setting unavailable"),
-                    tr(
-                        "Vulture could not read the system startup setting: "
-                        "{error}",
-                        error=error,
-                    ),
+                    tr("Vulture could not read the system startup setting."),
+                    details=str(error),
                 )
                 return
         startup_changed = (
