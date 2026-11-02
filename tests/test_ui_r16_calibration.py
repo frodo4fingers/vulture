@@ -45,17 +45,16 @@ def test_capture_shows_seconds_left_not_sample_count(
     dialog.close()
 
 
-def test_move_tip_shows_only_while_no_samples(
+def test_move_tip_shows_only_after_samples_stall(
     application: QApplication,
 ) -> None:
     dialog = _capturing_dialog()
-    seconds = dialog.steps[dialog._step_index].capture_seconds
-    dialog._deadline = time.monotonic() + seconds - 1.5
+    dialog._last_sample_at = time.monotonic() - 2
     dialog._tick()
-    assert "Move so your face" in dialog.quality_label.text()
-    dialog._current_samples.append(object())
+    assert "Make sure your face" in dialog.quality_label.text()
+    dialog._last_sample_at = time.monotonic()
     dialog._tick()
-    assert "Move so your face" not in dialog.quality_label.text()
+    assert "Make sure your face" not in dialog.quality_label.text()
     dialog.close()
 
 

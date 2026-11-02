@@ -418,7 +418,7 @@ class CalibrationFlowMixin:
             self._set_state(
                 TrackerState.LOW_CONFIDENCE,
                 tr(
-                    "{message} Finding your landmarks...",
+                    "{message} Finding your face and shoulders...",
                     message=message,
                 ),
             )

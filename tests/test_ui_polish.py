@@ -142,7 +142,7 @@ def test_calibration_panels_have_unique_mnemonics(
     calibration.show()
     keys = _mnemonics(calibration)
     assert len(keys) == len(set(keys)) == 3
-    assert calibration.start_button.text() == "&Start sample"
+    assert calibration.start_button.text() == "&Start recording"
     calibration.close()
 
     selection = CalibrationStepSelectionDialog(make_profile())

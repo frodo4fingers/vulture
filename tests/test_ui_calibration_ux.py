@@ -91,9 +91,9 @@ def test_recording_state_is_announced_and_cued(
     assert dialog.phase_label.text() == "Get ready…"
     dialog._deadline = 0.0
     dialog._tick()
-    assert dialog.phase_label.text() == "Recording… hold still"
+    assert dialog.phase_label.text() == "Recording… stay in this position"
     assert dialog.phase_label.accessibleDescription() == (
-        "Recording. Hold still."
+        "Recording. Stay in this position."
     )
     dialog._finish_sample()
     assert cues == ["countdown", "start", "end"]

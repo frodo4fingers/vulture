@@ -1080,7 +1080,7 @@ def test_calibration_retry_heading_names_the_pose_once(
 
     assert dialog.phase_label.text() == "Let's try that again"
     assert "UNWANTED" not in dialog.phase_label.text()
-    assert dialog.start_button.text() == "&Retry sample"
+    assert dialog.start_button.text() == "&Record again"
     # The retry reason is shown in the visible feedback label.
     assert not dialog.feedback_label.isHidden()
     assert dialog.feedback_label.text()

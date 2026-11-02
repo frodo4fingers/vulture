@@ -54,6 +54,7 @@ from .theme import (
     SETUP_SIZE,
     SPACE_XS,
     STEP_SELECTION_MIN_SIZE,
+    progress_bar_style,
     STEP_SELECTION_SIZE,
     CaptionLabel,
     Separator,
@@ -647,6 +648,7 @@ class CalibrationDialog(QDialog):
         self._phase = "idle"
         self._deadline = 0.0
         self._current_samples: list[FeatureFrame] = []
+        self._last_sample_at = 0.0
         self._samples: dict[str, list[FeatureFrame]] = defaultdict(list)
         self._latest_quality = 0.0
         self._stage_status = ["pending" for _step in self.steps]
@@ -694,11 +696,14 @@ class CalibrationDialog(QDialog):
         )
         self.phase_label = QLabel()
         apply_text_role(self.phase_label, TextRole.HEADING)
-        self.quality_label = QLabel(tr("Waiting for clear landmarks..."))
+        self.quality_label = QLabel(tr("Looking for you in the camera..."))
         self.quality_label.setWordWrap(True)
         self.progress = QProgressBar()
         self.progress.setRange(0, 100)
         self.progress.setValue(0)
+        self.progress.setTextVisible(False)
+        self.progress.setFixedHeight(SPACE_SM)
+        self.progress.setStyleSheet(progress_bar_style())
         self.progress.setAccessibleName(tr("Recording progress"))
         self.progress.hide()
         layout.addWidget(self.role_label)
@@ -722,7 +727,7 @@ class CalibrationDialog(QDialog):
 
         outer_layout.addWidget(Separator())
         controls = QHBoxLayout()
-        self.start_button = QPushButton(tr("Start sample"))
+        self.start_button = QPushButton(tr("Start recording"))
         self.skip_button = QPushButton(tr("Skip this example"))
         self.cancel_button = QPushButton(tr("Cancel"))
         self.skip_button.setAutoDefault(False)
@@ -765,6 +770,7 @@ class CalibrationDialog(QDialog):
         self._latest_quality = quality
         if self._phase == "capturing" and quality >= 0.70:
             self._current_samples.append(frame)
+            self._last_sample_at = time.monotonic()
 
     def _show_step(self) -> None:
         step = self.steps[self._step_index]
@@ -787,7 +793,7 @@ class CalibrationDialog(QDialog):
         self.phase_label.setText(tr("Ready when you are"))
         self.progress.setValue(0)
         self._show_recording(False)
-        self.start_button.setText(tr("Start sample"))
+        self.start_button.setText(tr("Start recording"))
         self._assign_mnemonics()
         self.start_button.setEnabled(True)
         self.skip_button.setEnabled(not step.required)
@@ -890,12 +896,13 @@ class CalibrationDialog(QDialog):
                 return
             step = self.steps[self._step_index]
             self._phase = "capturing"
+            self._last_sample_at = time.monotonic()
             self._deadline = time.monotonic() + step.capture_seconds
             remaining = step.capture_seconds
             self._show_recording(True)
-            self.phase_label.setText(tr("Recording… hold still"))
+            self.phase_label.setText(tr("Recording… stay in this position"))
             self._play_cue("start")
-            self._announce(tr("Recording. Hold still."))
+            self._announce(tr("Recording. Stay in this position."))
             # Fall through so the countdown line is replaced right away.
 
         if self._phase == "capturing":
@@ -908,9 +915,9 @@ class CalibrationDialog(QDialog):
                 "{seconds}s left.",
                 seconds=max(1, math.ceil(remaining)),
             )
-            if elapsed >= 1 and not self._current_samples:
+            if time.monotonic() - self._last_sample_at >= 1.5:
                 text += "\n" + tr(
-                    "Move so your face and shoulders are in view, with "
+                    "Make sure your face and shoulders are in view, with "
                     "light in front of you."
                 )
             self.quality_label.setText(text)
@@ -926,7 +933,7 @@ class CalibrationDialog(QDialog):
             self._stage_status[self._step_index] = "retry"
             self.progress.setValue(0)
             self._show_recording(False)
-            self.start_button.setText(tr("Retry sample"))
+            self.start_button.setText(tr("Record again"))
             self._assign_mnemonics()
             self.start_button.setEnabled(True)
             self.skip_button.setEnabled(not step.required)
@@ -935,13 +942,15 @@ class CalibrationDialog(QDialog):
             # lives in the feedback panel where it stays readable.
             message = (
                 tr(
-                    "Not enough clear frames were visible. Reposition the "
-                    "camera and retry this required stage."
+                    "The camera could not see you clearly enough. Adjust "
+                    "the camera or your position, then record this step "
+                    "again."
                 )
                 if step.required
                 else tr(
-                    "Not enough clear frames were visible. Reposition the "
-                    "camera or skip this optional example."
+                    "The camera could not see you clearly enough. Adjust "
+                    "the camera or your position, then record again or "
+                    "skip this optional example."
                 )
             )
             self.feedback_label.setText(message)
