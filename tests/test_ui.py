@@ -2101,11 +2101,19 @@ def test_exercise_return_to_tray_rehides_secondary_windows(
     _teardown_window(window, application)
 
 
+@pytest.mark.parametrize(
+    "exercise",
+    load_exercise_catalog().exercises,
+    ids=lambda exercise: exercise.id,
+)
 def test_tall_exercise_panel_opens_without_vertical_scrollbar(
     application: QApplication,
     tmp_path: Path,
+    exercise,
 ) -> None:
     window = _make_window(tmp_path)
+    # The selector is random; pin it so every exercise is checked each run.
+    window.selector.choose_from_bag = lambda *_args: (exercise, [])
     window.resize(760, 650)
     window.screen = lambda: SimpleNamespace(
         availableGeometry=lambda: QRect(0, 0, 1920, 1080)
@@ -2113,13 +2121,20 @@ def test_tall_exercise_panel_opens_without_vertical_scrollbar(
     original_size = window.size()
 
     window._offer_exercise()
-    application.processEvents()
+    # The first-break safety text folds away in a deferred pass; the scroll
+    # range settles one event-loop turn after that.
+    scrollbar = window.side_panel_host.verticalScrollBar()
+    for _ in range(200):
+        application.processEvents()
+        if scrollbar.maximum() == 0 and not scrollbar.isVisible():
+            break
+        QTest.qWait(10)
 
     # Break mode never resizes the window and hides the camera column.
     assert window._exercise_dialog is not None
     assert window.size() == original_size
     assert window.camera_workspace.isHidden()
-    assert window.side_panel_host.verticalScrollBar().maximum() == 0
+    assert scrollbar.maximum() == 0
     assert not window.side_panel_host.verticalScrollBar().isVisible()
 
     _teardown_window(window, application)

@@ -29,6 +29,7 @@ from vulture.models import (
 )
 
 from .common import SemanticLabel
+from .notices import details_caption
 from .theme import (
     CONTROL_SPACING,
     NESTED_INDENT,
@@ -245,6 +246,7 @@ class SettingsDialog(QDialog):
             ),
             self.repeat_window,
         )
+        _align_columns(alert_form)
         layout.addLayout(alert_form)
         layout.addStretch(1)
 
@@ -580,10 +582,12 @@ class SettingsDialog(QDialog):
             )
             if startup_setting_details:
                 self.startup_error_label.setToolTip(startup_setting_details)
-                self.startup_error_label.setAccessibleDescription(
+            layout.addWidget(self.startup_error_label)
+            if startup_setting_details:
+                self.startup_details_label = details_caption(
                     startup_setting_details
                 )
-            layout.addWidget(self.startup_error_label)
+                layout.addWidget(self.startup_details_label)
         self.calibration_sound_cues = _check(
             tr("Play sound cues during calibration"),
             calibration_sound_cues,

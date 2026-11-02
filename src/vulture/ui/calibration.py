@@ -856,7 +856,6 @@ class CalibrationDialog(QDialog):
         self.start_button.setEnabled(False)
         self.skip_button.setEnabled(False)
         self.feedback_label.hide()
-        self._show_recording(True)
         self.phase_label.setText(tr("Get ready…"))
         self._play_cue("countdown")
         self._announce(tr("Get ready. Recording starts in 3 seconds."))
@@ -895,6 +894,7 @@ class CalibrationDialog(QDialog):
                 step = self.steps[self._step_index]
                 self._phase = "capturing"
                 self._deadline = time.monotonic() + step.capture_seconds
+                self._show_recording(True)
                 self.phase_label.setText(tr("Recording… hold still"))
                 self._play_cue("start")
                 self._announce(tr("Recording. Hold still."))

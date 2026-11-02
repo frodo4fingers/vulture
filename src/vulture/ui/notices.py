@@ -7,6 +7,19 @@ from .common import SemanticLabel
 from .theme import SECTION_SPACING, CaptionLabel
 
 
+def details_caption(text: str) -> CaptionLabel:
+    """A wrapped caption whose text can be selected by mouse or keyboard."""
+    label = CaptionLabel(text)
+    label.setWordWrap(True)
+    label.setTextInteractionFlags(
+        Qt.TextInteractionFlag.TextSelectableByMouse
+        | Qt.TextInteractionFlag.TextSelectableByKeyboard
+    )
+    # Tab reaches it, so keyboard users can copy the error for support.
+    label.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+    return label
+
+
 class NoticeDialog(QDialog):
     def __init__(
         self,
@@ -29,10 +42,6 @@ class NoticeDialog(QDialog):
         )
         layout.addWidget(message_label)
         if details:
-            self.details_label = CaptionLabel(details)
-            self.details_label.setWordWrap(True)
-            self.details_label.setTextInteractionFlags(
-                Qt.TextInteractionFlag.TextSelectableByMouse
-            )
+            self.details_label = details_caption(details)
             layout.addWidget(self.details_label)
         layout.addStretch()

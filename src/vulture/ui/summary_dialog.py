@@ -37,6 +37,7 @@ from .common import (
     SemanticLabel,
     format_duration,
 )
+from .notices import details_caption
 from .theme import (
     SPACE_SM,
     SPACE_XS,
@@ -216,6 +217,14 @@ class WorkdaySummaryDialog(QDialog):
         self.empty_state.setMaximumWidth(460)
         empty_state_layout.addWidget(
             self.empty_state,
+            0,
+            Qt.AlignmentFlag.AlignCenter,
+        )
+        self.empty_state_details = details_caption("")
+        self.empty_state_details.setMaximumWidth(460)
+        self.empty_state_details.hide()
+        empty_state_layout.addWidget(
+            self.empty_state_details,
             0,
             Qt.AlignmentFlag.AlignCenter,
         )
@@ -534,7 +543,8 @@ class WorkdaySummaryDialog(QDialog):
             tr("The workday summary could not be loaded right now.")
         )
         self.empty_state.setToolTip(str(error))
-        self.empty_state.setAccessibleDescription(str(error))
+        self.empty_state_details.setText(str(error))
+        self.empty_state_details.show()
         self.empty_state_container.show()
         self.daily_metrics_container.hide()
         self.totals_group.hide()
@@ -558,7 +568,8 @@ class WorkdaySummaryDialog(QDialog):
         self.empty_state.set_semantic_tone("info")
         self.empty_state.setText(self._empty_state_text)
         self.empty_state.setToolTip("")
-        self.empty_state.setAccessibleDescription("")
+        self.empty_state_details.clear()
+        self.empty_state_details.hide()
         has_posture = tracked > 0 or bool(summary.episodes)
         self._selected_day_has_data = has_posture or bool(summary.breaks)
         self.empty_state_container.setVisible(

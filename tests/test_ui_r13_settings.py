@@ -59,5 +59,4 @@ def test_startup_error_carries_details(application: QApplication) -> None:
     )
     assert dialog.startup_error_label.text() == message
     assert dialog.startup_error_label.toolTip() == "dbus down"
-    assert dialog.startup_error_label.accessibleDescription() == "dbus down"
     dialog.close()

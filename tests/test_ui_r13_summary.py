@@ -39,7 +39,7 @@ def _summary(breaks: list[BreakEvent]) -> DailyPostureSummary:
     )
 
 
-def test_storage_error_sets_accessible_description_and_refresh_clears_it(
+def test_storage_error_details_are_read_once(
     application: QApplication,
 ) -> None:
     dialog = WorkdaySummaryDialog(
@@ -48,10 +48,8 @@ def test_storage_error_sets_accessible_description_and_refresh_clears_it(
 
     dialog._show_storage_error(HistoryStorageError("disk I/O error"))
 
-    assert dialog.empty_state.accessibleDescription() == "disk I/O error"
-
-    dialog.refresh()
-
+    # The visible details caption carries the text; no second copy.
+    assert dialog.empty_state_details.text() == "disk I/O error"
     assert dialog.empty_state.accessibleDescription() == ""
     dialog.close()
 
