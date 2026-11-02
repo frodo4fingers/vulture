@@ -1,0 +1,23 @@
+{
+  "file_scan_exclusions": [
+    "**/.git",
+    "**/.svn",
+    "**/.hg",
+    "**/.jj",
+    "**/CVS",
+    "**/.DS_Store",
+    "**/Thumbs.db",
+    "**/.classpath",
+    "**/.settings",
+    "**/venv/**",
+    "**/.venv/**",
+    "**/build/**",
+    "**/dist/**",
+    "**/native/**",
+    "**/node_modules/**",
+    "**/__pycache__/**",
+    "**/.mypy_cache/**",
+    "**/.pytest_cache/**",
+    "**/.ruff_cache/**"
+  ]
+}
