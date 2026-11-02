@@ -267,7 +267,12 @@ class TrackingFlowMixin:
             ),
         )
 
-    def _on_camera_error(self, message: str, details: str = "") -> None:
+    def _on_camera_error(
+        self,
+        message: str,
+        details: str = "",
+        access_help: str = "",
+    ) -> None:
         if self._language_reload_preparing:
             return
         if self.sender() is not self.camera_thread:
@@ -275,13 +280,18 @@ class TrackingFlowMixin:
         self._camera_liveness_stage = 2
         self._suspend_history()
         self._mark_tracking_interrupted()
-        self._set_state(TrackerState.CAMERA_UNAVAILABLE, message)
+        full_message = f"{message} {access_help}" if access_help else message
+        # A hidden window shows no notice, so the status line keeps the help.
+        self._set_state(
+            TrackerState.CAMERA_UNAVAILABLE,
+            message if self.isVisible() else full_message,
+        )
         if self._calibration_window is not None:
             self._calibration_window.reject()
         if self.isVisible():
             self._show_notice(
                 tr("Camera unavailable"),
-                message,
+                full_message,
                 critical=True,
                 details=details or None,
             )

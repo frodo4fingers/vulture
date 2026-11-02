@@ -58,10 +58,10 @@ def test_camera_not_opened_reports_calm_message_with_details(
     assert not _OpenCVCameraWorker(thread).start()
 
     assert len(emitted) == 1
-    message, details = emitted[0]
-    assert message.startswith("Could not use Test camera. ")
-    assert ": " not in message.split(". ")[0]
+    message, details, access_help = emitted[0]
+    assert message == "Could not use Test camera."
     assert details == "The camera could not be opened."
+    assert access_help
 
 
 def test_startup_read_failure_notice_is_calm_with_details(

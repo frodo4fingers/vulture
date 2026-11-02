@@ -890,15 +890,17 @@ class CalibrationDialog(QDialog):
                     seconds=max(1, math.ceil(remaining)),
                 )
             )
-            if remaining <= 0:
-                step = self.steps[self._step_index]
-                self._phase = "capturing"
-                self._deadline = time.monotonic() + step.capture_seconds
-                self._show_recording(True)
-                self.phase_label.setText(tr("Recording… hold still"))
-                self._play_cue("start")
-                self._announce(tr("Recording. Hold still."))
-            return
+            if remaining > 0:
+                return
+            step = self.steps[self._step_index]
+            self._phase = "capturing"
+            self._deadline = time.monotonic() + step.capture_seconds
+            remaining = step.capture_seconds
+            self._show_recording(True)
+            self.phase_label.setText(tr("Recording… hold still"))
+            self._play_cue("start")
+            self._announce(tr("Recording. Hold still."))
+            # Fall through so the countdown line is replaced right away.
 
         if self._phase == "capturing":
             step = self.steps[self._step_index]

@@ -431,11 +431,11 @@ class _OpenCVCameraWorker(_CameraAnalysisWorker):
             if not self.capture.isOpened():
                 self.owner._report_error(
                     tr(
-                        "Could not use {camera}. {help}",
+                        "Could not use {camera}.",
                         camera=self.owner.descriptor.display_name,
-                        help=self.owner._camera_access_help(),
                     ),
                     tr("The camera could not be opened."),
+                    self.owner._camera_access_help(),
                 )
                 return False
             self.capture.set(
@@ -466,11 +466,11 @@ class _OpenCVCameraWorker(_CameraAnalysisWorker):
         except (cv2.error, OSError, RuntimeError, TypeError, ValueError) as error:
             self.owner._report_error(
                 tr(
-                    "Could not start {camera}. {help}",
+                    "Could not start {camera}.",
                     camera=self.owner.descriptor.display_name,
-                    help=self.owner._camera_access_help(),
                 ),
                 str(error),
+                self.owner._camera_access_help(),
             )
             return False
 
@@ -494,20 +494,20 @@ class _OpenCVCameraWorker(_CameraAnalysisWorker):
                 ) as error:
                     self.owner._report_error(
                         tr(
-                            "Could not use {camera}. {help}",
+                            "Could not use {camera}.",
                             camera=self.owner.descriptor.display_name,
-                            help=self.owner._camera_access_help(),
                         ),
                         str(error),
+                        self.owner._camera_access_help(),
                     )
                     return
                 if not ok or bgr_frame is None:
                     self.owner._report_error(
                         tr(
-                            "{camera} is no longer available. {help}",
+                            "{camera} is no longer available.",
                             camera=self.owner.descriptor.display_name,
-                            help=self.owner._camera_access_help(),
-                        )
+                        ),
+                        access_help=self.owner._camera_access_help(),
                     )
                     return
                 self.owner._mark_frame_received()
@@ -579,20 +579,18 @@ class _NativeCameraWorker(QObject):
             return False
         if self.owner.camera_permission_denied:
             self.owner._report_error(
-                tr(
-                    "Camera access is denied. {help}",
-                    help=self.owner._camera_access_help(),
-                )
+                tr("Camera access is denied."),
+                access_help=self.owner._camera_access_help(),
             )
             return False
         device = _qt_camera_device(self.owner.descriptor)
         if device is None:
             self.owner._report_error(
                 tr(
-                    "{camera} is no longer available. {help}",
+                    "{camera} is no longer available.",
                     camera=self.owner.descriptor.display_name,
-                    help=self.owner._camera_access_help(),
-                )
+                ),
+                access_help=self.owner._camera_access_help(),
             )
             return False
         try:
@@ -614,11 +612,11 @@ class _NativeCameraWorker(QObject):
         except (OSError, RuntimeError, TypeError, ValueError) as error:
             self.owner._report_error(
                 tr(
-                    "Could not start {camera}. {help}",
+                    "Could not start {camera}.",
                     camera=self.owner.descriptor.display_name,
-                    help=self.owner._camera_access_help(),
                 ),
                 str(error),
+                self.owner._camera_access_help(),
             )
             return False
 
@@ -712,11 +710,11 @@ class _NativeCameraWorker(QObject):
         )
         self.owner._report_error(
             tr(
-                "Could not use {camera}. {help}",
+                "Could not use {camera}.",
                 camera=self.owner.descriptor.display_name,
-                help=self.owner._camera_access_help(),
             ),
             detail,
+            self.owner._camera_access_help(),
         )
         self.owner.quit()
 
@@ -734,7 +732,7 @@ class CameraThread(QThread):
     feature_ready = Signal(object)
     tracking_lost = Signal(object)
     camera_opened = Signal(int, int)
-    camera_error = Signal(str, str)
+    camera_error = Signal(str, str, str)
 
     def __init__(
         self,
@@ -782,11 +780,16 @@ class CameraThread(QThread):
         current_time = time.monotonic() if now is None else now
         return max(0.0, current_time - last_output_at)
 
-    def _report_error(self, message: str, details: str = "") -> None:
+    def _report_error(
+        self,
+        message: str,
+        details: str = "",
+        access_help: str = "",
+    ) -> None:
         if self.failure_message is not None:
             return
         self.failure_message = message
-        self.camera_error.emit(message, details)
+        self.camera_error.emit(message, details, access_help)
 
     @staticmethod
     def _camera_access_help() -> str:
@@ -834,11 +837,10 @@ class CameraThread(QThread):
         self.quit()
         self._report_error(
             tr(
-                "{camera} did not deliver a camera frame within 10 seconds. "
-                "{help}",
+                "{camera} did not deliver a camera frame within 10 seconds.",
                 camera=self.descriptor.display_name,
-                help=self._camera_access_help(),
-            )
+            ),
+            access_help=self._camera_access_help(),
         )
 
     @Slot()

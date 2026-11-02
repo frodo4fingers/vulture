@@ -248,10 +248,21 @@ def test_windows_camera_errors_include_permission_help(
 ) -> None:
     monkeypatch.setattr(camera_module.sys, "platform", "win32")
 
-    assert (
-        "Let desktop apps access your camera"
-        in CameraThread._camera_access_help()
+    descriptor = CameraDescriptor(
+        stable_id="qt-camera-test",
+        display_name="Test camera",
+        locator=0,
     )
+    camera_thread = CameraThread(descriptor)
+    camera_thread.camera_permission_denied = True
+    emitted = []
+    camera_thread.camera_error.connect(lambda *args: emitted.append(args))
+
+    _NativeCameraWorker(camera_thread).start()
+
+    message, _details, access_help = emitted[0]
+    assert "Let desktop apps access your camera" in access_help
+    assert "Let desktop apps" not in message
 
 
 def test_linux_camera_thread_uses_opencv_capture(monkeypatch) -> None:
@@ -391,7 +402,7 @@ def test_opencv_read_failure_is_reported_and_releases_capture(
     camera_thread = CameraThread(descriptor)
     errors = []
     camera_thread.camera_error.connect(
-        lambda message, _details: errors.append(message)
+        lambda message, _details, _help: errors.append(message)
     )
     detector = RecordingDetector()
     capture_arguments = []
@@ -562,7 +573,7 @@ def test_denied_camera_permission_fails_before_capture() -> None:
     camera_thread.camera_permission_denied = True
     errors = []
     camera_thread.camera_error.connect(
-        lambda message, _details: errors.append(message)
+        lambda message, _details, _help: errors.append(message)
     )
 
     started = _NativeCameraWorker(camera_thread).start()
@@ -581,7 +592,7 @@ def test_native_camera_startup_timeout_is_reported() -> None:
     camera_thread = CameraThread(descriptor)
     errors = []
     camera_thread.camera_error.connect(
-        lambda message, _details: errors.append(message)
+        lambda message, _details, _help: errors.append(message)
     )
     camera_thread._startup_pending = True
 

@@ -25,7 +25,7 @@ def test_report_error_emits_message_and_details() -> None:
 
     thread._report_error("calm", "raw cv2 text")
 
-    assert emitted == [("calm", "raw cv2 text")]
+    assert emitted == [("calm", "raw cv2 text", "")]
     assert thread.failure_message == "calm"
 
 

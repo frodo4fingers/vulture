@@ -427,6 +427,9 @@ class WorkdaySummaryDialog(QDialog):
         self.delete_confirmation = SemanticLabel(tone="safety")
         self.delete_confirmation.hide()
         layout.addWidget(self.delete_confirmation)
+        self.delete_confirmation_details = details_caption("")
+        self.delete_confirmation_details.hide()
+        layout.addWidget(self.delete_confirmation_details)
         confirmation_controls = QHBoxLayout()
         confirmation_controls.addStretch()
         self.cancel_delete_button = QPushButton(tr("&Cancel"))
@@ -785,6 +788,8 @@ class WorkdaySummaryDialog(QDialog):
 
     def _show_delete_confirmation(self) -> None:
         self.delete_confirmation.setToolTip("")
+        self.delete_confirmation_details.clear()
+        self.delete_confirmation_details.hide()
         self.delete_confirmation.show()
         self.cancel_delete_button.setText(tr("&Cancel"))
         self.cancel_delete_button.show()
@@ -800,6 +805,8 @@ class WorkdaySummaryDialog(QDialog):
     def _cancel_history_delete(self) -> None:
         self._pending_delete = None
         self.delete_confirmation.hide()
+        self.delete_confirmation_details.clear()
+        self.delete_confirmation_details.hide()
         self.cancel_delete_button.hide()
         self.confirm_delete_button.hide()
         self.delete_day_button.setEnabled(self._selected_day_has_data)
@@ -825,5 +832,7 @@ class WorkdaySummaryDialog(QDialog):
                 tr("History could not be deleted right now. Try again later.")
             )
             self.delete_confirmation.setToolTip(str(error))
+            self.delete_confirmation_details.setText(str(error))
+            self.delete_confirmation_details.show()
             self.confirm_delete_button.hide()
             self.cancel_delete_button.setText(tr("Close"))

@@ -35,3 +35,15 @@ def test_recording_shows_when_capture_starts(
     assert not dialog.progress_label.isHidden()
     assert not dialog.progress.isHidden()
     dialog.close()
+
+
+def test_capture_start_replaces_the_countdown_line(
+    application: QApplication,
+) -> None:
+    dialog = CalibrationDialog()
+    dialog._start_sample()
+    dialog._deadline = 0.0
+    dialog._tick()
+    assert dialog._phase == "capturing"
+    assert "starts in" not in dialog.quality_label.text()
+    dialog.close()

@@ -41,6 +41,7 @@ from vulture.history import (  # noqa: E402
     ActivePostureEpisode,
     PostureHistoryStore,
 )
+from vulture.i18n import tr  # noqa: E402
 from vulture.models import (  # noqa: E402
     AppData,
     CalibrationProfile,
@@ -314,7 +315,9 @@ class Session:
             except Exception:
                 traceback.print_exc()
 
-    def run_standalone(self, index: int, state: str, make: Callable[[], QDialog]) -> None:
+    def run_standalone(
+        self, index: int | str, state: str, make: Callable[[], QDialog]
+    ) -> None:
         dialog: QDialog | None = None
 
         def action() -> None:
@@ -332,6 +335,12 @@ class Session:
         self.run_state(1, "first-run", None)
         self.run_state(2, "add-setup", window._add_setup)
         self.run_state(3, "settings", window._show_settings, separate_window=True)
+        self.run_state(
+            "03b",
+            "settings-breaks",
+            self._present_settings_breaks,
+            separate_window=True,
+        )
         self.run_state(4, "summary", window._show_workday_summary, separate_window=True)
         if hasattr(PostureHistoryStore, "record_break"):
             self.run_state(
@@ -356,6 +365,9 @@ class Session:
             separate_window=True,
         )
         self.run_standalone(8, "calibration-capture", CalibrationDialog)
+        self.run_standalone(
+            "08b", "calibration-recording", self._present_calibration_recording
+        )
         self.run_standalone(
             9,
             "calibration-select",
@@ -393,6 +405,26 @@ class Session:
         assert self.window is not None and self.history is not None
         seed_breaks(self.history, datetime.now().astimezone())
         self.window._show_workday_summary()
+
+    def _present_settings_breaks(self) -> None:
+        assert self.window is not None
+        self.window._show_settings()
+        dialog = self.window._settings_dialog
+        assert dialog is not None, "settings dialog did not open"
+        for index in range(dialog.tabs.count()):
+            if dialog.tabs.tabText(index).replace("&", "") == tr("Breaks"):
+                dialog.tabs.setCurrentIndex(index)
+                return
+        raise AssertionError("Breaks tab not found")
+
+    def _present_calibration_recording(self) -> CalibrationDialog:
+        dialog = CalibrationDialog()
+        dialog.timer.stop()
+        dialog._start_sample()
+        # Countdown is over: the capture phase shows the recording bar.
+        dialog._deadline = 0.0
+        dialog._tick()
+        return dialog
 
 
 def report(
