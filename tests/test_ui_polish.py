@@ -61,8 +61,14 @@ def test_every_break_fits_without_scrolling(
         window.data.full_safety_shown = False
         window._pending_exercise = exercise
         window._present_exercise()
-        QTest.qWait(50)
+        # The safety text folds in a deferred pass; under load the scroll
+        # range settles later than a fixed wait (see test_ui.py's twin).
         bar = window.side_panel_host.verticalScrollBar()
+        for _ in range(200):
+            application.processEvents()
+            if bar.maximum() == 0:
+                break
+            QTest.qWait(10)
         assert bar.maximum() == 0, exercise.id
         window._dismiss_side_panel()
     _teardown_window(window, application)

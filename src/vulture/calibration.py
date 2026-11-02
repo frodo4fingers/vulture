@@ -96,6 +96,18 @@ def _robust_scale(values: Sequence[float], center: float) -> float:
     return max(median_absolute_deviation * 1.4826, empirical_floor)
 
 
+_ALL_FEATURES = tuple(
+    dict.fromkeys(
+        GENERAL_FEATURES
+        + tuple(
+            feature
+            for features in CATEGORY_FEATURES.values()
+            for feature in features
+        )
+    )
+)
+
+
 def _available_feature_names(
     frames: Sequence[FeatureFrame],
     requested: Iterable[str],
@@ -154,11 +166,17 @@ class CalibrationFitter:
         self.minimum_good_samples = minimum_good_samples
         self.minimum_bad_samples = minimum_bad_samples
 
-    def fit(
+    def check_baseline(
         self,
         good_frames: Sequence[FeatureFrame],
-        bad_frames: Mapping[PostureCategory, Sequence[FeatureFrame]] | None = None,
-    ) -> CalibrationProfile:
+        profile: CalibrationProfile | None = None,
+    ) -> list[FeatureFrame]:
+        """Return the clear, geometry-compatible frames or raise.
+
+        Without a profile the frames must agree with each other and show
+        enough stable features. With a saved profile they must instead sit
+        in its camera position and match its baseline.
+        """
         usable_good = [
             frame
             for frame in good_frames
@@ -173,38 +191,69 @@ class CalibrationFitter:
                     received=len(usable_good),
                 )
             )
-        provisional_geometry = _median_geometry(usable_good)
+        reference = (
+            _median_geometry(usable_good)
+            if profile is None
+            else profile.geometry
+        )
         usable_good = [
             frame
             for frame in usable_good
-            if geometry_compatible(
-                frame.geometry, provisional_geometry
-            )[0]
+            if geometry_compatible(frame.geometry, reference)[0]
         ]
         if len(usable_good) < self.minimum_good_samples:
             raise CalibrationError(
                 tr(
-                    "The camera or seating position moved too much during the "
-                    "baseline sample. Keep the setup still and retry."
+                    "The camera or your seat moved while recording the "
+                    "baseline. Keep the setup still and record it again."
+                )
+                if profile is None
+                else tr(
+                    "The camera seems to have moved since this setup was "
+                    "calibrated. Put it back where it was, or run a full "
+                    "calibration."
                 )
             )
+        if profile is None:
+            if len(_available_feature_names(usable_good, _ALL_FEATURES)) < 6:
+                raise CalibrationError(
+                    tr(
+                        "Too few stable head-and-shoulder features were "
+                        "visible."
+                    )
+                )
+            return usable_good
+        general_names = [
+            name for name in GENERAL_FEATURES if name in profile.good_center
+        ]
+        baseline_scores = [
+            general_deviation_score(
+                frame,
+                profile.good_center,
+                profile.good_scale,
+                general_names,
+            )
+            for frame in usable_good
+        ]
+        if _median(baseline_scores) > profile.general_off_threshold:
+            raise CalibrationError(
+                tr(
+                    "The demonstrated baseline does not match this setup's "
+                    "saved baseline. Return to the original position or run "
+                    "a full calibration."
+                )
+            )
+        return usable_good
+
+    def fit(
+        self,
+        good_frames: Sequence[FeatureFrame],
+        bad_frames: Mapping[PostureCategory, Sequence[FeatureFrame]] | None = None,
+    ) -> CalibrationProfile:
+        usable_good = self.check_baseline(good_frames)
         calibrated_geometry = _median_geometry(usable_good)
 
-        all_requested = tuple(
-            dict.fromkeys(
-                GENERAL_FEATURES
-                + tuple(
-                    feature
-                    for features in CATEGORY_FEATURES.values()
-                    for feature in features
-                )
-            )
-        )
-        feature_names = _available_feature_names(usable_good, all_requested)
-        if len(feature_names) < 6:
-            raise CalibrationError(
-                tr("Too few stable head-and-shoulder features were visible.")
-            )
+        feature_names = _available_feature_names(usable_good, _ALL_FEATURES)
 
         center: dict[str, float] = {}
         scale: dict[str, float] = {}
@@ -272,42 +321,7 @@ class CalibrationFitter:
                 tr("This posture category cannot be calibrated.")
             )
 
-        usable_good = [
-            frame
-            for frame in good_frames
-            if frame.overall_quality >= self.minimum_quality
-            and geometry_compatible(frame.geometry, profile.geometry)[0]
-        ]
-        if len(usable_good) < self.minimum_good_samples:
-            raise CalibrationError(
-                tr(
-                    "Need at least {minimum} clear baseline samples in the "
-                    "original camera position; received {received}.",
-                    minimum=self.minimum_good_samples,
-                    received=len(usable_good),
-                )
-            )
-
-        general_names = [
-            name for name in GENERAL_FEATURES if name in profile.good_center
-        ]
-        baseline_scores = [
-            general_deviation_score(
-                frame,
-                profile.good_center,
-                profile.good_scale,
-                general_names,
-            )
-            for frame in usable_good
-        ]
-        if _median(baseline_scores) > profile.general_off_threshold:
-            raise CalibrationError(
-                tr(
-                    "The demonstrated baseline does not match this setup's "
-                    "saved baseline. Return to the original position or run "
-                    "a full calibration."
-                )
-            )
+        usable_good = self.check_baseline(good_frames, profile)
 
         usable_bad = [
             frame

@@ -870,16 +870,17 @@ class CalibrationDialog(QDialog):
         self._advance()
 
     def _tick(self) -> None:
-        quality_percent = round(self._latest_quality * 100)
         if self._phase == "idle":
-            text = tr(
-                "Current tracking quality: {quality}% (70% required)",
-                quality=quality_percent,
-            )
-            if quality_percent < 70:
-                text += "\n" + tr(
-                    "Move so your face and shoulders are in view, with "
-                    "light in front of you."
+            if self._latest_quality >= 0.70:
+                text = tr("The camera sees you clearly.")
+            else:
+                text = (
+                    tr("The camera can't see you clearly yet.")
+                    + "\n"
+                    + tr(
+                        "Move so your face and shoulders are in view, with "
+                        "light in front of you."
+                    )
                 )
             self.quality_label.setText(text)
             return
@@ -929,18 +930,7 @@ class CalibrationDialog(QDialog):
         minimum_samples = 30 if step.category is None else 15
         self._play_cue("end")
         if len(self._current_samples) < minimum_samples:
-            self._phase = "idle"
-            self._stage_status[self._step_index] = "retry"
-            self.progress.setValue(0)
-            self._show_recording(False)
-            self.start_button.setText(tr("Record again"))
-            self._assign_mnemonics()
-            self.start_button.setEnabled(True)
-            self.skip_button.setEnabled(not step.required)
-            self.phase_label.setText(tr("Let's try that again"))
-            # The idle tick keeps rewriting quality_label, so the reason
-            # lives in the feedback panel where it stays readable.
-            message = (
+            self._retry_step(
                 tr(
                     "The camera could not see you clearly enough. Adjust "
                     "the camera or your position, then record this step "
@@ -953,15 +943,38 @@ class CalibrationDialog(QDialog):
                     "skip this optional example."
                 )
             )
-            self.feedback_label.setText(message)
-            self.feedback_label.show()
-            self._announce(tr("Recording finished.") + " " + message)
-            self._refresh_stepper()
             return
+        if step.category is None:
+            # Catch a moved camera or seat now, not after all five steps.
+            try:
+                CalibrationFitter().check_baseline(
+                    self._current_samples, self.base_profile
+                )
+            except CalibrationError as error:
+                self._retry_step(str(error))
+                return
         self._announce(tr("Recording finished."))
         self._samples[step.key] = list(self._current_samples)
         self._stage_status[self._step_index] = "recorded"
         self._advance()
+
+    def _retry_step(self, message: str) -> None:
+        step = self.steps[self._step_index]
+        self._phase = "idle"
+        self._stage_status[self._step_index] = "retry"
+        self.progress.setValue(0)
+        self._show_recording(False)
+        self.start_button.setText(tr("Record again"))
+        self._assign_mnemonics()
+        self.start_button.setEnabled(True)
+        self.skip_button.setEnabled(not step.required)
+        self.phase_label.setText(tr("Let's try that again"))
+        # The idle tick keeps rewriting quality_label, so the reason
+        # lives in the feedback panel where it stays readable.
+        self.feedback_label.setText(message)
+        self.feedback_label.show()
+        self._announce(tr("Recording finished.") + " " + message)
+        self._refresh_stepper()
 
     def _advance(self) -> None:
         self._step_index += 1
