@@ -480,7 +480,7 @@ class CalibrationStepSelectionDialog(QDialog):
         self.step_combo = QComboBox()
         for step in CALIBRATION_STEPS:
             if step.category is None:
-                status = tr("saved baseline")
+                status = tr("saved")
             else:
                 calibration = profile.categories.get(step.category)
                 if calibration is None:
@@ -1010,7 +1010,7 @@ class CalibrationDialog(QDialog):
                 self.completion_notice = tr(
                     "The camera could not reliably separate these examples, "
                     "so they remain disabled for this setup: {postures}. "
-                    "General deviation reminders remain available.",
+                    "General posture nudges remain available.",
                     postures=", ".join(disabled + unavailable),
                 )
         if not self._finished:

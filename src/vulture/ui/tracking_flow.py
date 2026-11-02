@@ -302,12 +302,12 @@ class TrackingFlowMixin:
             return
 
         self._show_tray_message(
-            tr("Vulture posture reminder"),
+            tr("Posture nudge"),
             tr(
                 "{message} Change position when comfortable.",
                 message=assessment.message,
             ),
-            QSystemTrayIcon.MessageIcon.Warning,
+            QSystemTrayIcon.MessageIcon.Information,
             8000,
         )
         setup = self.data.active_setup()

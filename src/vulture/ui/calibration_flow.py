@@ -288,7 +288,7 @@ class CalibrationFlowMixin:
             key="good",
             title="Confirm saved comfortable baseline",
             instructions=(
-                "Return to the comfortable good posture used for this "
+                "Return to the comfortable posture used for this "
                 "setup. This confirms that the camera and seat still "
                 "match before the new posture example is learned."
             ),

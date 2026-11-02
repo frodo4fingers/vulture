@@ -413,31 +413,6 @@ class SettingsDialog(QDialog):
         )
         layout.addWidget(self.reset_controls)
 
-        layout.addWidget(Separator())
-        exercise_label = QLabel(tr("Exercise accessibility"))
-        apply_text_role(exercise_label, TextRole.BODY_STRONG)
-        layout.addWidget(exercise_label)
-        self.seated_only = _check(
-            tr("Only show seated movements"), preferences.seated_only
-        )
-        self.allow_balance = _check(
-            tr("Allow movements that require standing balance"),
-            preferences.allow_balance_exercises,
-        )
-        self.allow_strength = _check(
-            tr("Allow light strength movements such as sit-to-stand"),
-            preferences.allow_strength_exercises,
-        )
-        # Seated-only already rules out standing balance; the saved choice
-        # stays for when seated-only is turned off again.
-        self.seated_only.toggled.connect(
-            lambda seated: self.allow_balance.setEnabled(not seated)
-        )
-        self.allow_balance.setEnabled(not preferences.seated_only)
-        layout.addWidget(self.seated_only)
-        layout.addWidget(self.allow_balance)
-        layout.addWidget(self.allow_strength)
-
         evidence_note = CaptionLabel(
             tr(
                 "Short, frequent movement breaks have stronger support "
@@ -454,6 +429,31 @@ class SettingsDialog(QDialog):
         )
         layout.addWidget(evidence_toggle, 0, Qt.AlignmentFlag.AlignLeft)
         layout.addWidget(evidence_note)
+
+        layout.addWidget(Separator())
+        exercise_label = QLabel(tr("Exercise accessibility"))
+        apply_text_role(exercise_label, TextRole.BODY_STRONG)
+        layout.addWidget(exercise_label)
+        self.seated_only = _check(
+            tr("Only suggest seated guided movements"), preferences.seated_only
+        )
+        self.allow_balance = _check(
+            tr("Allow movements that require standing balance"),
+            preferences.allow_balance_exercises,
+        )
+        self.allow_strength = _check(
+            tr("Allow light strength movements such as sit-to-stand"),
+            preferences.allow_strength_exercises,
+        )
+        # Seated-only rules out standing balance, and every strength movement
+        # is also a balance one, so strength needs balance. A disabled box
+        # keeps its saved choice.
+        self.seated_only.toggled.connect(self._sync_exercise_options)
+        self.allow_balance.toggled.connect(self._sync_exercise_options)
+        self._sync_exercise_options()
+        layout.addWidget(self.seated_only)
+        layout.addWidget(self.allow_balance)
+        layout.addWidget(self.allow_strength)
         layout.addStretch(1)
 
         for toggle in (
@@ -595,10 +595,10 @@ class SettingsDialog(QDialog):
             self.suggest_breathing_reset,
             self.suggest_offscreen_reset,
             self.suggest_reset_guided_exercise,
+            evidence_toggle,
             self.seated_only,
             self.allow_balance,
             self.allow_strength,
-            evidence_toggle,
             self.save_history,
             self.history_retention_days,
             self.language_combo,
@@ -614,6 +614,11 @@ class SettingsDialog(QDialog):
         self._history_preferences = history_preferences
         self._language = language
         self._startup_setting_available = startup_setting_available
+
+    def _sync_exercise_options(self) -> None:
+        free = not self.seated_only.isChecked()
+        self.allow_balance.setEnabled(free)
+        self.allow_strength.setEnabled(free and self.allow_balance.isChecked())
 
     def _add_page(self, title: str) -> QVBoxLayout:
         """Add a tab whose content scrolls only if the window is tiny."""
