@@ -49,7 +49,7 @@ def test_delete_failure_shows_raw_error_in_details_caption(
     dialog._confirm_history_delete()
 
     assert "could not be deleted" in dialog.delete_confirmation.text()
-    assert dialog.delete_confirmation.toolTip() == "database is locked"
+    assert dialog.delete_confirmation.toolTip() == ""
     assert caption.text() == "database is locked"
     assert caption.isVisible()
     dialog.close()

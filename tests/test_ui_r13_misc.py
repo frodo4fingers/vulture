@@ -33,7 +33,6 @@ def test_calibration_recording_hidden_when_idle(
     dialog = CalibrationDialog()
     assert dialog._phase == "idle"
     assert dialog.progress.isHidden()
-    assert dialog.progress_label.isHidden()
     dialog.timer.stop()
     dialog.close()
 

@@ -18,7 +18,6 @@ def test_recording_stays_hidden_during_countdown(
     dialog.timer.stop()
     dialog._start_sample()
     assert dialog._phase == "preparing"
-    assert dialog.progress_label.isHidden()
     assert dialog.progress.isHidden()
     dialog.close()
 
@@ -32,7 +31,6 @@ def test_recording_shows_when_capture_starts(
     dialog._deadline = 0.0
     dialog._tick()
     assert dialog._phase == "capturing"
-    assert not dialog.progress_label.isHidden()
     assert not dialog.progress.isHidden()
     dialog.close()
 

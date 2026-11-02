@@ -21,7 +21,6 @@
   "Calibration cancelled. Existing calibration was kept.": "Calibración cancelada. Se ha conservado la calibración existente.",
   "Calibration could not be saved. The existing calibration was kept.": "No se pudo guardar la calibración. Se ha conservado la calibración existente.",
   "Calibration could not be saved. This setup still needs calibration.": "No se pudo guardar la calibración. Esta configuración sigue necesitando calibración.",
-  "Calibration incomplete": "Calibración incompleta",
   "Calibration is a personal visual baseline, not a medical test. Never force an uncomfortable posture.": "La calibración establece una postura de referencia visual personal; no es una prueba médica. Nunca fuerce una postura incómoda.",
   "Calibration saved.": "Calibración guardada.",
   "Calibration step": "Etapa de calibración",
@@ -146,7 +145,6 @@
   "Recalibrating posture example: {posture}.": "Volviendo a calibrar el ejemplo de postura: {posture}.",
   "Record the selected posture example before saving.": "Registre el ejemplo de postura seleccionado antes de guardar.",
   "Record the comfortable baseline or one posture example again.": "Vuelva a registrar la postura de referencia cómoda o un ejemplo de postura.",
-  "Recording clear samples: {count}": "Registrando muestras claras: {count}",
   "Recording starts in {seconds}...": "El registro empieza en {seconds}...",
   "&Refresh": "&Actualizar",
   "Replacing the comfortable baseline removes every learned posture example for this setup, because they were learned relative to it. You will need to recalibrate those steps individually. Continue?": "Si reemplaza la postura de referencia cómoda, se eliminarán todos los ejemplos de postura aprendidos para esta configuración, porque se aprendieron en relación con ella. Tendrá que volver a calibrar esos pasos uno por uno. ¿Continuar?",
@@ -432,7 +430,8 @@
   "Your latest changes could not be saved. Try again in a moment.": "No se pudieron guardar sus últimos cambios. Inténtelo de nuevo en un momento.",
   "Could not use {camera}.": "No se pudo usar {camera}.",
   "The workday summary could not be loaded right now.": "El resumen de la jornada no se pudo cargar en este momento.",
-  "Recording": "Grabando",
   "Move so your face and shoulders are in view, with light in front of you.": "Colóquese de modo que su cara y sus hombros se vean, con la luz delante de usted.",
-  "{minutes}m": "{minutes} min"
+  "{minutes}m": "{minutes} min",
+  "{seconds}s left.": "Quedan {seconds} s.",
+  "Calibration incomplete: {error}": "Calibración incompleta: {error}"
 }

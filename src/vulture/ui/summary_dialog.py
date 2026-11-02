@@ -787,7 +787,6 @@ class WorkdaySummaryDialog(QDialog):
         self._show_delete_confirmation()
 
     def _show_delete_confirmation(self) -> None:
-        self.delete_confirmation.setToolTip("")
         self.delete_confirmation_details.clear()
         self.delete_confirmation_details.hide()
         self.delete_confirmation.show()
@@ -831,7 +830,6 @@ class WorkdaySummaryDialog(QDialog):
             self.delete_confirmation.setText(
                 tr("History could not be deleted right now. Try again later.")
             )
-            self.delete_confirmation.setToolTip(str(error))
             self.delete_confirmation_details.setText(str(error))
             self.delete_confirmation_details.show()
             self.confirm_delete_button.hide()

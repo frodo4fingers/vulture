@@ -87,7 +87,7 @@ def test_pending_notice_keeps_details(
     _teardown_window(window, application)
 
 
-def test_summary_delete_failure_is_calm_with_tooltip(
+def test_summary_delete_failure_is_calm_with_details(
     application: QApplication,
 ) -> None:
     today = datetime.now().astimezone().date()
@@ -117,8 +117,11 @@ def test_summary_delete_failure_is_calm_with_tooltip(
     assert dialog.delete_confirmation.text() == (
         "History could not be deleted right now. Try again later."
     )
-    assert dialog.delete_confirmation.toolTip() == "disk full"
+    assert dialog.delete_confirmation.toolTip() == ""
+    assert dialog.delete_confirmation_details.text() == "disk full"
 
     dialog._delete_selected_day()
     assert dialog.delete_confirmation.toolTip() == ""
+    assert dialog.delete_confirmation_details.text() == ""
+    assert dialog.delete_confirmation_details.isHidden()
     dialog.close()

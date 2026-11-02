@@ -21,7 +21,6 @@
   "Calibration cancelled. Existing calibration was kept.": "Kalibrierung abgebrochen. Die vorhandene Kalibrierung wurde beibehalten.",
   "Calibration could not be saved. The existing calibration was kept.": "Die Kalibrierung konnte nicht gespeichert werden. Die vorhandene Kalibrierung wurde beibehalten.",
   "Calibration could not be saved. This setup still needs calibration.": "Die Kalibrierung konnte nicht gespeichert werden. Diese Konfiguration muss weiterhin kalibriert werden.",
-  "Calibration incomplete": "Kalibrierung unvollständig",
   "Calibration is a personal visual baseline, not a medical test. Never force an uncomfortable posture.": "Die Kalibrierung legt eine persönliche visuelle Ausgangshaltung fest und ist kein medizinischer Test. Erzwingen Sie niemals eine unangenehme Haltung.",
   "Calibration saved.": "Kalibrierung gespeichert.",
   "Calibration step": "Kalibrierungsstufe",
@@ -146,7 +145,6 @@
   "Recalibrating posture example: {posture}.": "Haltungsbeispiel wird erneut kalibriert: {posture}.",
   "Record the selected posture example before saving.": "Erfassen Sie das ausgewählte Haltungsbeispiel vor dem Speichern.",
   "Record the comfortable baseline or one posture example again.": "Erfassen Sie die bequeme Ausgangshaltung oder ein Haltungsbeispiel erneut.",
-  "Recording clear samples: {count}": "Klare Aufnahmen werden erfasst: {count}",
   "Recording starts in {seconds}...": "Erfassung beginnt in {seconds}...",
   "&Refresh": "A&ktualisieren",
   "Replacing the comfortable baseline removes every learned posture example for this setup, because they were learned relative to it. You will need to recalibrate those steps individually. Continue?": "Wenn die bequeme Ausgangshaltung ersetzt wird, werden alle angelernten Haltungsbeispiele für diese Konfiguration entfernt, weil sie relativ zu ihr gelernt wurden. Sie müssen diese Schritte einzeln neu kalibrieren. Fortfahren?",
@@ -432,7 +430,8 @@
   "Your latest changes could not be saved. Try again in a moment.": "Ihre letzten Änderungen konnten nicht gespeichert werden. Versuchen Sie es gleich noch einmal.",
   "Could not use {camera}.": "{camera} konnte nicht verwendet werden.",
   "The workday summary could not be loaded right now.": "Die Arbeitstagübersicht konnte gerade nicht geladen werden.",
-  "Recording": "Aufnahme",
   "Move so your face and shoulders are in view, with light in front of you.": "Setzen Sie sich so, dass Gesicht und Schultern im Bild sind und das Licht von vorn kommt.",
-  "{minutes}m": "{minutes} Min."
+  "{minutes}m": "{minutes} Min.",
+  "{seconds}s left.": "Noch {seconds} Sek.",
+  "Calibration incomplete: {error}": "Kalibrierung unvollständig: {error}"
 }

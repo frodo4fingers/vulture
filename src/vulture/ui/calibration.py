@@ -700,14 +700,11 @@ class CalibrationDialog(QDialog):
         self.progress.setRange(0, 100)
         self.progress.setValue(0)
         self.progress.setAccessibleName(tr("Recording progress"))
-        self.progress_label = CaptionLabel(tr("Recording"))
-        self.progress_label.hide()
         self.progress.hide()
         layout.addWidget(self.role_label)
         layout.addLayout(reference_row)
         layout.addWidget(self.phase_label)
         layout.addWidget(self.quality_label)
-        layout.addWidget(self.progress_label)
         layout.addWidget(self.progress)
         self.feedback_label = SemanticLabel(tone="safety")
         self.feedback_label.hide()
@@ -821,7 +818,6 @@ class CalibrationDialog(QDialog):
         )
 
     def _show_recording(self, visible: bool) -> None:
-        self.progress_label.setVisible(visible)
         self.progress.setVisible(visible)
 
     def _announce(self, message: str) -> None:
@@ -908,12 +904,16 @@ class CalibrationDialog(QDialog):
             self.progress.setValue(
                 min(100, round(elapsed / step.capture_seconds * 100))
             )
-            self.quality_label.setText(
-                tr(
-                    "Recording clear samples: {count}",
-                    count=len(self._current_samples),
-                )
+            text = tr(
+                "{seconds}s left.",
+                seconds=max(1, math.ceil(remaining)),
             )
+            if elapsed >= 1 and not self._current_samples:
+                text += "\n" + tr(
+                    "Move so your face and shoulders are in view, with "
+                    "light in front of you."
+                )
+            self.quality_label.setText(text)
             if remaining <= 0:
                 self._finish_sample()
 
@@ -1004,7 +1004,7 @@ class CalibrationDialog(QDialog):
             self._stage_status = ["pending" for _step in self.steps]
             self._show_step()
             self.feedback_label.setText(
-                tr("Calibration incomplete") + ": " + str(error)
+                tr("Calibration incomplete: {error}", error=error)
             )
             self.feedback_label.show()
             self.timer.start()
