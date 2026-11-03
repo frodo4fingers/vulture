@@ -23,6 +23,7 @@ from vulture.breaks import (
     reset_break_activities,
     reset_break_message,
 )
+from vulture.camera import CAMERA_SILENT_AFTER_SECONDS
 from vulture.history import (
     BreakEvent,
     DailyPostureSummary,
@@ -51,7 +52,7 @@ from .break_options import (
 
 class TrackingFlowMixin:
     _CAMERA_UNCERTAIN_AFTER_SECONDS = 3.0
-    _CAMERA_UNAVAILABLE_AFTER_SECONDS = 10.0
+    _CAMERA_UNAVAILABLE_AFTER_SECONDS = CAMERA_SILENT_AFTER_SECONDS
 
     def _toggle_tracking(self) -> None:
         if self._language_reload_preparing:

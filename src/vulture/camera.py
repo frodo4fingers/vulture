@@ -34,6 +34,8 @@ from PySide6.QtMultimedia import (
 DEFAULT_ANALYSIS_FPS = 5.0
 DEFAULT_PREVIEW_FPS = 2.0
 DEFAULT_PREVIEW_MAX_WIDTH = 320
+# A camera with no output for this long counts as unavailable.
+CAMERA_SILENT_AFTER_SECONDS = 10.0
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -819,7 +821,9 @@ class CameraThread(QThread):
         if self._startup_timer is None:
             self._startup_timer = QTimer(self)
             self._startup_timer.setSingleShot(True)
-            self._startup_timer.setInterval(10_000)
+            self._startup_timer.setInterval(
+                round(CAMERA_SILENT_AFTER_SECONDS * 1000)
+            )
             self._startup_timer.timeout.connect(self._on_startup_timeout)
         self._startup_timer.start()
         super().start(priority)

@@ -446,5 +446,9 @@
   "Yes, delete &this day": "Sí, eliminar &este día",
   "Yes, delete &everything": "Sí, eliminar &todo",
   "Starting the camera…": "Iniciando la cámara…",
-  "&Close": "&Cerrar"
+  "&Close": "&Cerrar",
+  "No camera image yet": "Todavía no hay imagen de la cámara",
+  "No camera image yet.": "Todavía no hay imagen de la cámara.",
+  "Check that the camera is connected and no other app is using it, or cancel and try again.": "Compruebe que la cámara está conectada y que ninguna otra aplicación la está usando, o cancele e inténtelo de nuevo.",
+  "You can start recording now.": "Ya puede iniciar el registro."
 }

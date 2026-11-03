@@ -26,7 +26,7 @@ from PySide6.QtWidgets import (
 )
 
 from vulture.calibration import CalibrationError, CalibrationFitter
-from vulture.camera import discover_cameras
+from vulture.camera import CAMERA_SILENT_AFTER_SECONDS, discover_cameras
 from vulture.i18n import tr
 from vulture.models import (
     CalibrationProfile,
@@ -663,6 +663,8 @@ class CalibrationDialog(QDialog):
         self._last_sample_at = 0.0
         self._samples: dict[str, list[FeatureFrame]] = defaultdict(list)
         self._latest_quality: float | None = None
+        self._last_output_at = time.monotonic()
+        self._silent_hint_shown = False
         self._view_clear = False
         self._retrying = False
         self._stage_status = ["pending" for _step in self.steps]
@@ -794,15 +796,21 @@ class CalibrationDialog(QDialog):
     def _note_quality(self, quality: float) -> None:
         first_output = self._latest_quality is None
         self._latest_quality = quality
+        self._last_output_at = time.monotonic()
+        self._silent_hint_shown = False
         if first_output and self._phase == "idle":
             self.start_button.setEnabled(True)
-            self._focus_start()
+            if not self._focus_start():
+                self._announce(tr("You can start recording now."))
 
-    def _focus_start(self) -> None:
+    def _focus_start(self) -> bool:
         # Disabling Start pushes focus on to Cancel or leaves it on the
-        # stepper; hand it back, but keep a deliberate move to Skip.
+        # stepper; hand it back, but keep a deliberate move elsewhere,
+        # e.g. Skip or the instructions.
         if self.focusWidget() in (None, self.stepper, self.cancel_button):
             self.start_button.setFocus()
+            return True
+        return False
 
     def _show_step(self) -> None:
         step = self.steps[self._step_index]
@@ -912,8 +920,22 @@ class CalibrationDialog(QDialog):
 
     def _tick(self) -> None:
         if self._phase == "idle":
+            # Before the first output, or once the camera has stalled.
+            silent_for = time.monotonic() - self._last_output_at
+            if silent_for >= CAMERA_SILENT_AFTER_SECONDS:
+                if not self._silent_hint_shown:
+                    self._silent_hint_shown = True
+                    hint = tr(
+                        "Check that the camera is connected and no other app "
+                        "is using it, or cancel and try again."
+                    )
+                    if not self._retrying:
+                        self.phase_label.setText(tr("No camera image yet"))
+                    self.quality_label.setText(hint)
+                    self._announce(tr("No camera image yet.") + " " + hint)
+                return
             if self._latest_quality is None:
-                return  # no camera frame yet; keep the initial wording
+                return  # no camera output yet; keep the initial wording
             # Two thresholds, so a score near the cutoff doesn't flicker.
             if self._latest_quality >= VIEW_CLEAR_QUALITY:
                 self._view_clear = True
