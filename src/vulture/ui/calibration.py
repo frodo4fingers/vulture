@@ -710,7 +710,7 @@ class CalibrationDialog(QDialog):
         )
         self.phase_label = QLabel()
         apply_text_role(self.phase_label, TextRole.HEADING)
-        self.quality_label = QLabel(tr("Looking for you in the camera…"))
+        self.quality_label = QLabel()
         self.quality_label.setWordWrap(True)
         self.progress = QProgressBar()
         self.progress.setRange(0, 100)
@@ -781,10 +781,28 @@ class CalibrationDialog(QDialog):
             if step.category is None
             else frame.category_quality.get(step.category, 0.0)
         )
-        self._latest_quality = quality
+        self._note_quality(quality)
         if self._phase == "capturing" and quality >= VIEW_CLEAR_QUALITY:
             self._current_samples.append(frame)
             self._last_sample_at = time.monotonic()
+
+    def note_tracking_lost(self) -> None:
+        """The camera runs but cannot find the user in this frame."""
+        if self._step_index < len(self.steps):
+            self._note_quality(0.0)
+
+    def _note_quality(self, quality: float) -> None:
+        first_output = self._latest_quality is None
+        self._latest_quality = quality
+        if first_output and self._phase == "idle":
+            self.start_button.setEnabled(True)
+            self._focus_start()
+
+    def _focus_start(self) -> None:
+        # Disabling Start pushes focus on to Cancel or leaves it on the
+        # stepper; hand it back, but keep a deliberate move to Skip.
+        if self.focusWidget() in (None, self.stepper, self.cancel_button):
+            self.start_button.setFocus()
 
     def _show_step(self) -> None:
         step = self.steps[self._step_index]
@@ -815,8 +833,10 @@ class CalibrationDialog(QDialog):
         self._show_recording(False)
         self.start_button.setText(tr("Start recording"))
         self._assign_mnemonics()
-        self.start_button.setEnabled(True)
+        self.start_button.setEnabled(self._latest_quality is not None)
         self.skip_button.setEnabled(not step.required)
+        if self.start_button.isEnabled():
+            self._focus_start()
         self.feedback_label.clear()
         self.feedback_label.hide()
         self._phase = "idle"
@@ -998,6 +1018,7 @@ class CalibrationDialog(QDialog):
         self._assign_mnemonics()
         self.start_button.setEnabled(True)
         self.skip_button.setEnabled(not step.required)
+        self._focus_start()
         self._retrying = True
         self.phase_label.setText(tr("Let's try that again"))
         # The idle tick keeps rewriting quality_label, so the reason

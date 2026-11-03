@@ -26,7 +26,7 @@ def test_no_frame_yet_keeps_initial_texts(application: QApplication) -> None:
     for _ in range(3):
         dialog._tick()
     assert dialog.phase_label.text() == heading == "Starting the camera…"
-    assert dialog.quality_label.text() == line == "Looking for you in the camera…"
+    assert dialog.quality_label.text() == line == ""
     dialog.close()
 
 

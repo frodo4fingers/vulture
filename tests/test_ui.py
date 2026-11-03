@@ -757,6 +757,7 @@ def test_tracking_loss_uses_posture_transition_buffer() -> None:
         camera_thread=None,
         _language_reload_preparing=False,
         _calibration_flow_active=False,
+        _calibration_dialog=None,
         _tracking_enabled=True,
         evaluator=Evaluator(),
         _suspend_history=lambda: calls.append("history"),
@@ -782,6 +783,7 @@ def test_stale_tracking_loss_has_no_ui_side_effects() -> None:
         camera_thread=None,
         _language_reload_preparing=False,
         _calibration_flow_active=False,
+        _calibration_dialog=None,
         _tracking_enabled=True,
         evaluator=SimpleNamespace(
             mark_tracking_uncertain=lambda _captured_at: False,

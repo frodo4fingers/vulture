@@ -247,6 +247,11 @@ class TrackingFlowMixin:
         if sender is not None and sender is not self.camera_thread:
             return
         if (
+            self._calibration_dialog is not None
+            and not self._language_reload_preparing
+        ):
+            self._calibration_dialog.note_tracking_lost()
+        if (
             self._language_reload_preparing
             or self._calibration_flow_active
             or not self._tracking_enabled
