@@ -642,9 +642,12 @@ class SettingsDialog(QDialog):
         )
         buttons.accepted.connect(self._validate_and_accept)
         buttons.rejected.connect(self.reject)
-        set_primary(
-            buttons.button(QDialogButtonBox.StandardButton.Save), True
-        )
+        save_button = buttons.button(QDialogButtonBox.StandardButton.Save)
+        cancel_button = buttons.button(QDialogButtonBox.StandardButton.Cancel)
+        # The platform theme may add "&" Alt keys (GNOME: "&Save").
+        save_button.setText(tr("Save"))
+        cancel_button.setText(tr("Cancel"))
+        set_primary(save_button, True)
         outer_layout.addWidget(buttons)
         self._assign_break_mnemonics(buttons)
         # Tab order follows the visual order, one chain across every tab:

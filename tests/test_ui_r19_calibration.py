@@ -63,8 +63,7 @@ def test_idle_text_when_clear(application: QApplication) -> None:
 
 def test_idle_text_when_unclear(application: QApplication) -> None:
     text = _idle_text(0.5)
-    assert text.startswith("The camera can't see you clearly yet.\n")
-    assert "Move so your face and shoulders are in view" in text
+    assert text.startswith("Move so your face and shoulders are in view")
     assert "%" not in text
 
 

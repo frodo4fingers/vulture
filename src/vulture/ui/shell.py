@@ -725,7 +725,7 @@ class ShellMixin:
         action.setEnabled(enabled)
         # ``iconText`` is the label without its ``&`` mnemonic marker.
         action.setToolTip(
-            shortcut_hint(tooltip or action.iconText(), action.shortcut())
+            shortcut_hint(tooltip or action.iconText(), action.shortcuts())
             if enabled
             else disabled_reason
         )

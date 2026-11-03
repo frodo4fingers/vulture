@@ -75,19 +75,33 @@ def announce(widget: QWidget, message: str) -> None:
     QAccessible.updateAccessibility(event)
 
 
+_Shortcut = QKeySequence | QKeySequence.StandardKey | str
+
+
 def shortcut_hint(
-    text: str, shortcut: QKeySequence | QKeySequence.StandardKey | str
+    text: str, shortcut: _Shortcut | list[_Shortcut] | tuple[_Shortcut, ...]
 ) -> str:
-    """``text`` followed by its platform-native shortcut, for tooltips."""
-    sequence = (
-        shortcut
-        if isinstance(shortcut, QKeySequence)
-        else QKeySequence(shortcut)
+    """``text`` followed by its platform-native shortcut(s), for tooltips.
+
+    A list or tuple gives several shortcuts, shown as ``(A · B)``. Empty
+    and duplicate shortcuts are dropped; no shortcut left gives ``text``.
+    """
+    shortcuts = (
+        shortcut if isinstance(shortcut, list | tuple) else [shortcut]
     )
-    if sequence.isEmpty():
+    natives: list[str] = []
+    for item in shortcuts:
+        sequence = (
+            item if isinstance(item, QKeySequence) else QKeySequence(item)
+        )
+        if sequence.isEmpty():
+            continue
+        native = sequence.toString(QKeySequence.SequenceFormat.NativeText)
+        if native not in natives:
+            natives.append(native)
+    if not natives:
         return text
-    native = sequence.toString(QKeySequence.SequenceFormat.NativeText)
-    return f"{text} ({native})"
+    return f"{text} ({' · '.join(natives)})"
 
 
 def set_tooltip_with_shortcut(

@@ -656,5 +656,9 @@ class EvidenceDialog(QDialog):
         )
         layout.addWidget(browser)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        # The platform theme may add an "&" Alt key (GNOME: "&Close").
+        buttons.button(QDialogButtonBox.StandardButton.Close).setText(
+            tr("Close")
+        )
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)

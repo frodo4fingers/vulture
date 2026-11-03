@@ -354,7 +354,11 @@ def _friendly_camera_name(camera: CameraDescriptor) -> str:
     """The camera's description without the trailing device path."""
     suffix = f" ({camera.locator})"
     name = camera.display_name
-    return name[: -len(suffix)] if name.endswith(suffix) else name
+    name = name[: -len(suffix)] if name.endswith(suffix) else name
+    # The kernel cuts card names at 31 characters, so "Integrated Camera:
+    # Integrated C" is the same name twice.
+    card, separator, product = name.partition(": ")
+    return card if separator and card.startswith(product) else name
 
 
 class SetupDialog(QDialog):
@@ -424,6 +428,8 @@ class SetupDialog(QDialog):
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Save)
         buttons.accepted.connect(self._validate_and_accept)
         save_button = buttons.button(QDialogButtonBox.StandardButton.Save)
+        # The platform theme may add an "&" Alt key (GNOME: "&Save").
+        save_button.setText(tr("Save"))
         save_button.setEnabled(bool(self._cameras))
         set_primary(save_button, True)
         layout.addWidget(buttons)
@@ -536,6 +542,8 @@ class CalibrationStepSelectionDialog(QDialog):
         layout.addStretch(1)
         layout.addWidget(buttons)
         cancel_button = buttons.button(QDialogButtonBox.StandardButton.Cancel)
+        # Translated text; _set_confirm_text then adds the unique Alt keys.
+        cancel_button.setText(tr("Cancel"))
         self._cancel_button = cancel_button
         QWidget.setTabOrder(self.step_combo, self.confirm_button)
         QWidget.setTabOrder(self.confirm_button, cancel_button)
@@ -605,6 +613,10 @@ SOUND_CUE_FILES = {
     "end": "record-end.wav",
 }
 SOUND_CUE_VOLUME = 0.6
+# Camera quality that counts as "in view" and the lower level it must fall
+# below to stop counting, so the idle text does not flicker at the cutoff.
+VIEW_CLEAR_QUALITY = 0.70
+VIEW_LOST_QUALITY = 0.60
 
 
 class CalibrationDialog(QDialog):
@@ -651,6 +663,8 @@ class CalibrationDialog(QDialog):
         self._last_sample_at = 0.0
         self._samples: dict[str, list[FeatureFrame]] = defaultdict(list)
         self._latest_quality = 0.0
+        self._view_clear = False
+        self._retrying = False
         self._stage_status = ["pending" for _step in self.steps]
         self._finished = False
 
@@ -696,7 +710,7 @@ class CalibrationDialog(QDialog):
         )
         self.phase_label = QLabel()
         apply_text_role(self.phase_label, TextRole.HEADING)
-        self.quality_label = QLabel(tr("Looking for you in the camera..."))
+        self.quality_label = QLabel(tr("Looking for you in the camera…"))
         self.quality_label.setWordWrap(True)
         self.progress = QProgressBar()
         self.progress.setRange(0, 100)
@@ -768,7 +782,7 @@ class CalibrationDialog(QDialog):
             else frame.category_quality.get(step.category, 0.0)
         )
         self._latest_quality = quality
-        if self._phase == "capturing" and quality >= 0.70:
+        if self._phase == "capturing" and quality >= VIEW_CLEAR_QUALITY:
             self._current_samples.append(frame)
             self._last_sample_at = time.monotonic()
 
@@ -790,6 +804,7 @@ class CalibrationDialog(QDialog):
             self.role_label.set_semantic_tone("info", strong=True)
         self.reference.set_step(step)
         self.instructions_label.setText(tr(step.instructions))
+        self._retrying = False
         self.phase_label.setText(tr("Ready when you are"))
         self.progress.setValue(0)
         self._show_recording(False)
@@ -853,6 +868,7 @@ class CalibrationDialog(QDialog):
         if self._phase != "idle":
             return
         self._current_samples = []
+        self._retrying = False
         self._phase = "preparing"
         self._deadline = time.monotonic() + 3.0
         self.start_button.setEnabled(False)
@@ -871,25 +887,32 @@ class CalibrationDialog(QDialog):
 
     def _tick(self) -> None:
         if self._phase == "idle":
-            if self._latest_quality >= 0.70:
+            # Two thresholds, so a score near the cutoff doesn't flicker.
+            if self._latest_quality >= VIEW_CLEAR_QUALITY:
+                self._view_clear = True
+            elif self._latest_quality < VIEW_LOST_QUALITY:
+                self._view_clear = False
+            if self._view_clear:
                 text = tr("The camera sees you clearly.")
             else:
-                text = (
-                    tr("The camera can't see you clearly yet.")
-                    + "\n"
-                    + tr(
-                        "Move so your face and shoulders are in view, with "
-                        "light in front of you."
-                    )
+                text = tr(
+                    "Move so your face and shoulders are in view, with "
+                    "light in front of you."
                 )
             self.quality_label.setText(text)
+            if not self._retrying:
+                self.phase_label.setText(
+                    tr("Ready when you are")
+                    if self._view_clear
+                    else tr("Get into view")
+                )
             return
 
         remaining = self._deadline - time.monotonic()
         if self._phase == "preparing":
             self.quality_label.setText(
                 tr(
-                    "Recording starts in {seconds}...",
+                    "Recording starts in {seconds}…",
                     seconds=max(1, math.ceil(remaining)),
                 )
             )
@@ -968,6 +991,7 @@ class CalibrationDialog(QDialog):
         self._assign_mnemonics()
         self.start_button.setEnabled(True)
         self.skip_button.setEnabled(not step.required)
+        self._retrying = True
         self.phase_label.setText(tr("Let's try that again"))
         # The idle tick keeps rewriting quality_label, so the reason
         # lives in the feedback panel where it stays readable.

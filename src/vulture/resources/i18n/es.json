@@ -141,7 +141,7 @@
   "Recalibrating posture example: {posture}.": "Volviendo a calibrar el ejemplo de postura: {posture}.",
   "Record the selected posture example before saving.": "Registre el ejemplo de postura seleccionado antes de guardar.",
   "Record the comfortable baseline or one posture example again.": "Vuelva a registrar la postura de referencia cómoda o un ejemplo de postura.",
-  "Recording starts in {seconds}...": "El registro empieza en {seconds}...",
+  "Recording starts in {seconds}…": "El registro empieza en {seconds}…",
   "&Refresh": "&Actualizar",
   "Replacing the comfortable baseline removes every learned posture example for this setup, because they were learned relative to it. You will need to recalibrate those steps individually. Continue?": "Si reemplaza la postura de referencia cómoda, se eliminarán todos los ejemplos de postura aprendidos para esta configuración, porque se aprendieron en relación con ella. Tendrá que volver a calibrar esos pasos uno por uno. ¿Continuar?",
   "Resume tracking": "Reanudar seguimiento",
@@ -426,7 +426,7 @@
   "Recording. Stay in this position.": "Registrando. Permanezca en esta posición.",
   "Start recording": "Iniciar registro",
   "Record again": "Registrar de nuevo",
-  "Looking for you in the camera...": "Buscándole en la imagen de la cámara...",
+  "Looking for you in the camera…": "Buscándole en la imagen de la cámara…",
   "The camera could not see you clearly enough. Adjust the camera or your position, then record this step again.": "La cámara no pudo verle con suficiente claridad. Ajuste la cámara o su posición y vuelva a registrar este paso.",
   "The camera could not see you clearly enough. Adjust the camera or your position, then record again or skip this optional example.": "La cámara no pudo verle con suficiente claridad. Ajuste la cámara o su posición y registre de nuevo, o bien omita este ejemplo opcional.",
   "Make sure your face and shoulders are in view, with light in front of you.": "Asegúrese de que su cara y sus hombros se vean, con la luz delante de usted.",
@@ -440,7 +440,8 @@
   "Water break interval": "Intervalo de las pausas para beber agua",
   "Longer reset interval": "Intervalo de los descansos prolongados",
   "The camera sees you clearly.": "La cámara le ve con claridad.",
-  "The camera can't see you clearly yet.": "La cámara aún no le ve con claridad.",
   "The camera or your seat moved while recording the baseline. Keep the setup still and record it again.": "La cámara o su asiento se movieron mientras se registraba la postura de referencia. Mantenga todo inmóvil y vuelva a registrarla.",
-  "The camera seems to have moved since this setup was calibrated. Put it back where it was, or run a full calibration.": "La cámara parece haberse movido desde que se calibró esta configuración. Colóquela de nuevo donde estaba o realice una calibración completa."
+  "The camera seems to have moved since this setup was calibrated. Put it back where it was, or run a full calibration.": "La cámara parece haberse movido desde que se calibró esta configuración. Colóquela de nuevo donde estaba o realice una calibración completa.",
+  "Save": "Guardar",
+  "Get into view": "Colóquese en la imagen"
 }
