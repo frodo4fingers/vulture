@@ -215,19 +215,20 @@ class WorkdaySummaryDialog(QDialog):
         self.empty_state.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.empty_state.setMinimumWidth(260)
         self.empty_state.setMaximumWidth(460)
-        empty_state_layout.addWidget(
-            self.empty_state,
-            0,
-            Qt.AlignmentFlag.AlignCenter,
-        )
         self.empty_state_details = details_caption("")
+        self.empty_state_details.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.empty_state_details.setMaximumWidth(460)
         self.empty_state_details.hide()
-        empty_state_layout.addWidget(
-            self.empty_state_details,
-            0,
-            Qt.AlignmentFlag.AlignCenter,
-        )
+        # Centred by stretches, not an alignment flag: an aligned
+        # word-wrapped label keeps its size-hint height and clips its text.
+        empty_state_column = QVBoxLayout()
+        empty_state_column.addWidget(self.empty_state)
+        empty_state_column.addWidget(self.empty_state_details)
+        empty_state_row = QHBoxLayout()
+        empty_state_row.addStretch(1)
+        empty_state_row.addLayout(empty_state_column, 4)
+        empty_state_row.addStretch(1)
+        empty_state_layout.addLayout(empty_state_row)
         empty_state_layout.addStretch(1)
         day_layout.addWidget(self.empty_state_container, 1)
 
@@ -437,7 +438,7 @@ class WorkdaySummaryDialog(QDialog):
             self._cancel_history_delete
         )
         self.cancel_delete_button.hide()
-        self.confirm_delete_button = QPushButton(tr("Delete &this day"))
+        self.confirm_delete_button = QPushButton(tr("Yes, delete &this day"))
         self.confirm_delete_button.clicked.connect(
             self._confirm_history_delete
         )
@@ -793,9 +794,9 @@ class WorkdaySummaryDialog(QDialog):
         self.cancel_delete_button.setText(tr("&Cancel"))
         self.cancel_delete_button.show()
         self.confirm_delete_button.setText(
-            tr("Delete all &history")
+            tr("Yes, delete &everything")
             if self._pending_delete == ("all", None)
-            else tr("&Delete selected day")
+            else tr("Yes, delete &this day")
         )
         self.confirm_delete_button.show()
         self.delete_day_button.setEnabled(False)
@@ -833,4 +834,4 @@ class WorkdaySummaryDialog(QDialog):
             self.delete_confirmation_details.setText(str(error))
             self.delete_confirmation_details.show()
             self.confirm_delete_button.hide()
-            self.cancel_delete_button.setText(tr("Close"))
+            self.cancel_delete_button.setText(tr("&Close"))

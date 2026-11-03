@@ -441,7 +441,7 @@ class ShellMixin:
         self.evidence_button.setToolTip(
             shortcut_hint(
                 self.evidence_action.text(),
-                self.evidence_action.shortcut(),
+                self.evidence_action.shortcuts(),
             )
         )
         self.footer_disclaimer = CaptionLabel(
@@ -593,7 +593,7 @@ class ShellMixin:
         self.summary_button.setToolTip(
             shortcut_hint(
                 self.summary_action.text(),
-                self.summary_action.shortcut(),
+                self.summary_action.shortcuts(),
             )
         )
         self.open_exercise_action = QAction(tr("Open movement"), self)

@@ -153,7 +153,7 @@ def test_day_chart_over_many_hours_has_two_digit_hours_only(
 # 2. Delete buttons -----------------------------------------------------
 
 
-def test_delete_buttons_have_mnemonics_and_confirm_reuses_them(
+def test_delete_buttons_have_mnemonics_and_confirm_is_distinct(
     application: QApplication,
 ) -> None:
     workday = date(2026, 7, 20)
@@ -173,12 +173,12 @@ def test_delete_buttons_have_mnemonics_and_confirm_reuses_them(
     assert dialog.cancel_delete_button.text() == "&Cancel"
 
     dialog._delete_selected_day()
-    assert dialog.confirm_delete_button.text() == "&Delete selected day"
+    assert dialog.confirm_delete_button.text() == "Yes, delete &this day"
     assert dialog.cancel_delete_button.text() == "&Cancel"
     dialog._cancel_history_delete()
 
     dialog._delete_all_history()
-    assert dialog.confirm_delete_button.text() == "Delete all &history"
+    assert dialog.confirm_delete_button.text() == "Yes, delete &everything"
     dialog.close()
 
 

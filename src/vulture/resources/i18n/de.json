@@ -74,7 +74,6 @@
   "&Cancel": "A&bbrechen",
   "&Delete selected day": "&Ausgewählten Tag löschen",
   "Delete all &history": "Gesamten &Verlauf löschen",
-  "Delete &this day": "Diesen &Tag löschen",
   "No problem — breaks under {seconds} seconds aren't counted. The next one comes soon.": "Kein Problem — Pausen unter {seconds} Sekunden werden nicht gezählt. Die nächste kommt bald.",
   "Delete all saved posture episodes and reminders for {date}?": "Alle gespeicherten Haltungsepisoden und Erinnerungen für {date} löschen?",
   "Delete all workday history": "Gesamten Arbeitstagverlauf löschen",
@@ -443,5 +442,10 @@
   "The camera or your seat moved while recording the baseline. Keep the setup still and record it again.": "Kamera oder Sitzposition haben sich während der Aufnahme der Ausgangshaltung verändert. Halten Sie die Anordnung unverändert und nehmen Sie sie erneut auf.",
   "The camera seems to have moved since this setup was calibrated. Put it back where it was, or run a full calibration.": "Die Kamera scheint sich seit der Kalibrierung dieser Konfiguration bewegt zu haben. Stellen Sie sie an die ursprüngliche Stelle zurück oder führen Sie eine vollständige Kalibrierung durch.",
   "Save": "Speichern",
-  "Get into view": "Ins Bild kommen"
+  "Get into view": "Ins Bild kommen",
+  "OK": "OK",
+  "Yes, delete &this day": "Ja, diesen &Tag löschen",
+  "Yes, delete &everything": "Ja, alles &löschen",
+  "Starting the camera…": "Kamera wird gestartet…",
+  "&Close": "&Schließen"
 }

@@ -201,6 +201,7 @@ def _show_failure(
         QMessageBox.StandardButton.Ok,
         parent,
     )
+    box.button(QMessageBox.StandardButton.Ok).setText(tr("OK"))
     box.setDetailedText(details)
     box.exec()
 

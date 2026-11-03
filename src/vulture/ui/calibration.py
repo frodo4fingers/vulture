@@ -662,7 +662,7 @@ class CalibrationDialog(QDialog):
         self._current_samples: list[FeatureFrame] = []
         self._last_sample_at = 0.0
         self._samples: dict[str, list[FeatureFrame]] = defaultdict(list)
-        self._latest_quality = 0.0
+        self._latest_quality: float | None = None
         self._view_clear = False
         self._retrying = False
         self._stage_status = ["pending" for _step in self.steps]
@@ -805,7 +805,12 @@ class CalibrationDialog(QDialog):
         self.reference.set_step(step)
         self.instructions_label.setText(tr(step.instructions))
         self._retrying = False
-        self.phase_label.setText(tr("Ready when you are"))
+        # Before the first frame the idle tick has nothing to say yet.
+        self.phase_label.setText(
+            tr("Starting the camera…")
+            if self._latest_quality is None
+            else tr("Ready when you are")
+        )
         self.progress.setValue(0)
         self._show_recording(False)
         self.start_button.setText(tr("Start recording"))
@@ -887,6 +892,8 @@ class CalibrationDialog(QDialog):
 
     def _tick(self) -> None:
         if self._phase == "idle":
+            if self._latest_quality is None:
+                return  # no camera frame yet; keep the initial wording
             # Two thresholds, so a score near the cutoff doesn't flicker.
             if self._latest_quality >= VIEW_CLEAR_QUALITY:
                 self._view_clear = True
